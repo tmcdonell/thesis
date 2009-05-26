@@ -1,0 +1,60 @@
+%
+% title.tex
+%
+
+\phantomsection
+\addcontentsline{toc}{chapter}{\doccontentsline}
+
+\newlength{\centeroffset}
+\setlength{\centeroffset}{-0.5\oddsidemargin}
+\addtolength{\centeroffset}{0.5\evensidemargin}
+\thispagestyle{empty}
+\vspace*{\stretch{1}}
+\noindent\hspace*{\centeroffset}\makebox[0pt][l]{
+\begin{minipage}{\textwidth}
+    \centering
+    \hrule height 0.8pt
+    \nobreak
+    \vspace{1pt}
+    \hrule
+    \vspace{4ex}
+    {\LARGE\bfseries \doctitle\\}
+    \vspace{1ex}
+    {\large\bfseries \docsubtitle}
+    \vspace{4ex}
+    \hrule height 0.8pt
+    \nobreak
+    \vspace{1pt}
+    \hrule
+\end{minipage}}
+
+\vspace{4ex}
+\noindent\hspace*{\centeroffset}\makebox[0pt][l]{
+\begin{minipage}{\textwidth}
+    \centering
+    \textsc{\large Trevor~L.~McDonell}%\\[1.5ex]
+%    \textit{200220499}
+%    \textcolor{White}{\textit{200220499}}
+\end{minipage}}
+
+\vspace{4ex}
+\noindent\hspace*{\centeroffset}\makebox[0pt][l]{
+\begin{minipage}{\textwidth}
+    \centering
+    \today
+%    \textcolor{White}{\today}
+\end{minipage}}
+
+\vspace{6ex}
+\noindent\hspace*{\centeroffset}\makebox[0pt][l]{
+\begin{minipage}{\textwidth}
+    \centering
+%    \hspace{0.5cm}\includegraphics{images/sec-0/julia-elephant-s}
+%    \vspace*{1.87333708001in}	% height of julia-elephant-s
+
+    \hspace{0.5cm}\includegraphics[height=1.87in]{images/misc/placeholder}
+%    \vspace*{1.87in}
+\end{minipage}}
+
+\vspace{\stretch{2}}
+

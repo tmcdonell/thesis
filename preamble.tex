@@ -1,0 +1,128 @@
+%
+% preamble.tex
+%
+
+% Document class definition
+\documentclass[10pt,a4paper,twoside,draft]{book}
+
+\usepackage{hyperref}
+\hypersetup{
+    pdftitle={\doctitle},
+    pdfsubject={\docsubtitle},
+    pdfauthor={Trevor L. McDonell},
+    colorlinks=false
+}
+\pdfcompresslevel=9
+
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{a4wide}
+\usepackage{fancyhdr}
+\usepackage{makeidx}
+\usepackage{ifthen}
+\usepackage{calc}
+\usepackage{lastpage}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage[final]{listings}
+\usepackage{setspace}
+\usepackage{mathrsfs}
+\usepackage{epigraph}
+\usepackage{titlesec}
+\usepackage{subfig}
+\usepackage{caption}
+\usepackage{mflogo}
+\usepackage{amssymb,amsmath}
+\usepackage[color]{showkeys}
+\usepackage[super,numbers,sort&compress]{natbib}
+%\bibliographystyle{apsrev}		% citation order style
+\bibliographystyle{apsrmp}		% author/year style
+\providecommand{\bibfont}{\small}
+\captionsetup{margin=\parindent/2,font=small,labelfont=bf}
+%\captionsetup[subfloat]{margin=0pt,labelfont=default}
+
+% DRAFT watermark
+%\usepackage{eso-pic}
+%\AddToShipoutPicture{\resizebox{0.9\pdfpagewidth}{0.9\pdfpageheight}% 
+%{\rotatebox{60}{\color[gray]{0.9}\hspace*{5mm}\textsc{Draft}}}} 
+
+% Fancy header style
+\newcommand{\sectionname}{Section}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\chaptermark}[1]{\thispagestyle{empty}\markboth{#1}{}}
+\renewcommand{\sectionmark}[1]{\markright{#1}}
+\fancypagestyle{plain}{\fancyhf{}}
+\fancyhead[EL]{\small\textsc{\thepage\hspace{2\medskipamount} \leftmark}}
+%\fancyhead[ER]{\small\textsc{\chaptername\ \thechapter}}
+%\fancyhead[OL]{\small\textsc{\sectionname\ \thesection}}
+\fancyhead[OR]{\small\textsc{\rightmark\hspace{2\medskipamount} \thepage}}
+
+\newcommand{\doccolor}{Bittersweet}
+\newcommand{\docminorcolor}{Gray}
+
+% Reduced bias to floats on their own page
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.75}
+
+% Extra depth in numbered sections
+\setcounter{secnumdepth}{3}
+%\setcounter{tocdepth}{3}
+%\setcounter{lofdepth}{2}
+
+% Index
+\makeindex
+\providecommand{\indexe}[1]{\index{#1}\emph{#1}}
+
+% Cite
+\let\oldcite\cite
+\renewcommand{\cite}{\nolinebreak\oldcite}
+
+% Showkeys
+% texmf-dist/tex/latex/graphics/dvipsnam.def
+\definecolor{refkey}{cmyk}{0.0,0.89,0.94,0.28}	% BrickRed
+\definecolor{labelkey}{cmyk}{0.0,0.89,0.94,0.28}
+
+% margin notes (delete #2 for final mode)
+\providecommand{\marginnote}[1]{{%
+    \marginpar{\color{BrickRed}\ttfamily\scriptsize }}}
+
+% Code listings
+% Recompile on list of listings change
+% rubber: watch build/thesis.lol
+\lstset{language=[Objective]C,
+    frame=single,
+    rulecolor={\color[gray]{0.7}},
+    basicstyle=\scriptsize,
+    keywordstyle=\color{ForestGreen},
+    keywordstyle=[2]\color{BrickRed},		% Bittersweet
+    keywordstyle=[3]\color{Bittersweet},	% BrickRed
+    keywordstyle=[4]\color{RoyalPurple},
+    commentstyle=\color{MidnightBlue},
+    stringstyle=\color{Maroon},
+    numbers=left,
+    numberstyle=\tiny\it\color{Gray},
+    breaklines=true,
+    captionpos=b,
+    floatplacement=btp
+%    xleftmargin=0.5\parindent,
+%    xrightmargin=0.5\parindent
+}
+
+\lstdefinestyle{inline}{frame=none,numbers=none,basicstyle=\footnotesize}
+
+% Epigraph
+\renewcommand{\textflush}{flushright}
+\setlength{\epigraphwidth}{0.85\textwidth}
+\setlength{\epigraphrule}{0pt}
+\setlength{\afterepigraphskip}{1.5\baselineskip}
+
+% Titlesec
+\titleformat{\chapter}[display]%
+    {\bfseries\Large}%
+    {\vspace{-4ex}\filleft\Huge\thechapter}%
+    {4pt}%
+    {\filleft\titlerule[0.8pt]\vspace{1pt}\titlerule\vspace{2ex}}%
+    [\vspace{2ex}{\titlerule[0.8pt]}\vspace{1pt}\titlerule]
+

@@ -1,0 +1,22 @@
+DIAIMAGES	= $(wildcard *.dia)
+IMAGES		+= $(DIAIMAGES:%.dia=%.pdf)
+EPSIMAGES	+= $(wildcard *.eps)
+IMAGES		+= $(EPSIMAGES:%.eps=%.pdf)
+
+DIATOEPS	= dia -t eps
+EPSTOPDF	= epstopdf
+
+all: $(IMAGES)
+	@for x in $(SUBDIRS); do $(MAKE) -C $$x; done
+
+%.eps: %.dia
+	@$(DIATOEPS) $<
+
+%.pdf: %.eps
+	@$(EPSTOPDF) $<
+	@echo "$< --> $@"
+
+.PHONY: clean
+clean:
+	@for x in $(SUBDIRS); do $(MAKE) clean -C $$x; done
+	$(RM) $(EPSIMAGES:%.eps=%.pdf) $(DIAIMAGES:%.dia=%.pdf)

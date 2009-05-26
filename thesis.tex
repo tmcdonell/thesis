@@ -1,0 +1,88 @@
+%
+% thesis.tex
+%
+
+\newcommand{\project}{$<<$project$>>$}
+\newcommand{\doctitle}{Crossing the Streams}
+\newcommand{\docsubtitle}{Functional Parallel Programming for Graphics Processing Units}
+\newcommand{\doccontentsline}{Functional Programming for GPUs}
+
+\input{preamble}
+
+\begin{document}
+
+%
+% FRONT MATTER
+%
+\frontmatter
+\include{title}
+\include{sec-i-disclaimer}
+\include{sec-ii-declaration}
+
+%
+% Contents pages (only in book mode)
+%
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Contents}
+\tableofcontents\markboth{Contents}{Contents}
+
+\cleardoublepage
+\phantomsection
+\renewcommand{\listfigurename}{Figures}
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures\markboth{\listfigurename}{\listfigurename}
+
+% rubber: clean build/thesis.lol
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\lstlistlistingname}
+\lstlistoflistings\markboth{\lstlistlistingname}{\lstlistlistingname}
+\addtocontents{lol}{\vspace{10pt}}
+
+\include{sec-iii-abstract}
+\include{sec-iv-acknowledgements}
+
+%
+% MAIN MATTER
+%
+\mainmatter
+\fancyhead[ER]{\small\textsc{\chaptername\ \thechapter}}
+\fancyhead[OL]{\small\textsc{\sectionname\ \thesection}}
+
+%
+% Use symbols instead of numbers for footnote marks
+%
+\renewcommand{\thefootnote}{$\fnsymbol{footnote}$}
+
+%
+% include three years of work...
+%
+\include{sec-1-introduction}
+\include{sec-2-background}
+\include{sec-3-design}
+\include{sec-4-implementation}
+\include{sec-5-results}
+\include{sec-6-conclusion}
+
+%
+% BACK MATTER
+%
+\cleardoublepage
+\
+\backmatter
+\fancyhead[ER]{}
+\fancyhead[OL]{}
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliography{thesis}
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Index}
+\printindex\markboth{Index}{Index}
+
+\end{document}
+

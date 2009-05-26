@@ -1,0 +1,52 @@
+%
+% sec-1-introduction.tex
+%
+
+\chapter{Introduction}
+\epigraph{Come then, and let us pass a leisure hour in 
+storytelling,\\and our story shall be the education of our heroes.}%
+{\textsc{---plato}\\\textit{Republic}, \textsc{book ii}}
+
+
+Over the last ten years, an interesting trend in computing has emerged. General
+purpose CPUs, such as those provided by Intel, IBM and AMD, have increased
+performance substantially, but with nowhere near the increases seen in the late
+1980's and early 1990's. To a large extent, single threaded performance
+increases have tapered off due to the low level of inter-process communication
+in general purpose workloads, and the physical limitations of power dissipation
+for integrated circuits. The additional millions and billions of transistors
+afforded by Moore's Rule\footnote{Moore's actual prediction in 1965 referred
+only to the number of devices that could be fabricated on a single die, and that
+this quantity would increase by fifty percent each year.} are simply not very
+productive in increasing the performance of single--threaded code.
+
+At the same time, the commodity \indexe{graphics processing unit} (GPU) has been
+able to use this ever increasing transistor budget effectively, geometrically
+increasing rendering performance, since rendering is an inherently parallel
+operation. Historically fixed function pipelines, modern graphics architectures
+have evolved to become increasingly flexible as well as powerful, consisting of
+an expressing set of general purpose computation resources, with some fixed
+function units on the side.
+
+Parallel programming models fall into two broad categories. Task parallelism
+emphasises a distributed model for independent processes, whereas data
+parallelism specifies a single computation which is applied simultaneously
+across a large number of data elements. While task parallelism typically does not
+scale well with the size of the problem, data parallelism provides one of the
+most promising approaches to making efficient use of parallel hardware.
+
+Despite their attractiveness for computationally intensive operations, accessing
+this performance has remained elusive for all but a few applications. The
+arithmetic power of the GPU is a result of a highly specialised and constrained
+architecture, resulting in programs which rely heavily on the CPU to handle
+difficult parts of control and data flow. However, the CPU--GPU link is
+relatively slow, engendering high communication latencies which radically impair
+performance. To be practicable, the GPU programming model must efficiently
+support messy boundary conditions, irregular data and control flow patterns, and
+provide an elegant mapping from the application to the underling architecture,
+without forcing the programmer to recast their algorithm. Support for
+\indexe{nested data parallelism}\cite{Blelloch:1994,Blelloch:1996} (NDP) would
+provide a first step towards a viable GPU programming model, unshackling vast
+computational resources from the small application niche for which they were
+originally designed.
+

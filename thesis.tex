@@ -52,7 +52,12 @@
 %
 \renewcommand{\thefootnote}{$\fnsymbol{footnote}$}
 
+% Add chapter thumbs for the main matter section only. At the beginning of the
+% back matter we stop displaying thumbs and revert to \oldchapter
 %
+\let\oldchapter\chapter
+\renewcommand{\chapter}[1]{\oldchapter{#1}\addthumb{#1}{}{white}{black}}
+
 % include three years of work...
 %
 \include{sec-1-introduction}
@@ -68,6 +73,8 @@
 \cleardoublepage
 \
 \backmatter
+\stopthumb
+\let\chapter\oldchapter
 \fancyhead[ER]{}
 \fancyhead[OL]{}
 

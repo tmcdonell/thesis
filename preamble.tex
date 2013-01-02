@@ -21,7 +21,8 @@
 \fi
 
 \usepackage{a4wide}
-\usepackage{amssymb,amsmath}
+\usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{calc}
 \usepackage{caption}
 \usepackage[usenames,dvipsnames]{xcolor}
@@ -40,16 +41,19 @@
 \usepackage{mflogo}
 \usepackage[numbers,sort&compress,nonamebreak]{natbib}
 \usepackage{setspace}
+% \usepackage{showidx}
 \usepackage[color]{showkeys}
 \usepackage{subfig}
 \usepackage{titlesec}
 \usepackage[width={autoauto}]{thumbs}
 
+\onehalfspacing
+
 %
 % Bibliography
 %
-%\bibliographystyle{apsrev}		% citation order style
-%\bibliographystyle{apsrmp}		% author/year style
+%\bibliographystyle{apsrev}             % citation order style
+%\bibliographystyle{apsrmp}             % author/year style
 \bibliographystyle{abbrvnat}
 \providecommand{\bibfont}{\small}
 
@@ -107,14 +111,14 @@
 %
 % Cite
 %
-% \let\oldcite\cite
-% \renewcommand{\cite}{\nolinebreak\oldcite}
+\let\oldcite\cite
+\renewcommand{\cite}{\nolinebreak\oldcite}
 
 %
 % Showkeys
 % texmf-dist/tex/latex/graphics/dvipsnam.def
 %
-% \definecolor{refkey}{cmyk}{0.0,0.89,0.94,0.28}	% BrickRed
+% \definecolor{refkey}{cmyk}{0.0,0.89,0.94,0.28}        % BrickRed
 % \definecolor{labelkey}{cmyk}{0.0,0.89,0.94,0.28}
 
 %
@@ -127,67 +131,44 @@
 %
 % Code listings
 %
-% Recompile on list of listings change:
-% rubber: watch build/thesis.lol
-%
-% \lstset{language=[Objective]C,
-%     frame=single,
-%     rulecolor={\color[gray]{0.7}},
-%     basicstyle=\scriptsize,
-%     keywordstyle=\color{ForestGreen},
-%     keywordstyle=[2]\color{BrickRed},		% Bittersweet
-%     keywordstyle=[3]\color{Bittersweet},	% BrickRed
-%     keywordstyle=[4]\color{RoyalPurple},
-%     commentstyle=\color{MidnightBlue},
-%     stringstyle=\color{Maroon},
-%     numbers=left,
-%     numberstyle=\tiny\it\color{Gray},
-%     breaklines=true,
-%     captionpos=b,
-%     floatplacement=btp
-% %    xleftmargin=0.5\parindent,
-% %    xrightmargin=0.5\parindent
-% }
-
-\lstloadlanguages{Haskell}
-\lstnewenvironment{code}[1][]
-    {\lstset{language=Haskell,#1}\csname lst@SetFirstLabel\endcsname}
-    {\csname lst@SaveFirstLabel\endcsname}
-
 \lstset{
     frame=single,
     rulecolor={\color[gray]{0.7}},
     numbers=left,
     numberstyle=\tiny\it\color{Gray},
     commentstyle=\it\color{MidnightBlue},
+    stringstyle=\color{Maroon},
+%   keywordstyle=[2]\color{ForestGreen},
+%   keywordstyle=[3]\color{Bittersweet},
+%   keywordstyle=[4]\color{RoyalPurple},
     captionpos=b,
     xleftmargin=0.5\parindent,
     xrightmargin=0.5\parindent,
     %
     basicstyle=\scriptsize\ttfamily,
     flexiblecolumns=false,
-    basewidth={0.5em,0.45em},
-    literate={+}{{$+$}}1
-             {/}{{$/$}}1
-             {*}{{$*$}}1
-             {=}{{$=$}}1
-             {>}{{$>$}}1
-             {<}{{$<$}}1
-             {\\}{{$\lambda$}}1
-             {\\\\}{{\char`\\\char`\\}}1
-             {->}{{$\rightarrow$}}2
-             {>=}{{$\geq$}}2
-             {<-}{{$\leftarrow$}}2
-             {<=}{{$\leq$}}2
-             {=>}{{$\Rightarrow$}}2
-             {\ .}{{$\circ$}}2
-             {\ .\ }{{$\circ$}}2
-             {>>}{{>>}}2
-             {>>=}{{>>=}}2
-             {|}{{$\mid$}}1
+    basewidth={0.5em,0.45em}
 }
 
+\lstloadlanguages{Haskell}
+
 \lstdefinestyle{inline}{frame=none,numbers=none,basicstyle=\footnotesize}
+\lstdefinestyle{haskell}{
+    language=Haskell,
+    deletekeywords={class,data,default,deriving,instance,where},
+    morekeywords={[2]class,data,default,deriving,instance,where},
+    literate=*                  % not in strings, comments, other delimited text
+        {\\}{{$\lambda$}}1
+        {\\\\}{{\char`\\\char`\\}}1
+        {->}{{$\rightarrow$}}2
+        {>=}{{$\geq$}}2
+        {<-}{{$\leftarrow$}}2
+        {<=}{{$\leq$}}2
+        {=>}{{$\Rightarrow$}}2
+        {|}{{$\mid$}}1
+%       {\ .}{{$\circ$}}2
+%       {\ .\ }{{$\circ$}}2
+}
 
 %
 % Epigraph

@@ -5,12 +5,28 @@
 \chapter{Abstract}
 \markboth{Abstract}{}
 
+Computers are no longer getting faster. Instead, including multiple cores on a
+single chip has become the dominant mechanism for scaling processor performance,
+and the exponential growth in the number of cores on a single processor is
+expected to lead in a short time to mainstream computers containing hundreds of
+devices. Unfortunately, programming parallel computers is known to be an
+extremely challenging task, even for expert computer programmers.
+
+In order to achieve improved single-application performance on such processors,
+an appropriate programming model is needed which can expose parallelism and
+address scalability. Commodity graphics processing units, which have evolved
+into flexible general-purpose parallel architectures, can provide some insight
+into many of the challengers developers will face; finding parallelism within
+our applications to satiate available hardware, and rationalising the
+interactions of large numbers of concurrent threads.
+
 This thesis presents the design, implementation, and evaluation of a new
-domain--specific language embedded within Haskell for nested array computations
-executed on graphics processing units. The design concentrates on providing a
-high--level abstraction that composes computations that run efficiently
-according to the strengths and weaknesses of the underlying hardware, without
-forcing the programmer to recast their algorithm to fit within the architecture.
+domain--specific language embedded within Haskell for flat data-parallel array
+computations executed on graphics processing units. The design concentrates on
+providing a high--level abstraction that composes computations that run
+efficiently according to the strengths and weaknesses of the underlying
+hardware, without forcing the programmer to recast their algorithm to fit within
+the architecture.
 
 The final design \ldots\ and benchmarking shows that the goals of the design were
 \ldots

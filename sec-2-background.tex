@@ -27,6 +27,76 @@
 %  2. Body: sources thematically
 %  3. Conclusion and recommendations
 %
+%  + Models and Languages for Parallel Computing
+%    + Challenges to Parallel Computing
+%    + Approaches to Parallel Computing
+%    + Evaluating Parallel Programs
+%
+%  + Parallel Programming for Graphics Processing Units
+%  + CUDA
+%    + Hardware Model
+%    + Programming Model
+%    + Execution Control
+%    + Memory Model
+%
+%  + Motivation
+%
+
+\begin{itemize}
+    \item Functional programming 101
+        \begin{itemize}
+            \item Haskell 101?
+            \item bulk programming; function composition
+            \item denotional semantics?
+        \end{itemize}
+
+    \item Parallel programming 101 (steal from literature review)
+        \begin{itemize}
+            \item parallel vs. concurrent
+            \item data parallelism
+                \begin{itemize}
+                    \item example parallel programming operators (fold, scan)
+                    \item parallel interpretation of ostensibly serial
+                        operations
+                \end{itemize}
+            \item evaluating parallel programs
+                \begin{itemize}
+                    \item work and depth complexity
+                    \item parallel speedup
+                    \item wall clock time!
+                \end{itemize}
+        \end{itemize}
+
+    \item CUDA programming 101
+        \begin{itemize}
+            \item GPGPU programming
+                \begin{itemize}
+                    \item why bother?
+                    \item performance vs. development time
+                \end{itemize}
+            \item programming model
+                \begin{itemize}
+                    \item SIMD architecture
+                    \item kernels, thread blocks
+                    \item memory \& coalescing
+                \end{itemize}
+        \end{itemize}
+
+    \item Embedded languages
+        \begin{itemize}
+            \item advantages: using tools/features of host language
+            \item deep vs. shallow. \url{http://skillsmatter.com/podcast/scala/making-edsls-fly}
+            \item DSLs in Haskell
+                \begin{itemize}
+                    \item simple (untyped) DSL
+                    \item GADTs to encode type safety / invariants
+                    \item type-safe evaluator
+                    \item itemize design requirements / goals of this language
+                \end{itemize}
+        \end{itemize}
+
+\end{itemize}
+
 
 
 Modern microprocessor technology is constructed from millions of interconnected
@@ -35,8 +105,143 @@ transistors, and the interconnections between them, can be fabricated in a
 smaller area. The challenge for microprocessor architects is to translate this
 increase in resources into an increase in performance.
 
-Computers are no longer getting faster; instead, we will be offered computers
-containing more and more CPUs, each of which is individually no faster than
-those of the previous generation. As the number of CPUs increases, it will
-become increasingly difficult for programmers to 
+Unfortunately, computers are no longer getting faster. Instead, we are being
+offered computers containing more and more CPUs, each of which is individually
+not substantially faster than those of the previous generation. As the number of
+processors increases, it will become increasingly important for programmers to
+utilise these additional processing elements.
+
+Processor designs are clearly evolving in one direction: towards massive
+parallelism and many-core architectures. Unfortunately, the model of programming
+used in mainstream languages was developed many years ago, when programs were
+sequential and architectures were relatively simple. As hardware architectures
+become larger and more complex, these traditional low-level approaches to
+parallel programming become less and less tractable for real applications.
+
+This section \ldots
+
+
+\section{Parallel Programming}
+
+Programming parallel computers is an extremely challenging task. This is true
+even for expert computer programmers, let alone for scientists in other
+disciplines whose computations are often what drive the acquisition of
+high-performance machines. For many years, parallel computing has waned in and
+out of favour, alternatively seen as the solution to all computational
+limitations or a waste of time, given the rate at which processor and memory
+speeds improve. These changing perceptions are the result of many factors,
+including the programming environments available to users, the types of
+supercomputing hardware on offer from vendors, and continual changes in the
+focus of the academic community as to what are the ``hot'' problems of the time.
+
+Nevertheless, the promise of parallel computing remains the same today as it was
+at its inception. If users can buy sequential computers with gigabytes of
+memory, imagine how much faster their programs could run if \emph{p} of these
+machines were working cooperatively; imagine how much larger a problem could be
+solved if the memories of these \emph{p} machines were used collectively.
+
+The challenges to realising this potential faces two main difficulties; the
+hardware, and the software. The former asks ``how do I build a parallel computer
+that will allow these \emph{p} processors and memories to cooperate
+efficiently?'' Then, given such a platform the latter asks ``how do I express my
+computation such that it will utilise these \emph{p} processors and memories
+effectively?''
+
+In recent years there has been a growing awareness that while the parallel
+computing community can build machines that are reasonably efficient and
+affordable, the population of users that can effectively program these machines
+comprises only a small fraction of those who can program traditional sequential
+computers. Moreover, even the best parallel programmers can not do so without
+significant effort. Parallel programming is still seen by many as an arcane
+skill, a black art; best avoided if possible.
+
+However, recent changes to the landscape of computing hardware will likely force
+even mainstream application developers to abandon the ways of sequential
+programming. In order to continually increase performance, compiler and
+processor designers have struggled to to automatically exploit the implicit
+parallelism present in serial programs. Using this technique, instructions can
+be rescheduled in order to best exploit the multiple functional units available
+in superscalar architectures. However, experience has shown that most serial
+programs contain limited implicit parallelism \cite{Wall:1991}. While
+techniques exist that can raise this limit somewhat, they come at the cost of
+increased power to performance ratios and hardware complexity. Automatic
+extraction of parallelism without explicit assistance from the programmer has
+reached the point of diminishing returns. Including multiple cores on a single
+chip has now become the dominant mechanism for scaling processor performance,
+and there is renewed interest in parallel programming models, languages and
+platforms.
+
+At the same time, one must concede that programming a parallel machine is
+inherently more difficult than sequential programming, as programmers must think
+not only of correctness but concurrency and communication as well. It
+undoubtedly complicates a programmer's life, but there is no silver bullet.
+However, a good programming model should be able to unburden the programmer from
+dealing with trivia, automating the more tedious aspects of mapping the
+computation to the target hardware. Ideally, the programmer should focus on
+%making major policy decisions and on
+designing a correct and efficient algorithm.
+
+
+\section{Haskell}
+%
+% Possible; Haskell compared to:
+%   + static languages
+%   + dynamic languages
+%
+
+\indexe{Haskell} is a general-purpose \emph{purely functional programming
+language} with \emph{non-strict semantics} \index{non-strict semantics|see{lazy}}
+and \emph{strong static typing}\index{typing!static}. In an imperative programming
+language you get things done by giving the computer a sequence of actions to
+perform and letting it execute them. While executing these statements the
+computer is typically allowed to change some state: setting some variable
+\texttt{ans} to $42$, doing some stuff, and then changing \texttt{ans} to
+something else. In contrast, purely functional programming is not so much
+concerned with telling the computer what to \emph{do} in so much as telling it
+what stuff \emph{is}. The factorial of a number is the product of all the
+numbers from one to that number; the sum of a list of numbers is the first
+number plus the sum of the rest of the numbers; and so on. This is expressed in
+the form of \emph{functions}, and programs can then be thought of as a sequence
+of functions applying a series of transformations on data.
+
+Haskell is a \indexe{pure} language; if you say some variable \texttt{ans} has
+the value $42$, you can not later say that it has a different value. We assert
+that pure functions like this do not have any \indexe{side effects}: the only
+thing they can do is to perform some calculation on their inputs and return a
+result. This might at first seem limiting, but has a rather nice consequence: if
+a function is called twice with the same inputs, it will always return the same
+result. This is known as \indexe{referential transparency} and not only allows
+the compiler to reason about the behaviour of the program, but also allows the
+user to deduce the \indexe{correctness} of a function and to build complex
+functions by gluing together simpler functions.
+
+Haskell is a \emph{statically typed}\index{typing!static} language; when you
+compile your program the compiler knows which piece of code is a number, which
+is a string, and so on. As such many possible errors are caught at compilation
+time; the compiler will complain if you attempt to add a number to a string, for
+example. Haskell uses a very good system of type inference based on
+Hindley--Milner \textcolor{blue}{[citation needed]}, so that you don't have to
+explicitly label each piece of code with a type.
+
+Haskell is a \indexe{lazy} language; unless told otherwise it will not
+explicitly evaluate functions or calculate values until a result is actually
+required. Lazy evaluation might seem to have some spooky effects, but goes in
+hand with the idea of referential transparency and profoundly affects how one
+writes programs.
+
+While Haskell encourages the pure, lazy style of functional program, this is
+merely the default option. Haskell supports stateful functions, using distinct
+types for functions with side effects orthogonal to the type of pure functions,
+ensuring the two can not be conflated. While the focus of the language is
+writing statically typed programs it is possible, although rare, to write
+dynamically typed programs as well.
+
+
+% \subsection{Syntax}
+% basic crash course necessary?
+
+% \subsection{Style}
+
+
+\section{CUDA}
 

@@ -61,60 +61,579 @@
 % 
 % \end{itemize}
 
+The previous chapter discussed the architecture of the Accelerate language
+embedding and execution on CUDA hardware. Through a set of benchmarks, we
+identify the two most pressing performance limitations: operator fusion and data
+sharing. This chapter describes the method used to overcome these issues,
+focusing primarily on the approach to operator fusion in the context of the
+stratified Accelerate language and skeleton-based implementation of the CUDA
+backend.
+
+
+\section{Fusion}
+
 Fusion or deforestation is a term used to describe techniques for having a
 compiler automatically eliminate intermediate data structures in a computation.
-For example, to compute the sum of squares from one to a given number, I could
-write:
+For example, to compute the sum of squares of all integers from one to a given
+number in Haskell~\cite{Haskell:1998}, I could write:
 %
 \begin{lstlisting}[style=haskell]
 sum_of_squares :: Int -> Int
 sum_of_squares n
-    = sum
-    $ map (\x -> x * x)
-    $ enumFromTo 1 n
+    = sum                       -- add all numbers in the list
+    $ map (\x -> x * x)         -- traverse list doubling each element
+    $ enumFromTo 1 n            -- generate list of numbers [1..n]
 \end{lstlisting}
 %
-but this code produces two intermediate lists of numbers, which requires $O(n)$
-space and associated memory pressure when traversing the list. Instead, one
-could write the program as a single tail-recursive loop as such:
+but while the meaning of the program is clear, it is inefficient, as this code
+produces two intermediate lists of numbers which requires $O(n)$ space and
+associated memory pressure to manipulate. Instead, one could write the program
+as a single tail-recursive loop as such:
 %
 \begin{lstlisting}[style=haskell]
 sum_of_squares :: Int -> Int
-sum_of_squares n = go 0 0
+sum_of_squares n = go 1 0
   where
     go i acc
-        | i > n         = acc
-        | otherwise     = go (i+1) (acc + i*i)
+        | i > n         = acc                   -- return final tally
+        | otherwise     = go (i+1) (acc + i*i)  -- add to accumulator and step to next element
 \end{lstlisting}
 %
 The second program is much more efficient than the first, because it does not
 involve the production of any intermediate lists and executes is constant space.
 Unfortunately, the clarity of the original program has been lost. What we
 \emph{really} want is to write the first program, and have the compiler
-\emph{automatically} transform it into the second (or something morally
-equivalent).
+\emph{automatically} transform it into the second, or something morally
+equivalent.
+
+This example also demonstrates a subtle behavioural tendency of optimising
+program transformations: while the second (target) program does not produce any
+intermediate data structures as desired, we can no longer interpret the program
+as a sequence of combinators. This observation is critical if the combinators
+represent \emph{collective} operations as they do in Accelerate: while the
+second program compiles to an efficient scalar loop, its \emph{parallel}
+interpretation has been lost.
 
 
+\subsection{Related Work}
+
+The desire to program in a functional style while still achieving the
+performance level of an imperative language has been around for as long as
+functional programming itself. This section briefly summarises some of the key
+milestones in the history of deforestation as a compiler optimisation that
+influences this work.
+
+\subsubsection{Deforestation}
+
+% blugh blurgh
+Inspired by earlier work in \texttt{fold/unfold} methods (for example
+\citet{Burstall:1977kl}), Philip Wadler set out to develop a technique that
+would \emph{automatically} remove intermediate structures from functional
+programs, a technique he (later) dubbed \indexe{deforestation}
+\cite{Wadler:1981hy,Wadler:1990ix}.
+
+The method identifies a core set of list operators that can be used to express a
+large class of computations: \texttt{map}, \texttt{reduce} and
+\texttt{generate} (the latter being similar in spirit to \texttt{foldr} and
+\texttt{unfoldr} respectively), together with a collection of rewrite rules that
+apply to combinations of these operators. These rules identify specific patterns
+of list operators that create then consume intermediate lists, then merges these
+operations to avoid the intermediary.
+
+\paragraph{Advantages}
 \begin{itemize}
+    \item Automatic: does not require programmer input, and therefore suitable
+        for integration to a compiler.
 
+    \item Source-to-source: all transformations take valid programs in the
+        source language and output (faster) valid programs in the source
+        language. This makes the output of deforestation easy to integrate as
+        part of a compiler pipeline.
+
+    \item Simple: each rule is easy to understand and obviously correct.
+\end{itemize}
+
+\paragraph{Disadvantages}
+\begin{itemize}
+    \item Each optimisation requires a separate transformation rule. If we want
+        to add new list operators, we need to add a new rule for each
+        combination of the new operator with each existing operator. This does
+        not scale.
+
+    \item Limited: many computations can not be expressed in terms of these
+        three operations, so the framework can not eliminate intermediate lists
+        in these case. \marginnote{check this, c.f. adv of foldr/build}
 \end{itemize}
 
 
-\section{Simultaneous Substitution}
+\subsubsection{\texttt{foldr/build}}
 
-An implementation of \emph{type-preserving} renaming and substitution as per
-\citet{McBride:2006}. It is seen that renaming and substitution are instances of
-a \emph{single} traversal operation, pushing functions from variables to `stuff'
-through terms, for a suitable notion of stuff.
+Building upon the original deforestation algorithm, Andy
+Gill's doctoral thesis introduces another approach to deforestation known as
+\indexe{foldr/build fusion} \cite{Gill:1996tf,Gill:1993}.
+% This techniques performs a range of optimisations as broad as previous
+% approaches the listless transformer \cite{Wadler:1984ia,Wadler:2005iw} while
+% addressing their drawbacks.
+Like the deforestation algorithm, \texttt{foldr/build} fusion is a rule-based
+source-to-source transformation. In fact, it is based on a single rule:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape=true, caption={The \texttt{foldr/build} transformation}]
+$\mathbf{\langle foldr/build\ fusion\rangle}$ forall g k z. foldr k z (build g) $\mapsto$ g k z
 
-Typing rules; each rule types the general usage of a symbol, below the
-line, in terms of the parameters above the line.
+build :: (forall b. (a -> b -> b) -> b -> b) -> [a]
+foldr :: (a -> b -> b) -> b -> [a] -> b
+\end{lstlisting}
+
+The idea is to think of \texttt{build} as a function that constructs a list, and
+\texttt{foldr} as a list consumer. Because of this uniform treatment of lists as
+\emph{complete objects}, rather than being composed of many individual
+constructor cells, we can have a single \texttt{foldr/build} rule, which is
+analogous to standard case reduction rules, but instead of removing a single
+constructor removes the \emph{entire data structure}. This method became the
+first non-trivial deforestation system to be included as an active part of a
+production quality functional language compiler.
+
+\paragraph{Advantages}
+\begin{itemize}
+    \item Simple, automatic, source-to-source transformation.
+
+    \item No limitation on inputs: \texttt{foldr/build} fusion operates over the
+        entire Haskell language. When a list is produced without using
+        \texttt{build} or consumed without using \texttt{foldr}, the
+        deforestation scheme is not hampered and simply leaves the list intact.
+
+    \item Single rule: unlike the original deforestation algorithm, a single
+        rule suffices. When new list operations are added, so long as they cane
+        be expressed in terms of \texttt{foldr} and \texttt{build}, the
+        transformation will apply; there is no need to consider all combinations
+        with the existing operations.
+\end{itemize}
+
+\paragraph{Disadvantages}
+\begin{itemize}
+    \item The transformation can not handle functions that use accumulators,
+        such as \texttt{foldl}, or consume multiple inputs, such as
+        \texttt{zip}.
+\end{itemize}
 
 
-\section{Fusion}
-\textcolor{red}{[insert catchy name]}
+\subsubsection{Stream Fusion}
 
-Inference rules for forcing\ldots
+Following Gill's work, a whole cottage industry of new deforestation approaches
+appeared with the goal of covering the cases left out by \texttt{foldr/build}.
+Most of that work was theoretical, a lot of it was based on category theory, and
+almost none of it had any impact in practice. Unlike those systems of the prior
+two decades, \indexe{stream fusion} \cite{Coutts:2007} succeeded in this goal and
+at the same time stayed simple and useful in practice.
+
+Stream fusion has a similar structure to \texttt{foldr/build}: a single rule
+eliminates matching pairs of constructor and destructor, and operations need to
+be expressed in terms of these constructors:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape=true,caption={The \emph{stream fusion} transformation}]
+$\mathbf{\langle stream/unstream\ fusion\rangle}$ forall s. stream (unstream s) $\mapsto$ s
+
+stream   :: [a] -> Stream a
+unstream :: Stream a -> [a]
+
+data Stream a = exists s. Stream (s -> Step a s) s
+data Step a s = Done
+              | Yield a s           -- produce a value and new state
+              | Skip s              -- update the state without producing a value
+\end{lstlisting}
+
+Streams have some abstract state and a \emph{stepper} function that advances the
+stream from one state to the next, possibly yielding a new value. The
+\texttt{stream} constructor \texttt{Yield}s values from its input until it runs
+out, and the \texttt{unstream} destructor build a list by consuming its input
+stream until encountering \texttt{Done}, discarding \texttt{Skip}s along the
+way. Applying the rule to keep the computation in the non-recursive
+\texttt{Stream} formulation allows the compiler to aggressively apply standard
+optimisation techniques.
+
+\paragraph{Advantages}
+\begin{itemize}
+    \item Preserves the nice properties of \texttt{foldr/build} fusion.
+    \item Adds supports operations with accumulators and multiple inputs.
+\end{itemize}
+
+% \paragraph{Disadvantages}
+%
+% \begin{itemize}
+%     \item None, really\ldots? Requires a highly optimising compiler?
+% \end{itemize}
+
+
+\subsubsection{Delayed Arrays}
+
+The previous fusion transformations are based on the idea of expressing
+computations in terms of a builder and consumer function, and then having the
+compiler identify and remove adjacent constructor/destructor pairs. In contrast,
+the Repa \cite{Keller:2010} library uses a functional representation of
+\indexe{delayed arrays} that instead \emph{avoids} creating unnecessary
+intermediate structures, rather than relying on a subsequent fusion
+transformation to remove them.
+
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape=true,caption={Repa-1 style array definition}]
+data Array sh e = Manifest sh (Vector e)    -- unboxed data
+                | Delayed  sh (sh -> e)     -- array shape and indexing function
+\end{lstlisting}
+
+The key principle of the design is to avoid generating an explicit
+(\texttt{Manifest}) representation of intermediate arrays that can instead be
+represented as the original array combined with an index-space transformation
+function.
+
+% Repa retains the functional programming style by exposing an interface of
+% collective operations over arrays --- such as maps, folds, and permutations ---
+% instead of the imperative style of reading and writing individual array
+% elements.
+
+\paragraph{Advantages}
+\begin{itemize}
+    \item Explicitly avoids intermediate structures by design, rather than
+        relying on potentially fragile post hoc compiler transformations.
+\end{itemize}
+
+\paragraph{Disadvantages}
+\begin{itemize}
+    \item Requires the user to explicitly state when arrays should be computed
+        (made manifest), else performance suffers due to redundant computation.
+\end{itemize}
+
+
+\subsection{Aims for Accelerate array fusion}
+
+From this brief survey of existing work, we can state some aims for a fusion
+transformation that is to be developed for the Accelerate language.
+
+\begin{enumerate}
+    \item The transformation must retain the combinator-based interpretation of
+        the program, which is necessary to support execution on parallel
+        architectures such as CUDA.
+
+    \item Fuse everything: The transformation should cover all Accelerate
+        operations, and not be limited to common special cases such as
+        \texttt{map/map} and \texttt{map/fold}.
+
+    \item Source-to-source: The fusion transformation should take valid source
+        (or core) programs and return valid programs in the same representation.
+        This is important for integration into existing phases of the compilation
+        pipeline and multiple-backend architecture. Tangentially, this forces
+        adherence to the first requirement.
+
+    \item Have a constant number of rewrite rules: Adding new terms to the core
+        language should not require adding new rules for each combination of the
+        new operator to the existing operations. Furthermore, adding new
+        combinators should be relatively easy to integrate into the fusion
+        schema.
+\end{enumerate}
+
+We shall return to this list when we discuss the results generated by the
+optimisation pass. For now, we turn the discussion towards implementation.
+
+
+
+% \subsection{Design}
+% 
+% basic outline?
+% 
+% \begin{lstlisting}[style=Haskell,numbers=none,mathescape=true]
+% data DelayedAcc aenv a where
+%   Done  :: Arrays a
+%         => Extend aenv aenv'
+%         -> PreOpenAcc OpenAcc aenv' a   -- a sub-term
+%         -> DelayedAcc         aenv  a
+% 
+%   Step  :: (Elt a, Elt b, Shape sh, Shape sh')
+%         => Extend aenv aenv'
+%         -> PreExp OpenAcc aenv' sh'
+%         -> PreFun OpenAcc aenv' (sh' -> sh)
+%         -> PreFun OpenAcc aenv' (a   -> b)
+%         -> Idx            aenv' (Array sh  a)
+%         -> DelayedAcc     aenv  (Array sh' b)
+% 
+%   Yield :: (Shape sh, Elt a)
+%         => Extend aenv aenv'
+%         -> PreExp OpenAcc aenv' sh
+%         -> PreFun OpenAcc aenv' (sh -> a)
+%         -> DelayedAcc     aenv  (Array sh a)
+% \end{lstlisting}
+
+\subsection{Interlude: Manipulating Richly Typed Terms}
+
+The Accelerate core language is richly typed, maintaining full type information
+of the embedded language in the term tree. In order to apply transformations to
+these terms while maintaining the correctness of the program as encoded in its
+type, we require methods to manipulate these richly typed terms in a type- and
+scope-preserving manner. In this section I described the basic operations
+required for manipulating terms, upon which the optimisation algorithms are
+built.
+
+% \subsubsection{Preserving Types vis-\`a-vis Correctness}
+
+\subsubsection{Equality}
+
+If we want to test whether two terms are equal, for example to determine if two
+subexpressions are equivalent and can be shared (\S \derp), we
+immediately run into the problem that terms are existentially typed:
+%
+\begin{lstlisting}[style=haskell]
+Exp s == Exp t = ??
+\end{lstlisting}
+%
+There is no reason that \texttt{s} and \texttt{t} should be expressions of the
+same type. In some instances we might not care, and as such can define standard
+heterogeneous equality:
+%
+\begin{lstlisting}[style=haskell]
+instance Eq (OpenExp env aenv t) where
+    (==) = heq
+    where
+        heq :: OpenExp env aenv a -> OpenExp env aenv b -> Bool
+        heq = ...
+\end{lstlisting}
+%
+where we do not care about the result type of each expression, and only require
+that the environment type, re size, of free scalar and array variables are the
+same so that we can test equality of variable indices.
+
+However, we often do care about the specific types of our existentially
+quantified terms. Consider the case of defining equality for \texttt{Let}
+bindings. Recall:
+%
+\begin{lstlisting}[style=haskell]
+data PreOpenExp acc env aenv t where
+
+  -- Local binding of a scalar expression
+  Let   :: (Elt bnd_t, Elt body_t)
+        => PreOpenExp acc env          aenv bnd_t       -- bound term
+        -> PreOpenExp acc (env, bnd_t) aenv body_t      -- body/scope of binding
+        -> PreOpenExp acc env          aenv body_t
+\end{lstlisting}
+%
+To apply \texttt{heq} to the body expression, we need to know something about
+the type of the bound terms to ensure that the scalar environments are the same,
+namely \lstinline[mathescape=true]{a $\sim$ bnd_t $\sim$ b}.\footnotemark\ To do
+this we must equip terms with a runtime witness to the existentially quantified
+type. Our reified dictionaries will allow us to do exactly this, so we can
+define heterogeneous equality for reified dictionaries:
+%
+\footnotetext{Alternatively we can use \texttt{gcast} to provide a type-safe
+cast, but this quickly becomes unwieldy and is a little unsatisfactory.}
+%
+\begin{lstlisting}[style=haskell]
+heqIntegralType :: IntegralType s -> IntegralType t -> Bool
+heqIntegralType (TypeInt _)  (TypeInt _)  = True
+heqIntegralType (TypeWord _) (TypeWord _) = True
+  ...
+heqIntegralType _            _            = False
+\end{lstlisting}
+%
+However, doing this is perfectly useless as it only gives us a value of type
+\texttt{Bool}, with no idea what that value means or to what its truth might
+entitle us. The type checker does not gain any useful knowledge about the types
+the dictionaries \texttt{a} and \texttt{b} witness simply by knowing that
+\lstinline{heqIntegralType a b = True}. A boolean is a bit uninformative.
+
+Instead, we can write essentially the same test, but in the positive case
+deliver some \emph{evidence} that the types are equal:
+%
+\begin{lstlisting}[style=haskell]
+data s :=: t where
+  REFL :: s :=: s
+
+matchIntegralType :: IntegralType s -> IntegralType t -> Maybe (s :=: t)
+matchIntegralType (TypeInt _)  (TypeInt _)  = Just REFL
+matchIntegralType (TypeWord _) (TypeWord _) = Just REFL
+  ...
+matchIntegralType _            _            = Nothing
+\end{lstlisting}
+%
+Matching on \lstinline{Just REFL} will inject the knowledge into the type
+checker that the types \texttt{s} and \texttt{t} are the same. Now with our
+evidence-producing heterogeneous equality test for reified dictionary families,
+we can compare two terms and gain type-level knowledge when they witness the
+same type-level values. These witnesses for existentially quantified types then
+allow us to test for equality \emph{homogeneously}, ensuring that positive
+results from singleton tests give the bonus of unifying types for other tests:
+%
+\begin{lstlisting}[style=haskell]
+matchOpenExp :: OpenExp env aenv s -> OpenExp env aenv t -> Maybe (s :=: t)
+matchOpenExp (Let x1 e1) (Let x2 e2)
+  | Just REFL <- matchOpenExp x1 x2     -- if the bound expressions match
+  , Just REFL <- matchOpenExp e1 e2     -- then the environment of the body term will also match
+  = Just REFL
+
+matchOpenExp ...
+\end{lstlisting}
+
+As we are interested in the facility of matching terms for the purposes of
+optimisations such as common subexpression elimination, it is beneficial to
+define not equality but \emph{congruence} of terms. Two nodes are congruent if:
+%
+\begin{itemize}
+    \item The nodes label constants and the constants are equal; or
+    \item They have the same operator and the nodes are congruent.
+\end{itemize}
+%
+The crux of the latter point refers to commutative relations, such as scalar
+addition, where the arguments to the operator yield the same result when the
+order of the arguments is reversed. When checking equality of primitive
+applications, we discriminate binary functions whose arguments commute, and
+return those arguments in a stable ordering by comparing a hash of each of the
+sub-terms.
+%
+% \begin{lstlisting}[style=haskell]
+% commutes :: PrimFun (a -> r) -> OpenExp env aenv a -> Maybe (OpenExp env aenv a)
+% commutes f x = case f of
+%   PrimAdd _     -> Just (swizzle x)
+%     ...
+%   _             -> Nothing
+%   where
+%     swizzle :: OpenExp env aenv (a,a) -> OpenExp env aenv (a,a)
+%     swizzle exp
+%       | Tuple (NilTup `SnocTup` a `SnocTup` b)  <- exp
+%       , hashOpenExp a > hashOpenExp b           = Tuple (NilTup `SnocTup` b `SnocTup` a)
+%
+%       | otherwise                               = exp
+% \end{lstlisting}
+%
+% where ordering is determined by applying a hash function to the term tree.
+
+
+\subsubsection{Simultaneous Substitution}
+
+In order to do things like renaming
+% , replacing all occurrences of a variable with a different variable,
+and substitution
+%, replacing all occurrences of a variable with a term,
+we require a value-level substitution algorithm for the richly typed terms. The
+implementation follows the method of \citet{McBride:2006,McBride:2005}, where it
+is seen that renaming and substitution are both instances of a \emph{single}
+traversal operation, pushing functions from variables to ``stuff'' through
+terms, for a suitable notion of stuff.
+
+The trick is to push a \emph{type-preserving} but \emph{environment changing}
+operation structurally through terms:
+%
+\begin{lstlisting}[style=haskell]
+v :: forall t'. Idx env t' -> f env' t'
+\end{lstlisting}
+%
+Where the operation differs is in the image of variables: renaming maps
+variables to variables and substitution maps variables to terms. We then lift
+this to an operation which traverses terms, with appropriate lifting to push
+under a lambda, and rebuilding the term after applying \texttt{v} to the
+variables:
+%
+\begin{lstlisting}[style=haskell,mathescape=true]
+shift :: Syntactic f
+      => (forall t'. Idx env t' -> f env' t')
+      -> Idx (env,  s) t
+      -> f   (env', s) t
+
+rebuild :: Syntactic f
+        => (forall t'. Idx env t' -> f env' t')
+        -> Term env  t
+        -> Term env' t
+\end{lstlisting}
+%
+The \texttt{Syntactic} class tells us everything we need to know about
+\texttt{f} in order to rebuild terms: a mapping in from variables, a mapping out
+to the terms, and a weakening map which extends the context. Renaming will
+instantiate \texttt{f} with \texttt{Idx}; for substitutions, we may choose
+\texttt{Term} instead.
+%
+\begin{lstlisting}[style=haskell]
+class Syntactic f where
+    varIn   :: Idx env t -> f env t             -- variables embed in f
+    termOut :: f env t   -> Term env t          -- f embeds in terms
+    weaken  :: f env t   -> f (env, s) t        -- f allows weakening
+\end{lstlisting}
+
+Since Accelerate is a stratified language there are separate implementations of
+this toolkit on \texttt{Syntactic} elements for the scalar and collective
+operations, but the details are identical.
+
+% Typing rules; each rule types the general usage of a symbol, below the
+% line, in terms of the parameters above the line.??
+
+
+\section{Local Transformations}
+\subsection{Beta reduction}
+\subsection{\texttt{let} elimination}
+\subsubsection{Inlining}
+
+Inlining replaces occurrences of \texttt{let}-bound variables by its binding
+expression, to define the binding expression to local context information and
+thus increase the possibility of other transformations being applied.
+
+
+\subsubsection{Dead code removal}
+\subsubsection{\texttt{let} floating}
+\subsubsection{Loop recovery}
+
+\subsection{Constant folding}
+\subsubsection{Branch elimination}
+\subsubsection{Tuple elimination}
+
+\section{Global Transformations}
+\subsection{Producers}
+\subsection{Consumers}
+
+\section{The Transformations Interacting}
+
+This section follows a few examples to discuss the effect of applying the
+transformations described in the preceding sections. Many of these motivating
+examples have shown up in real applications. The effects usually involve a
+combination of many transformations and so give an idea of how the
+transformations interact with one another.
+
+\subsection{Repeated evaluations}
+% \subsection{Error tests eliminated}
+\subsection{Confluence and termination}
+
+The set of transformations can be seen as a set of term rewriting rules. We
+would like this set of transformations to be:
+%
+\begin{itemize}
+    \item Correct: The transformed code retains the same semantics as the
+        original code. This correctness is proved in
+        section~\derp.
+
+    \item Improving efficiency: The transformed code should require less time
+        and/or fewer resources to execute than the original. We return to this
+        topic in the analysis of benchmarks in chapter~\ref{ch:results}.
+\end{itemize}
+%
+In addition, it would be of significant practical advantage if the
+transformations were:
+%
+\begin{itemize}
+    \item Confluent: When more than one transformation is applicable to a given
+        term, applying the transformations in any ordering should yield the same
+        result. This is important to ensure that opportunities to apply
+        transformations are not lost, or worse code is generated, due to
+        the choice of applying one transformation before another.
+
+    \item Terminating: We reach a point when no transformation is applicable so
+        the simplification process stops. One must be careful that one
+        transformation [sequence] can not generate terms that can be transformed
+        back to the original; that no transformation undoes the work of another.
+\end{itemize}
+
+Do some work dis/proving these two things, then write about it here.
+
+
+\section{Compiling the \derp\ program}
+
+\section{Conclusion}
+
+% \section{Fusion / Global optimisation}
+% \textcolor{red}{[insert catchy name]}
+% 
+% Inference rules for forcing\ldots
 
 % \inference[force 1: ]
 % {\Gamma |- \textsc{Done}\ \Gamma'\ a}
@@ -140,4 +659,6 @@ Inference rules for forcing\ldots
 % \inference[force 3d: ]
 % {\Gamma |- \textsc{Step}\ \Gamma'\ sh\ ix\ f\ a}
 % {\Gamma |> \Gamma' |- \mathrm{Transform}\ sh\ ix\ f\ a}
+
+% \section{Simplification / Local optimisation}
 

@@ -551,10 +551,31 @@ class Syntactic f where
     termOut :: f env t   -> Term env t          -- f embeds in terms
     weaken  :: f env t   -> f (env, s) t        -- f allows weakening
 \end{lstlisting}
-
+%
 Since Accelerate is a stratified language there are separate implementations of
 this toolkit on \texttt{Syntactic} elements for the scalar and collective
 operations, but the details are identical.
+
+The question, then, is how to write the function \texttt{v} which we push
+through terms? This is the final piece of equipment that essentially takes our
+simultaneous substitution algorithm and specialises it to one-at-a-time
+substitution.
+
+Let's say we have a term with one free variable, and we want to replace that
+variable with a term. The following takes a replacement for the top variable and
+yields a simultaneous substitution that eliminates \texttt{ZeroIdx}:
+%
+\begin{lstlisting}[style=haskell]
+subTop :: Term env s -> Idx (env, s) t -> Term env t
+subTop s ZeroIdx      = s
+subTop _ (SuccIdx ix) = Var ix
+\end{lstlisting}
+%
+The demonic $\forall$, --- which is to say that the quantifier is in a position
+which gives us obligation, not opportunity --- forces us to respect type: when
+pattern matching detects the variable we care about, happily we discover that it
+has the type we must respect. The demon is not so free to mess with us as one
+might fear at first.
 
 % Typing rules; each rule types the general usage of a symbol, below the
 % line, in terms of the parameters above the line.??
@@ -564,6 +585,7 @@ operations, but the details are identical.
 \subsection{Beta reduction}
 \subsection{\texttt{let} elimination}
 \subsubsection{Inlining}
+\label{sec:inlining}
 
 Inlining replaces occurrences of \texttt{let}-bound variables by its binding
 expression, to define the binding expression to local context information and

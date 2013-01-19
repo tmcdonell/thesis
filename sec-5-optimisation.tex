@@ -6,6 +6,61 @@
 \epigraph{Relax. As usual, I will bore you with the details.}%
 {\textsc{---chris lee}}
 
+% \begin{itemize}
+%     \item parallel array fusion (AIM)
+%     \item existing fusion techniques
+%         \begin{itemize}
+%             \item 81: wadler deforestation
+%             \item 93: gill foldr/build
+%             \item 07: coutts stream fusion
+%             \item 08: keller repa delayed arrays
+%             \item brief mention of other techniques and how they are not
+%                 applicable; imperative loops, category-theory stuff
+%             \item limitations; why they are not applicable w.r.t. parallelism
+%         \end{itemize}
+% 
+%     \item manipulating richly typed terms
+%         \begin{itemize}
+%             \item basic outline
+%             \item preserve types vis-\`a-vis correctness
+%         \end{itemize}
+% 
+%     \item simultaneous substitution
+%     \item typed equality
+%         \begin{itemize}
+%             \item \url{http://stackoverflow.com/questions/13423961/how-to-derive-eq-for-a-gadt-with-a-non-kinded-phantom-type-parameter/13431026#13431026}
+%         \end{itemize}
+% 
+%     \item shrinking / dead code elimination
+% 
+%     \item simplifier
+%         \begin{itemize}
+%             \item ``opportunistic'' CSE
+%             \item loop recovery (mandelbrot)
+%             \item constant folding, branch pruning
+%             \item correctness of constant propagation, algebraic rearrangements
+%             \item various examples here of C vs. idiomatic C
+%         \end{itemize}
+% 
+%     \item FUSION
+%         \begin{itemize}
+%             \item reiterate design requirements, constraints
+%             \item explain basic idea
+%             \item environment manipulations
+%             \item enumerate/describe the special cases
+%                 \begin{itemize}
+%                     \item zipWith
+%                     \item slice, reshape (lost bounds checks)
+%                     \item combining / floating lets
+%                     \item consumers
+%                 \end{itemize}
+%             \item fusion rules as inferences
+%         \end{itemize}
+% 
+%     \item correctness of the transform
+% 
+% \end{itemize}
+
 Fusion or deforestation is a term used to describe techniques for having a
 compiler automatically eliminate intermediate data structures in a computation.
 For example, to compute the sum of squares from one to a given number, I could
@@ -41,57 +96,6 @@ equivalent).
 
 
 \begin{itemize}
-    \item parallel array fusion (AIM)
-    \item existing fusion techniques
-        \begin{itemize}
-            \item 81: wadler deforestation
-            \item 93: gill foldr/build
-            \item 07: coutts stream fusion
-            \item 08: keller repa delayed arrays
-            \item brief mention of other techniques and how they are not
-                applicable; imperative loops, category-theory stuff
-            \item limitations; why they are not applicable w.r.t. parallelism
-        \end{itemize}
-
-    \item manipulating richly typed terms
-        \begin{itemize}
-            \item basic outline
-            \item preserve types vis-\`a-vis correctness
-        \end{itemize}
-
-    \item simultaneous substitution
-    \item typed equality
-        \begin{itemize}
-            \item \url{http://stackoverflow.com/questions/13423961/how-to-derive-eq-for-a-gadt-with-a-non-kinded-phantom-type-parameter/13431026#13431026}
-        \end{itemize}
-
-    \item shrinking / dead code elimination
-
-    \item simplifier
-        \begin{itemize}
-            \item ``opportunistic'' CSE
-            \item loop recovery (mandelbrot)
-            \item constant folding, branch pruning
-            \item correctness of constant propagation, algebraic rearrangements
-            \item various examples here of C vs. idiomatic C
-        \end{itemize}
-
-    \item FUSION
-        \begin{itemize}
-            \item reiterate design requirements, constraints
-            \item explain basic idea
-            \item environment manipulations
-            \item enumerate/describe the special cases
-                \begin{itemize}
-                    \item zipWith
-                    \item slice, reshape (lost bounds checks)
-                    \item combining / floating lets
-                    \item consumers
-                \end{itemize}
-            \item fusion rules as inferences
-        \end{itemize}
-
-    \item correctness of the transform
 
 \end{itemize}
 

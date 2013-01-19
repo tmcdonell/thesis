@@ -49,6 +49,10 @@
 
 \onehalfspacing
 
+% Use symbols instead of numbers for footnote marks
+%
+%\renewcommand{\thefootnote}{$\fnsymbol{footnote}$}
+
 %
 % Bibliography
 %
@@ -69,6 +73,9 @@
 %\usepackage{eso-pic}
 %\AddToShipoutPicture{\resizebox{0.9\pdfpagewidth}{0.9\pdfpageheight}% 
 %{\rotatebox{60}{\color[gray]{0.9}\hspace*{5mm}\textsc{Draft}}}} 
+
+\newcommand{\derp}{\textcolor{red}{derp}}
+
 
 %
 % Fancy header style
@@ -138,26 +145,28 @@
     numberstyle=\tiny\it\color{Gray},
     commentstyle=\it\color{MidnightBlue},
     stringstyle=\color{Maroon},
-%   keywordstyle=[2]\color{ForestGreen},
+    keywordstyle=[2]\bf\color{ForestGreen},
 %   keywordstyle=[3]\color{Bittersweet},
 %   keywordstyle=[4]\color{RoyalPurple},
     captionpos=b,
+    aboveskip=2\medskipamount,
     xleftmargin=0.5\parindent,
     xrightmargin=0.5\parindent,
     %
-    basicstyle=\scriptsize\ttfamily,
+    basicstyle=\ttfamily,
     flexiblecolumns=false,
     basewidth={0.5em,0.45em}
 }
 
 \lstloadlanguages{Haskell}
 
-\lstdefinestyle{inline}{frame=none,numbers=none,basicstyle=\footnotesize}
+\lstdefinestyle{inline}{frame=none,numbers=none,basicstyle=\footnotesize\ttfamily}
 \lstdefinestyle{haskell}{
     language=Haskell,
+    basicstyle=\scriptsize\ttfamily,
     deletekeywords={class,data,default,deriving,instance,where},
     morekeywords={[2]class,data,default,deriving,instance,where},
-    literate=*                  % not in strings, comments, other delimited text
+    literate=
         {\\}{{$\lambda$}}1
         {\\\\}{{\char`\\\char`\\}}1
         {->}{{$\rightarrow$}}2
@@ -166,6 +175,10 @@
         {<=}{{$\leq$}}2
         {=>}{{$\Rightarrow$}}2
         {|}{{$\mid$}}1
+        {forall}{{$\forall$}}1
+        {exists}{{$\exists$}}1
+        {...}{{$\cdots$}}3
+        {\\ldots}{{$\cdots$}}3
 %       {\ .}{{$\circ$}}2
 %       {\ .\ }{{$\circ$}}2
 }

@@ -360,6 +360,7 @@ optimisation pass. For now, we turn the discussion towards implementation.
 % \end{lstlisting}
 
 \section{Manipulating Terms}
+\label{sec:manipulating_terms}
 
 The Accelerate core language is richly typed, maintaining full type information
 of the embedded language in the term tree. In order to apply transformations to
@@ -501,6 +502,7 @@ sub-terms.
 
 
 \subsection{Simultaneous Substitution}
+\label{sec:substitution}
 
 In order to do things like renaming
 % , replacing all occurrences of a variable with a different variable,
@@ -595,6 +597,16 @@ reached.
 % \end{itemize}
 
 \subsection{Simplification}
+
+Functional language compilers often perform optimisations. To avoid speculative
+optimisations that can blow up code size, we might wish to use only
+optimisations guaranteed to make the program smaller: these include
+dead-variable elimination, constant folding, and a restricted $\beta$-reduction
+rule that only inlines functions that are called just once. This leads to a
+simplification system guaranteed not to lead to code blowup or nonterminating
+compilation.
+
+
 \subsubsection{Shrinking}
 
 The \emph{shrinking reduction} \cite{Appel:1997gs} arises as a restriction of
@@ -603,6 +615,38 @@ $\beta$-reduction (i.e. inlining) to cases where the bound variable is used zero
 binding overhead, the shrinking reduction exposes opportunities for further
 optimisation such as more aggressive inlining, constant folding and common
 sub-expression elimination.
+
+The difficulty with implementing the shrinking reduction is that dead-code
+elimination and one redex can expose further shrinking reductions at completely
+different portions of the term, so attempts at writing a straightforward
+compositional algorithm fail. The current implementation uses a na\"ive
+algorithm that re-traverses the whole reduct whenever a redex is reduced,
+although more efficient imperative algorithms exist
+\cite{Appel:1997gs,Benton:2004ua,Kennedy:2007cb}.
+
+The only interesting case of the \texttt{shrink} function is that of a
+$\beta$-redex where the number of uses is less than or equal to one. This uses
+the de Bruijn manipulation techniques developed in
+\autoref{sec:manipulating_terms}.
+%
+\begin{lstlisting}[style=Haskell]
+usesOf :: Idx env s -> OpenExp env aenv t -> Int
+usesOf idx (Var idx')
+    | Just REFL <- matchIdx idx idx'    = 1
+    | otherwise                         = 0
+usesOf idx (Let bnd body)               = usesOf idx bnd + usesOf (SuccIdx idx) body
+usesOf ...
+
+shrink :: OpenExp env aenv t -> OpenExp env aenv t
+shrink (Let bnd body)
+    | usesOf ZeroIdx bnd' <= 1          = shrink (inline body' bnd')
+    | otherwise                         = Let bnd' body'
+    where
+        bnd'  = shrink bnd
+        body' = shrink body
+shrink ...
+\end{lstlisting}
+
 
 \subsubsection{Constant-Expression Evaluation}
 

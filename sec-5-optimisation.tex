@@ -70,7 +70,7 @@ stratified Accelerate language and skeleton-based implementation of the CUDA
 backend.
 
 
-\section{Fusion}
+\section{Introduction to Fusion}
 
 Fusion or deforestation is a term used to describe techniques for having a
 compiler automatically eliminate intermediate data structures in a computation.
@@ -94,9 +94,8 @@ as a single tail-recursive loop as such:
 sum_of_squares :: Int -> Int
 sum_of_squares n = go 1 0
   where
-    go i acc
-        | i > n         = acc                   -- return final tally
-        | otherwise     = go (i+1) (acc + i*i)  -- add to accumulator and step to next element
+    go i acc | i > n     = acc                   -- return final tally
+             | otherwise = go (i+1) (acc + i*i)  -- add to accumulator and step to next element
 \end{lstlisting}
 %
 The second program is much more efficient than the first, because it does not
@@ -177,7 +176,7 @@ Gill's doctoral thesis introduces another approach to deforestation known as
 Like the deforestation algorithm, \texttt{foldr/build} fusion is a rule-based
 source-to-source transformation. In fact, it is based on a single rule:
 %
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape=true, caption={The \texttt{foldr/build} transformation}]
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \texttt{foldr/build} transformation}]
 $\mathbf{\langle foldr/build\ fusion\rangle}$ forall g k z. foldr k z (build g) $\mapsto$ g k z
 
 build :: (forall b. (a -> b -> b) -> b -> b) -> [a]
@@ -230,7 +229,7 @@ Stream fusion has a similar structure to \texttt{foldr/build}: a single rule
 eliminates matching pairs of constructor and destructor, and operations need to
 be expressed in terms of these constructors:
 %
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape=true,caption={The \emph{stream fusion} transformation}]
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \emph{stream fusion} transformation}]
 $\mathbf{\langle stream/unstream\ fusion\rangle}$ forall s. stream (unstream s) $\mapsto$ s
 
 stream   :: [a] -> Stream a
@@ -274,7 +273,7 @@ the Repa \cite{Keller:2010} library uses a functional representation of
 intermediate structures, rather than relying on a subsequent fusion
 transformation to remove them.
 
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape=true,caption={Repa-1 style array definition}]
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={Repa-1 style array definition}]
 data Array sh e = Manifest sh (Vector e)    -- unboxed data
                 | Delayed  sh (sh -> e)     -- array shape and indexing function
 \end{lstlisting}
@@ -338,7 +337,7 @@ optimisation pass. For now, we turn the discussion towards implementation.
 % 
 % basic outline?
 % 
-% \begin{lstlisting}[style=Haskell,numbers=none,mathescape=true]
+% \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
 % data DelayedAcc aenv a where
 %   Done  :: Arrays a
 %         => Extend aenv aenv'
@@ -360,22 +359,21 @@ optimisation pass. For now, we turn the discussion towards implementation.
 %         -> DelayedAcc     aenv  (Array sh a)
 % \end{lstlisting}
 
-\subsection{Interlude: Manipulating Richly Typed Terms}
+\section{Manipulating Terms}
 
 The Accelerate core language is richly typed, maintaining full type information
 of the embedded language in the term tree. In order to apply transformations to
 these terms while maintaining the correctness of the program as encoded in its
 type, we require methods to manipulate these richly typed terms in a type- and
-scope-preserving manner. In this section I described the basic operations
-required for manipulating terms, upon which the optimisation algorithms are
-built.
+scope-preserving manner. This section describes the basic operations required
+for manipulating terms, upon which the optimisation algorithms are built.
 
 % \subsubsection{Preserving Types vis-\`a-vis Correctness}
 
-\subsubsection{Equality}
+\subsection{Equality}
 
 If we want to test whether two terms are equal, for example to determine if two
-subexpressions are equivalent and can be shared (\S \derp), we
+subexpressions are equivalent and can be shared (\S\ref{sec:cse}), we
 immediately run into the problem that terms are existentially typed:
 %
 \begin{lstlisting}[style=haskell]
@@ -414,7 +412,7 @@ data PreOpenExp acc env aenv t where
 %
 To apply \texttt{heq} to the body expression, we need to know something about
 the type of the bound terms to ensure that the scalar environments are the same,
-namely \lstinline[mathescape=true]{a $\sim$ bnd_t $\sim$ b}.\footnotemark\ To do
+namely \lstinline[mathescape]{a $\sim$ bnd_t $\sim$ b}.\footnotemark\ To do
 this we must equip terms with a runtime witness to the existentially quantified
 type. Our reified dictionaries will allow us to do exactly this, so we can
 define heterogeneous equality for reified dictionaries:
@@ -502,7 +500,7 @@ sub-terms.
 % where ordering is determined by applying a hash function to the term tree.
 
 
-\subsubsection{Simultaneous Substitution}
+\subsection{Simultaneous Substitution}
 
 In order to do things like renaming
 % , replacing all occurrences of a variable with a different variable,
@@ -527,7 +525,7 @@ this to an operation which traverses terms, with appropriate lifting to push
 under a lambda, and rebuilding the term after applying \texttt{v} to the
 variables:
 %
-\begin{lstlisting}[style=haskell,mathescape=true]
+\begin{lstlisting}[style=haskell,mathescape]
 shift :: Syntactic f
       => (forall t'. Idx env t' -> f env' t')
       -> Idx (env,  s) t
@@ -542,8 +540,8 @@ rebuild :: Syntactic f
 The \texttt{Syntactic} class tells us everything we need to know about
 \texttt{f} in order to rebuild terms: a mapping in from variables, a mapping out
 to the terms, and a weakening map which extends the context. Renaming will
-instantiate \texttt{f} with \texttt{Idx}; for substitutions, we may choose
-\texttt{Term} instead.
+instantiate \texttt{f} with \texttt{Idx}, whereas for substitutions we may
+choose \texttt{Term} instead.
 %
 \begin{lstlisting}[style=haskell]
 class Syntactic f where
@@ -581,28 +579,192 @@ might fear at first.
 % line, in terms of the parameters above the line.??
 
 
-\section{Local Transformations}
-\subsection{Beta reduction}
-\subsection{\texttt{let} elimination}
-\subsubsection{Inlining}
-\label{sec:inlining}
 
-Inlining replaces occurrences of \texttt{let}-bound variables by its binding
-expression, to define the binding expression to local context information and
-thus increase the possibility of other transformations being applied.
+\section{Program Optimisation}
+
+Now that we have the mechanisms to correctly analyse and manipulate terms, we
+can consider optimisations that may be valuable in improving the quality of the
+core program, with the intent of thereby improving the performance of the object
+code generated by a backend. Optimisations to scalar and array terms are applied
+repeatedly until no further changes can me made, or a fixed iteration limit is
+reached.
+
+% \begin{itemize}
+%     \item{Importance of Individual Optimisations}
+%     \item{Order and Repetition of Optimisations}
+% \end{itemize}
+
+\subsection{Simplification}
+\subsubsection{Shrinking}
+
+The \emph{shrinking reduction} \cite{Appel:1997gs} arises as a restriction of
+$\beta$-reduction (i.e. inlining) to cases where the bound variable is used zero
+(dead-code elimination) or one (linear inlining) times. As well as reducing
+binding overhead, the shrinking reduction exposes opportunities for further
+optimisation such as more aggressive inlining, constant folding and common
+sub-expression elimination.
+
+\subsubsection{Constant-Expression Evaluation}
+
+\emph{Constant-expression evaluation} or \emph{constant folding}, refers to the
+evaluation at compile time of expressions whose operands are known to be
+constant. Essentially, constant-expression evaluation involves determining that
+all the operands in an expression are constant valued and performing the
+evaluation of the expression at compile time, replacing the expression by this
+result.
+
+The applicability of the transformation depends on the type of the expression
+under consideration. For Boolean values, the optimisation is always applicable.
+For integers, it is almost always applicable, with the exceptions being cases
+that would produce run-time exceptions if they were executed, such as division
+by zero and underflow \& overflow. For floating-point values, the situation is
+even more complicated; the compiler's floating point arithmetic must match that
+of the processor being compiled for, otherwise floating-point operations may
+produce different results. Furthermore, the IEEE-754 standard specifies many
+types of exceptions and exceptional values --- including infinities, NaNs and
+denormalised values --- all of which should be taken into account.
+
+\paragraph{Constant Folding}
+
+The current implementation performs constant folding of scalar expressions for
+all primitive functions and all element types. However, no explicit checks for
+under/overflows are made, nor for invalid or exceptional values. For example,
+the following rewrite is always applied:
+%
+% As Accelerate programs are just-in-time compiled and thus the optimisation is
+% applied at program runtime, I consider these checks to be of lower priority than
+% they would be in a traditional offline compiler.
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+$\mathbf{\langle constant\ folding\rangle}$
+    PrimAdd ($\mathrm{\langle elided\ type\ info \rangle}$)
+      `PrimApp`
+      Tuple (NilTup `SnocTup` Const x `SnocTup` Const y) $\mapsto$ Const (x+y)
+\end{lstlisting}
+%
+The attentive reader will note that it is straightforward to choose a positive
+non-zero value \texttt{eps} such that \lstinline{eps + 1.0 > 1.0} is
+\texttt{False}. Issues arising from simplification of floating-point expressions
+are currently ignored.
 
 
-\subsubsection{Dead code removal}
-\subsubsection{\texttt{let} floating}
-\subsubsection{Loop recovery}
+\paragraph{Constant Propagation}
 
-\subsection{Constant folding}
-\subsubsection{Branch elimination}
-\subsubsection{Tuple elimination}
+The effectiveness of constant folding can be increased by combining it with
+other data-flow optimisations, particularly constant propagation. When
+determining whether the arguments to a primitive function application are
+constants, we consider \texttt{let}-bound constants and constant-valued tuple
+components in addition to literal constants as material for constant folding.
 
-\section{Global Transformations}
-\subsection{Producers}
-\subsection{Consumers}
+
+\paragraph{Algebraic Simplifications and Reassociation}
+
+\emph{Algebraic simplifications} use algebraic properties of operators, or
+particular operator/operand combinations to simplify expressions.
+\emph{Reassociation} refers to using specific algebraic properties --- namely
+associativity, commutativity and distributivity --- to divide an expression into
+parts that are constant and variable.
+
+The most obvious algebraic simplifications involve combining a binary operator
+with an operand that is the algebraic identity of that operator, or with an
+operand that always yields a constant, independent of the other value of the
+operand. For example, for a term \texttt{x} the following are always true:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+    x + 0 = 0 + x = x - 0 = x
+    0 - x = -x
+    x * 1 = 1 * x = x / 1 = x
+    x * 0 = 0 * x = 0
+\end{lstlisting}
+%
+Similarly, there are simplifications that apply to unary operators and
+combinations of unary and binary operators. Some operations can also be viewed
+as strength reductions, that is, replacing an operator by one that is faster to
+compute, such as:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+    x $\uparrow$ 2 = x * x
+    2 * x = x + x
+\end{lstlisting}
+%
+Similarly, multiplications by small constants can frequently be computed faster
+by sequences of shifts and adds and/or subtractions, but these techniques are
+often more effective if applied during code generation rather than optimisation,
+so strength reductions are not currently applied.
+
+To further increase opportunities for constant folding, algebraic reassociations
+are applied. This is particularly relevant when only one operand of a binary
+operator is identified as being constant valued. For example, the expression
+\lstinline{x + 1 + 2} would only be simplified if the second addition occurred
+first. For the case of commutative binary operators where only one operand is
+constant valued, the constant expression is applied as the first operand.
+
+The list of algebraic simplifications presented here and currently implemented
+is not necessarily exhaustive. An example simplification of a scalar function
+expressed in the source language:
+%
+\begin{lstlisting}[style=Haskell,mathescape]
+f :: Exp Float -> Exp Float
+f x = let a = lift (constant 30, x)
+          b = 9 - fst a / 5
+          c = b * b * 4
+          d = c >* pi + 10 ? (c - 10, x)
+      in x * d * (60 / fst a)
+    $\mapsto$
+    52.0 * x
+\end{lstlisting}
+
+
+\subsection{Redundancy Elimination}
+\subsubsection{Sharing Observation}
+
+\subsubsection{Common-Subexpression Elimination}
+\label{sec:cse}
+
+\emph{Common-subexpression elimination} finds computations that are performed at
+least twice on a given execution path and eliminates the second and later
+occurrences, replacing them with uses of saved (\texttt{let}-bound) values.
+
+
+
+% 
+% \subsection{Beta reduction}
+% 
+% Beta reduction captures the idea of function application, and is defined in
+% terms of substitution of terms:
+% %
+% \begin{lstlisting}[style=haskell,numbers=none,mathescape]
+% $\mathbf{\langle \beta-reduction \rangle}$ (\x -> body) y $\mapsto$ body[y/x]
+% \end{lstlisting}
+% %
+% Note that since there is no requirement that \texttt{y} is an atom (variable
+% or literal), the replacement implies duplicated work if \texttt{x} occurs
+% multiple times in the body.
+% % To avoid this, the transformation can be applied in stages, first
+% % \texttt{let}-binding the argument expression.
+% Beta reduction is particularly effective in exposing other transformations.
+% 
+% 
+% \subsection{\texttt{let} elimination}
+% \subsubsection{Inlining}
+% \label{sec:inlining}
+% 
+% Inlining replaces occurrences of \texttt{let}-bound variables by its binding
+% expression, to define the binding expression to local context information and
+% thus increase the possibility of other transformations being applied.
+% 
+% 
+% \subsubsection{Dead code removal}
+% \subsubsection{\texttt{let} floating}
+% \subsubsection{Loop recovery}
+% 
+% \subsection{Constant folding}
+% \subsubsection{Branch elimination}
+% \subsubsection{Tuple elimination}
+% 
+% \section{Global Transformations}
+% \subsection{Producers}
+% \subsection{Consumers}
 
 \section{The Transformations Interacting}
 

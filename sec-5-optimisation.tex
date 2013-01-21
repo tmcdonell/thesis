@@ -566,9 +566,9 @@ Let's say we have a term with one free variable, and we want to replace that
 variable with a term. The following takes a replacement for the top variable and
 yields a simultaneous substitution that eliminates \texttt{ZeroIdx}:
 %
-\begin{lstlisting}[style=haskell,caption={Simultaneous substitution to inline terms}]
+\begin{lstlisting}[style=haskell,caption={A simultaneous substitution to inline terms}]
 inline :: Term (env, s) t -> Term env s -> Term env t
-inline f g = rebuild (subTop g) f
+inline body bnd = rebuild (subTop bnd) body
   where
     subTop :: Term env s -> Idx (env, s) t -> Term env t
     subTop s ZeroIdx      = s
@@ -792,27 +792,122 @@ f :: Exp Float -> Exp Float
 f x = let a = lift (constant 30, x)
           b = 9 - fst a / 5
           c = b * b * 4
-          d = c >* pi + 10 ? (c - 10, x)
+          d = c >* pi + 10 ? (c - 15, x)
       in x * d * (60 / fst a)
     $\mapsto$
-    52.0 * x
+    42.0 * x
 \end{lstlisting}
 
 
 \subsection{Redundancy Elimination}
 
+The optimisations in this section deal with the elimination of redundant
+computations. These procedures almost always improve the performance of the code
+they are applied to.
 
 \subsubsection{Sharing Observation}
+
+As described in section~\derp, operations of the embedded language do not
+directly issue computations; instead, they build term trees that represent
+the embedded computation. These term trees use \indexe{higher-order abstract
+syntax} (HOAS)\index{HOAS|see{higher-order abstract syntax}}
+to embed function-valued scalar expressions as well as typeclass overloading to
+reflect arithmetic expressions.
+
+The HOAS representation, while convenient for the human reader, is awkward for
+program transformations as it complicates looking under lambdas --- i.e.,
+inspecting and manipulating the bodies of function abstractions. The frontend
+converts HOAS terms into a \emph{nameless de Bruijn representation} \index{de
+Bruijn} in the style of \citet{Altenkirch:2003kz}, using GADTs \cite{Jones:2006}
+and type families \cite{Chakravarty:2005a,Schrijvers:2008} to preserve the
+embedded program's type information. The type-preserving HOAS to de Bruijn
+conversion is described elsewhere \cite{Atkey:2009,Chakravarty:2009uo}.
+
+Together with the conversion to a nameless representation, we recover the
+sharing introduced by \texttt{let}-bound subterms in the embedded program. For
+example, consider:
+%
+\begin{lstlisting}[style=Haskell]
+let ys = map f xs
+in  zipWith g ys ys
+\end{lstlisting}
+%
+If we do not take care, the expression will be inefficiently translated as:
+%
+\begin{lstlisting}[style=Haskell]
+zipWith g (map f xs) (map f xs)
+\end{lstlisting}
+%
+To recover sharing, we user a variant of Gill's technique \cite{Gill:2009}; in
+contrast to this work, we preserve types and produce a nested term with minimal
+flattening, instead of a graph. Sharing recovery proceeds in two phases:
+
+\paragraph{Phase 1: Build the occurrence map}
+
+A top-down traversal of the AST that computes a map from AST nodes to the number
+of occurrences of that node in the overall program; an occurrence count of two
+or more indicates sharing. During computation of the occurrences, the tree is
+annotated with the \indexe{stable name} \cite{Jones:2000} of that node, and all
+but the first occurrence of shared subtrees are pruned and replaced with
+variable bindings. Note that to avoid completely unfolding the embedded
+expression, we do not descend into subterms that have been encountered
+previously. Hence the complexity of sharing observation is proportional to the
+number of nodes in the tree \emph{with} sharing.
+
+As it is based on stable names, this phase of the algorithm is impure and,
+strictly speaking, because of this it is not deterministic. The stable name
+API does not guarantee completeness: for two stable names \lstinline{sn1} and
+\lstinline{sn2}, if \lstinline{sn1 == sn2} then the two stable names were
+created from the same object. However, the reverse is not necessarily true; if
+the two stable names are not equal the objects they come from may still be
+equal. This means that we may fail to discover some sharing, but sharing does
+not affect the denotational meaning of the program, and hence we do not
+compromise denotational correctness.
+
+
+\paragraph{Phase 2: Determine scope and inject sharing information}
+
+A bottom-up traversal that determines the scope for every binding to be
+introduced to share a subterm. It uses the occurrence map to determine, for
+every shared subtree, the meet of all the shared subtree occurrences --- the
+lowest AST node at which the binding for the subterm can be placed.
+
+\paragraph{Phase 3: Convert to de Bruijn form}
+
+Finally, the AST with environment layout and sharing information can be
+converted into de Bruijn form while incorporating sharing by introducing
+appropriate \texttt{let} bindings.
+
+A completed treatment of the sharing recovery algorithm appears in \derp.
+
 
 \subsubsection{Common-Subexpression Elimination}
 \label{sec:cse}
 
 \emph{Common-subexpression elimination} finds computations that are performed at
 least twice on a given execution path and eliminates the second and later
-occurrences, replacing them with uses of saved (\texttt{let}-bound) values.
+occurrences, replacing them with uses of saved values. The current
+implementation performs a simplified version of common subexpression, where we
+look for expressions of the form:
+%
+\begin{lstlisting}[style=Haskell,mathescape]
+$\mathbf{\langle common\ subexpression\ elimination\rangle}$ let x = e1 in [x/e1]e2
+\end{lstlisting}
+%
+and replace all occurrences of \texttt{e1} in \texttt{e2} with \texttt{x}. This
+is not complete full redundancy analysis, but is good enough to catch some cases.
 
-\subsubsection{Loop-Invariant Code Motion}
+While it may seem that common-subexpression elimination is always worthwhile, as
+it reduces the number of arithmetic operations performed, this is not
+necessarily advantageous. The simplest case is which it may not be desirable is
+if it causes a register to be occupied for a long time in order to hold the
+shared expression's value, and hence reduces the number of registers available
+for other uses. Even worse is if the value has to be spilled to memory because
+there are insufficient registers available. We sidestep this tricky and
+target-dependent issue by, for now, simply ignoring it.
 
+
+% \subsubsection{Loop-Invariant Code Motion}
 
 
 % 

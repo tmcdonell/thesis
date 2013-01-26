@@ -124,13 +124,12 @@ data PreOpenExp acc env aenv t where
 %
 To apply \texttt{heq} to the body expression, we need to know something about
 the type of the bound terms to ensure that the scalar environments are the same,
-namely \lstinline[mathescape]{a $\sim$ bnd_t $\sim$ b}.\footnotemark\ To do
-this we must equip terms with a runtime witness to the existentially quantified
-type. Our reified dictionaries will allow us to do exactly this, so we can
-define heterogeneous equality for reified dictionaries:
-%
-\footnotetext{Alternatively we can use \texttt{gcast} to provide a type-safe
-cast, but this quickly becomes unwieldy and is a little unsatisfactory.}
+namely \lstinline[mathescape]{a $\sim$ bnd_t $\sim$ b}.\footnote{Alternatively
+we can use \texttt{gcast} to provide a type-safe cast, but this quickly
+becomes unwieldy and is a little unsatisfactory.} To do this we must equip terms
+with a runtime witness to the existentially quantified type. Our reified
+dictionaries will allow us to do exactly this, so we can define heterogeneous
+equality for reified dictionaries:
 %
 \begin{lstlisting}[style=haskell]
 heqIntegralType :: IntegralType s -> IntegralType t -> Bool
@@ -164,9 +163,10 @@ Matching on \lstinline{Just REFL} will inject the knowledge into the type
 checker that the types \texttt{s} and \texttt{t} are the same. Now with our
 evidence-producing heterogeneous equality test for reified dictionary families,
 we can compare two terms and gain type-level knowledge when they witness the
-same type-level values. These witnesses for existentially quantified types then
-allow us to test for equality \emph{homogeneously}, ensuring that positive
-results from singleton tests give the bonus of unifying types for other tests:
+same value-level types.\marginnote{type-level value?} These witnesses for
+existentially quantified types then allow us to test for equality
+\emph{homogeneously}, ensuring that positive results from singleton tests give
+the bonus of unifying types for other tests:
 %
 \begin{lstlisting}[style=haskell]
 matchOpenExp :: OpenExp env aenv s -> OpenExp env aenv t -> Maybe (s :=: t)
@@ -178,25 +178,19 @@ matchOpenExp (Let x1 e1) (Let x2 e2)
 matchOpenExp ...
 \end{lstlisting}
 
-\subsubsection{Congruence}
+% \paragraph{Congruence}
 
 As we are interested in the facility of matching terms for the purposes of
 optimisations such as common subexpression elimination, it is beneficial to
-define not equality but \emph{congruence} of terms. Two nodes are congruent if:
-%
-\begin{itemize}
-    \item The nodes label constants and the constants are equal; or
-    \item They have the same operator and the nodes are congruent.
-\end{itemize}
-%
-The crux of the latter point refers to commutative relations, such as scalar
-addition, where the arguments to the operator yield the same result when the
-order of the arguments is reversed. When checking equality of primitive
-applications, we discriminate binary functions whose arguments commute, and
-return those arguments in a stable ordering by comparing a hash of each of the
-sub-terms.
-%
-% TLM: maybe elide this snippet.
+define not equality but instead \indexe{congruence} of terms. Two nodes are
+considered congruent if the nodes they label are constants and the constants are
+equal; or they have the same operator and the operands are congruent. The crux
+of the latter condition refers to commutative relations, such as scalar
+addition, where an operator yields the same result when the order of the
+operands are reversed. When checking equality of primitive applications, we
+discriminate binary functions whose arguments commute, and return those
+arguments in a stable ordering by comparing a hash of each of the
+sub-terms.\marginnote{elide snippet?}
 %
 \begin{lstlisting}[style=haskell]
 commutes :: PrimFun (a -> r) -> OpenExp env aenv a -> Maybe (OpenExp env aenv a)
@@ -209,8 +203,6 @@ commutes f x = case f of
       | hashOpenExp a > hashOpenExp b   = Tuple (NilTup `SnocTup` b `SnocTup` a)
       | otherwise                       = exp
 \end{lstlisting}
-%
-% where ordering is determined by applying a hash function to the term tree.
 
 
 \subsection{Simultaneous Substitution}
@@ -222,21 +214,21 @@ the method of \citet{McBride:2006,McBride:2005}, where it is seen that renaming
 and substitution are both instances of a \emph{single} traversal operation,
 pushing functions from variables to ``stuff'' through terms, for a suitable
 notion of stuff.
-
+%
 The trick is to push a \emph{type-preserving} but \emph{environment changing}
 operation structurally through terms:
 %
 \begin{lstlisting}[style=haskell]
 v :: forall t'. Idx env t' -> f env' t'
 \end{lstlisting}
-%
+
 Where the operation differs is in the image of variables: renaming maps
 variables to variables and substitution maps variables to terms. We then lift
 this to an operation which traverses terms, with appropriate lifting to push
 under a lambda, and rebuilding the term after applying \texttt{v} to the
 variables:
 %
-\begin{lstlisting}[style=haskell,mathescape]
+\begin{lstlisting}[style=haskell]
 rebuild :: Syntactic f
         => (forall t'. Idx env t' -> f env' t')
         -> Term env  t
@@ -314,7 +306,7 @@ free to mess with us as one might at first fear.
 % line, in terms of the parameters above the line.??
 
 
-\section{Expression Optimisation}
+\section{Optimisation Techniques}
 
 Now that we have the mechanisms to correctly analyse and manipulate terms, we
 can consider optimisations that may be valuable in improving the quality of the
@@ -346,15 +338,15 @@ rule that only inlines functions that are called just once. This leads to a
 simplification system guaranteed not to lead to code blowup or nonterminating
 compilation.
 
-
 \subsubsection{Shrinking}
 
 The \emph{shrinking reduction} arises as a restriction of $\beta$-reduction
 (i.e. inlining) to cases where the bound variable is used zero (dead-code
-elimination) or one (linear inlining) times. As well as reducing binding
-overhead, the shrinking reduction exposes opportunities for further optimisation
-such as more aggressive inlining, constant folding and common sub-expression
-elimination.
+elimination) or one (linear inlining) times. By simplifying terms,
+%As well as reducing binding overhead,
+the shrinking reduction exposes opportunities for further optimisation such as
+more aggressive inlining, constant folding and common sub-expression
+elimination. %by exposing the binding to local context information.
 
 The difficulty with implementing the shrinking reduction is that dead-code
 elimination at one redex can expose further shrinking reductions at completely
@@ -372,14 +364,14 @@ dead code, as Accelerate does not have separate forms for \texttt{let}-bindings
 and lambda abstractions.
 %
 \begin{lstlisting}[style=Haskell,caption={The shrinking reduction}]
-usesOf :: Idx env s -> OpenExp env aenv t -> Int
+usesOf :: Idx env s -> Term env t -> Int
 usesOf idx (Var idx')
     | Just REFL <- matchIdx idx idx'    = 1
     | otherwise                         = 0
 usesOf idx (Let bnd body)               = usesOf idx bnd + usesOf (SuccIdx idx) body
 usesOf ...
 
-shrink :: OpenExp env aenv t -> OpenExp env aenv t
+shrink :: Term env t -> Term env t
 shrink (Let bnd body)
     | usesOf ZeroIdx bnd' <= 1          = shrink (inline body' bnd')
     | otherwise                         = Let bnd' body'
@@ -422,9 +414,9 @@ the following rewrite is always applied:
 % applied at program runtime, I consider these checks to be of lower priority than
 % they would be in a traditional offline compiler.
 %
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-$\mathbf{\langle constant\ folding\rangle}$
-    PrimAdd ($\mathrm{\langle elided\ type\ info \rangle}$)
+\begin{lstlisting}[style=Haskell,numbers=none]
+%\bf$\langle$ constant folding $\rangle$%
+    PrimAdd (%$\langle$elided type info$\rangle$%)
       `PrimApp`
       Tuple (NilTup `SnocTup` Const x `SnocTup` Const y) $\mapsto$ Const (x+y)
 \end{lstlisting}
@@ -456,8 +448,8 @@ operand that is the algebraic identity of that operator, or with an operand that
 always yields a constant, independent of the other value of the operand. For
 example, for a term \texttt{x} the following are always true:
 %
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-$\mathbf{\langle algebraic\ simplification \rangle}$
+\begin{lstlisting}[style=Haskell,numbers=none]
+%\bf$\langle$ algebraic simplification $\rangle$%
     x + 0 = 0 + x = x - 0 = x
     0 - x = -x
     x * 1 = 1 * x = x / 1 = x
@@ -470,7 +462,7 @@ as strength reductions, that is, replacing an operator by one that is faster to
 compute, such as:
 %
 \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-$\mathbf{\langle strength\ reduction \rangle}$
+%\bf$\langle$ strength reduction $\rangle$%
     x $\uparrow$ 2 = x * x
     2 * x = x + x
 \end{lstlisting}
@@ -496,7 +488,7 @@ constant valued, the constant expression is applied as the first operand. The
 previous term would then be rewritten as:
 %
 \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-$\mathbf{\langle algebraic\ reassociation \rangle}$
+%\bf$\langle$ algebraic reassociation $\rangle$%
     x + 1 + 2 $\mapsto$ 1 + x + 2
               $\mapsto$ 1 + 2 + x
               $\mapsto$ 3 + x
@@ -568,7 +560,8 @@ zipWith g (map f xs) (map f xs)
 %
 To recover sharing, we user a variant of Gill's technique \cite{Gill:2009}; in
 contrast to this work, we preserve types and produce a nested term with minimal
-flattening, instead of a graph. Sharing recovery proceeds in two phases:
+flattening, instead of a graph. A complete treatment of the sharing recovery
+algorithm appears in \derp; in brief it proceeds in the following phases:
 
 \paragraph{Phase 1: Build the occurrence map}
 
@@ -579,18 +572,19 @@ annotated with the \indexe{stable name} \cite{Jones:2000} of that node, and all
 but the first occurrence of shared subtrees are pruned and replaced with
 variable bindings. Note that to avoid completely unfolding the embedded
 expression, we do not descend into subterms that have been encountered
-previously. Hence the complexity of sharing observation is proportional to the
+previously, making the complexity of sharing observation proportional to the
 number of nodes in the tree \emph{with} sharing.
 
-As it is based on stable names, this phase of the algorithm is impure and,
-strictly speaking, because of this it is not deterministic. The stable name
-API does not guarantee completeness: for two stable names \lstinline{sn1} and
-\lstinline{sn2}, if \lstinline{sn1 == sn2} then the two stable names were
+As it is based on stable names this phase of the algorithm is impure and,
+strictly speaking, because of this it is not deterministic. The stable name API
+does not guarantee completeness,\footnote{For two stable names \lstinline{sn1}
+and \lstinline{sn2}, if \lstinline{sn1 == sn2} then the two stable names were
 created from the same object. However, the reverse is not necessarily true; if
 the two stable names are not equal the objects they come from may still be
-equal. This means that we may fail to discover some sharing, but sharing does
-not affect the denotational meaning of the program, and hence we do not
-compromise denotational correctness.
+equal.} which means that we may miss some equalities which implies we fail to
+discover some sharing. Luckily, sharing does not affect the denotational meaning
+of the program, and hence a lack of sharing does not compromise denotational
+correctness.
 
 
 \paragraph{Phase 2: Determine scope and inject sharing information}
@@ -604,9 +598,20 @@ lowest AST node at which the binding for the subterm can be placed.
 
 Finally, the AST with environment layout and sharing information can be
 converted into de Bruijn form while incorporating sharing by introducing
-appropriate \texttt{let} bindings.
+appropriate \texttt{let} bindings.\\
 
-A completed treatment of the sharing recovery algorithm appears in \derp.
+\noindent
+We now correctly observe the sharing of our motivating example, producing the
+following (simplified) core language term:
+%
+\marginnote{this is weird: mixes core/library language terms}
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+%\bf$\langle$ sharing observation $\rangle$%
+    let ys = map f xs in zipWith g ys ys
+      $\mapsto$
+      Alet (Map f xs)
+           (ZipWith g (Var ZeroIdx) (Var ZeroIdx))
+\end{lstlisting}
 
 
 \subsubsection{Common-Subexpression Elimination}
@@ -618,13 +623,13 @@ occurrences, replacing them with uses of saved values. The current
 implementation performs a simplified version of common subexpression, where we
 look for expressions of the form:
 %
-\begin{lstlisting}[style=Haskell,mathescape,numbers=none]
-$\mathbf{\langle common\ subexpression\ elimination\rangle}$ let x = e1 in [x/e1]e2
+\begin{lstlisting}[style=Haskell,numbers=none]
+%\bf$\langle$ common subexpression elimination $\rangle$% let x = e1 in [x/e1]e2
 \end{lstlisting}
 %
 and replace all occurrences of \texttt{e1} in \texttt{e2} with \texttt{x}. This
 is not complete full redundancy analysis, but is good enough to catch some
-cases.\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
+cases.%\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
 
 While it may seem that common-subexpression elimination is always worthwhile, as
 it reduces the number of arithmetic operations performed, this is not
@@ -636,49 +641,11 @@ there are insufficient registers available. We sidestep this tricky and
 target-dependent issue by, for now, simply ignoring it.
 
 
-% \subsubsection{Loop-Invariant Code Motion}
+% \subsubsection{derp Loop-Recovery [DEPRECATED]}
+% \subsubsection{derp Loop-Invariant Code Motion [TODO]}
 
 
-% 
-% \subsection{Beta reduction}
-% 
-% Beta reduction captures the idea of function application, and is defined in
-% terms of substitution of terms:
-% %
-% \begin{lstlisting}[style=haskell,numbers=none,mathescape]
-% $\mathbf{\langle \beta-reduction \rangle}$ (\x -> body) y $\mapsto$ body[y/x]
-% \end{lstlisting}
-% %
-% Note that since there is no requirement that \texttt{y} is an atom (variable
-% or literal), the replacement implies duplicated work if \texttt{x} occurs
-% multiple times in the body.
-% % To avoid this, the transformation can be applied in stages, first
-% % \texttt{let}-binding the argument expression.
-% Beta reduction is particularly effective in exposing other transformations.
-% 
-% 
-% \subsection{\texttt{let} elimination}
-% \subsubsection{Inlining}
-% \label{sec:inlining}
-% 
-% Inlining replaces occurrences of \texttt{let}-bound variables by its binding
-% expression, to define the binding expression to local context information and
-% thus increase the possibility of other transformations being applied.
-% 
-% 
-% \subsubsection{Dead code removal}
-% \subsubsection{\texttt{let} floating}
-% \subsubsection{Loop recovery}
-% 
-% \subsection{Constant folding}
-% \subsubsection{Branch elimination}
-% \subsubsection{Tuple elimination}
-% 
-% \section{Global Transformations}
-% \subsection{Producers}
-% \subsection{Consumers}
-
-\section{Introduction to Fusion}
+\section{Array Fusion}
 
 Fusion or deforestation is a term used to describe techniques for having a
 compiler automatically eliminate intermediate data structures in a computation.
@@ -785,7 +752,7 @@ Like the deforestation algorithm, \texttt{foldr/build} fusion is a rule-based
 source-to-source transformation. In fact, it is based on a single rule:
 %
 \begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \texttt{foldr/build} transformation}]
-$\mathbf{\langle foldr/build\ fusion\rangle}$ forall g k z. foldr k z (build g) $\mapsto$ g k z
+%\bf$\langle$ foldr/build fusion $\rangle$% forall g k z. foldr k z (build g) $\mapsto$ g k z
 
 build :: (forall b. (a -> b -> b) -> b -> b) -> [a]
 foldr :: (a -> b -> b) -> b -> [a] -> b
@@ -842,7 +809,7 @@ eliminates matching pairs of constructor and destructor, and operations need to
 be expressed in terms of these constructors:
 %
 \begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \emph{stream fusion} transformation}]
-$\mathbf{\langle stream/unstream\ fusion\rangle}$ forall s. stream (unstream s) $\mapsto$ s
+%\bf$\langle$ stream fusion $\rangle$% forall s. stream (unstream s) $\mapsto$ s
 
 stream   :: [a] -> Stream a
 unstream :: Stream a -> [a]
@@ -885,7 +852,7 @@ the Repa \cite{Keller:2010} library uses a functional representation of
 intermediate structures, rather than relying on a subsequent fusion
 transformation to remove them.
 
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={Repa-1 style array definition}]
+\begin{lstlisting}[style=Haskell,numbers=none,caption={Repa-1 style array definition}]
 data Array sh e = Manifest sh (Vector e)    -- unboxed data
                 | Delayed  sh (sh -> e)     -- array shape and indexing function
 \end{lstlisting}
@@ -913,7 +880,7 @@ function.
 \end{itemize}
 
 
-\subsection{Aims for Accelerate array fusion}
+\subsubsection{Conclusion}
 
 From this brief survey of existing work, we can state some aims for a fusion
 transformation that is to be developed for the Accelerate language.
@@ -940,36 +907,269 @@ transformation that is to be developed for the Accelerate language.
         schema.
 \end{enumerate}
 
-We shall return to this list when we discuss the results generated by the
-optimisation pass. For now, we turn the discussion towards implementation.
+% We shall return to this list when we discuss the results generated by the
+% optimisation pass. For now, we turn the discussion towards implementation.
 
 
+\subsection{Accelerate Array Fusion}
 
-% \subsection{Design}
-% 
-% basic outline?
-% 
-% \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-% data DelayedAcc aenv a where
-%   Done  :: Arrays a
-%         => Extend aenv aenv'
-%         -> PreOpenAcc OpenAcc aenv' a   -- a sub-term
-%         -> DelayedAcc         aenv  a
-% 
-%   Step  :: (Elt a, Elt b, Shape sh, Shape sh')
-%         => Extend aenv aenv'
-%         -> PreExp OpenAcc aenv' sh'
-%         -> PreFun OpenAcc aenv' (sh' -> sh)
-%         -> PreFun OpenAcc aenv' (a   -> b)
-%         -> Idx            aenv' (Array sh  a)
-%         -> DelayedAcc     aenv  (Array sh' b)
-% 
-%   Yield :: (Shape sh, Elt a)
-%         => Extend aenv aenv'
-%         -> PreExp OpenAcc aenv' sh
-%         -> PreFun OpenAcc aenv' (sh -> a)
-%         -> DelayedAcc     aenv  (Array sh a)
-% \end{lstlisting}
+In the previous section, we identified some desirable properties a fusion
+transformation should embody, and we are now in a position to establish a basic
+design outline for an Accelerate array fusion network. Looking at the historical
+progression of the fusion transformation in a different way informs this design
+decision:
+%
+\begin{itemize}
+    \item Wadler's deforestation technique applied fusion rules directly to
+        source language terms, requiring a number of rewrite rules quadratic in
+        the number of operations that are to be fused.
+
+    \item Gill's \texttt{foldr/build} instead requires a constant number of
+        rewrite rules because it first expressed the source language operations
+        in terms of more primitive operations --- \texttt{foldr} and
+        \texttt{build} --- and then applied the transformation to this reduced
+        set.
+
+    \item However, \texttt{foldr/build} fails to capture all cases because its
+        core combinators are not expressive enough. This infelicity is addressed
+        by both stream fusion and delayed arrays, which fuse all operations
+        using a constant set of rules by having a sufficiently expressive
+        intermediate form to be able to define all operations in their
+        respective libraries.
+\end{itemize}
+%
+The task, then, is to identify this reduced set of operations within which we
+can encode all Accelerate array operations which we would like to be subject to
+fusion, and then develop a (hopefully) constant number of rules to fuse these
+intermediate forms into, followed by their translation back into core language
+operations.
+
+\subsubsection{Of Predators and Prey}
+
+The classic array fusion example is that of vector dot product:
+%
+\begin{lstlisting}[style=haskell]
+dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
+dotp xs ys = fold (+) 0 (zipWith (*) xs ys)
+\end{lstlisting}
+%
+Ideally, our fusion system will translate this into a single collective
+operation, in much the same way as what a human would write if working directly
+in a low-level language such as C or CUDA. Before we get to the meat of the
+topic, we must classify the existing set of core language operations, and define
+how we wish the deforester to handle each class of operations.
+
+\paragraph{Producers}
+
+We begin by defining \emph{producers}\index{producer} as the class of operations
+that, given a set of zero or more input arrays, produce a single element for the
+output array by manipulating a \emph{single} element from each input array. This
+can be further classified along several dimensions: value transformers such as
+\texttt{map} and \texttt{zipWith} apply a scalar function to each element of
+their input array(s). On the other hand, index space transformations such as
+\texttt{backpermute}, \texttt{slice} and \texttt{replicate}, in effect rearrange
+elements of the input array without changing the array values. In either case,
+each output array element is calculated independently of all other array
+elements. In fact, at the expense of any specific behavioural knowledge of the
+collective operation, \texttt{generate} (often combined with the scalar array
+indexing operator \texttt{(!)}) is the most general array production mechanism,
+and is capable of expressing all other producer operations.
+
+Since all producers operate on an element of the array independent of all other
+elements, at a first approximation it is reasonable to propose that our fusion
+system should be able to combine arbitrary sequences of producers into a single
+operation.
+
+
+\paragraph{Consumers}
+
+We define \emph{consumers}\index{consumer} as collective operations that compute
+elements of their output array using \emph{multiple} elements of their input
+array(s). Since such collective operations often have particular parallel
+interpretations which we wish to preserve, we will always force these operations
+to be computed rather than attempting to fuse them with later stages of the
+computation.
+
+Depending on the type of collective operation, we may be able to fuse the inputs
+directly into the consumer: \texttt{fold*}, \texttt{scan*}\footnote{A parallel
+scan implementation typically splits the input array into contiguous chunks over
+the available processing elements and requires two passes over the data. The
+first phase computes a partial block sums and then the second phase distributes
+these partial sums to each processing element to use as a carry-in value.
+Nevertheless, it is possible for an implementation to consume the fusion
+material in the first phase only.} and \texttt{permute} read each input array
+element once, and so are good candidates for fusing the input arrays directly
+into the collective operation step.
+
+On the other hand, because \texttt{stencil*} operations apply the stencil
+function with access to all elements within a local neighbourhood of the focus
+point/array element, each element of the input array may be read multiple times.
+Thus, stencil operations first fully compute their input array(s), and then
+fully evaluate their output arrays.
+
+
+\paragraph{Control}
+
+The remaining constructors of the Accelerate array term tree express environment
+and control flow operations. These include conditional statements
+(\texttt{|?}), introduction of constant array data (\texttt{use} and
+\texttt{unit}), array tupling and projection, pipelining (\texttt{>->}) and
+environment bindings. While there may be some opportunity here --- moving array
+conditionals into scalar expressions or eliminating the aggregate tupling
+structure in an attempt to expose further opportunities for fusion --- we
+currently do not attempt to fuse past these points of the expression. In
+general, we will not attempt to fuse past control-flow nodes of the expression.
+
+We note that the key disadvantage of the Repa delayed array representation was
+that it failed to capture array sharing, leading to excessive recomputation and
+corresponding loss of performance if the user did not explicitly demand results
+to be computed at the correct locations in the program. However, because
+Accelerate is a \emph{deeply-embedded} language with an explicit sharing
+observation algorithm, these program locations where data must be computed to
+avoid duplicated work have been reified as part of the term tree. Any
+\texttt{let}-bound array expression implies sharing and so the fusion
+transformation should not fuse these expressions else it will introduce
+duplicate work. Thus, we neatly sidestep the main infelicity of delayed arrays.
+
+
+\paragraph{Conclusion}
+
+In summary, the primary goals of the deforester is that it should be able to
+fuse arbitrary sequences of producer operations into a single producer term,
+and, excepting \texttt{stencil}, fuse producers directly into consumers
+outputting a consumer term. Additionally, we do not fuse into
+\texttt{let}-bindings in order to avoid work duplication.
+
+Implicit in the above taxonomy, what we are discriminating against is the
+collective behaviour of the array \emph{elements}. This is a key insight:
+whatever reduced set of intermediate form(s) we choose, these operations will
+describe the transformation of individual elements, and based on a given
+collection of scalar operations, we must be able to reconstruct an appropriate
+collective operation form.
+
+
+\subsubsection{The Elements of Style}
+
+We begin the discussion of how to implement fusion in Accelerate through the use
+of a few motivating examples. We start with fusion of producer functions, of
+which we would like to fuse arbitrary sequences into a single operation. We have
+already mentioned some prototypical producer fusion rules, such as the classic
+\texttt{map/map} rule, which combines two value transformation operations into a
+single step:
+%
+\begin{lstlisting}[style=haskell,numbers=none,mathescape]
+%\bf$\langle$ RULE: map/map $\rangle$%
+    map f (map g arr) $\mapsto$ map (f . g) arr
+\end{lstlisting}
+%
+By extension, we could similarly combine two index space transformations into a
+single step:
+%
+\begin{lstlisting}[style=haskell,numbers=none,mathescape]
+%\bf$\langle$ RULE: backpermute/backpermute $\rangle$%
+    backpermute sh p (backpermute _ q arr) $\mapsto$ backpermute sh (q . p) arr
+\end{lstlisting}
+
+We observe that, as mentioned in the concluding remarks of the previous section,
+these rules are described by composing the scalar components of the collective
+operation. But what about for combinations of index/value space or value/index
+space transformations? This informs the first choice of intermediate combinator:
+an array transformation step with embedded index \emph{and} value space
+transformations. In fact, we shall add this to the set of core language
+operations:
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+Transform :: (Elt a, Elt b, Shape sh, Shape sh')
+          => PreExp     acc aenv sh'                    -- dimension of the result
+          -> PreFun     acc aenv (sh' -> sh)            -- backward permutation indexing function
+          -> PreFun     acc aenv (a   -> b)             -- function to apply at each element
+          ->            acc aenv (Array sh  a)          -- source array
+          -> PreOpenAcc acc aenv (Array sh' b)
+\end{lstlisting}
+%
+And a rule to combine two operations of this form:
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+%\bf$\langle$ RULE: transform/transform $\rangle$%
+    transform sh p1 f1 (transform _ p2 f2 arr) $\mapsto$ transform sh (p2 . p1) (f1 . f2) arr
+\end{lstlisting}
+%
+Finally, we need to know how to map our original \texttt{map} and
+\texttt{backpermute} in terms of this new constructor:
+%
+\begin{lstlisting}[style=haskell,numbers=none,mathescape]
+map f arr            $\mapsto$ transform (shape arr) id f arr
+backpermute sh p arr $\mapsto$ transform sh p id arr
+\end{lstlisting}
+
+Oops! In order to recast a \texttt{map} into the more general
+\texttt{transform}, we needed to take the \texttt{shape} of the input array, but
+to do that we have just introduced duplicated work as the arbitrarily complex
+\texttt{arr} is now used twice in the new term. Disaster! This will not do, so
+let us first \texttt{let}-bind the input array expression and refer to it:
+%
+\begin{lstlisting}[style=haskell,numbers=none,mathescape]
+map f arr $\mapsto$ let v = arr
+             in  transform (shape v) id f v
+\end{lstlisting}
+%
+And this correctly maintains the complexity of the original term. The
+\texttt{map/map} fusion rule now proceeds as follows:
+%
+\begin{lstlisting}[style=haskell,numbers=none,mathescape]
+map f (map g arr) $\mapsto$ map f (let v = arr in transform (shape v) id g v)
+                  $\mapsto$ ??
+\end{lstlisting}
+%
+And once again we are stuck. One of our original premises is that we should not
+fuse past \texttt{let} bindings so as to avoid the problem of duplicated work
+endemic to delayed array fusion in Repa. And so it is in this case: \texttt{v}
+here represents a multiply-used expression which we must not inline. So herein
+lies the second device required for our intermediate combinators: we need to
+make a distinction between sharing in the source program and sharing introduced
+as part of the fusion transformation.
+
+Armed with a strategy to deal with an index or value transformation applied to
+an array (as we shall see, \texttt{slice} and \texttt{replicate} can be
+represented in terms of \texttt{backpermute}), we now need to develop a way to
+deal with multiple arrays (\texttt{zipWith}), which historically speaking have
+proved to be rather challenging for fusion systems, as well as the
+\texttt{generate} function which takes no explicit input arrays. Since
+\texttt{generate} has no input arrays, we only need to consider a single rule:
+%
+\begin{lstlisting}[style=haskell,numbers=none,mathescape]
+%\bf$\langle$ RULE: generate/transform $\rangle$%
+    transform sh p f (generate _ g) $\mapsto$ generate sh (f . g . p)
+\end{lstlisting}
+%
+Previously we mentioned that \texttt{generate} is the most general form of
+producer; we will exploit that fact here to define \texttt{zipWith} in
+terms of \texttt{generate}, and so fuse the operation without needing to
+generalise our other combinators for multiple input arrays:
+%
+\begin{lstlisting}[style=haskell,numbers=none,mathescape]
+zipWith f xs ys $\mapsto$ let v1 = xs
+                       v0 = ys
+                   in generate (shape v1 `intersect` shape v0)
+                               (\ix -> f (v1!ix) (v0!ix))
+\end{lstlisting}
+%
+These two rules suggest that our approach to fusion will tend towards fusing
+producer functions into a \texttt{generate} node. We should be cautious,
+however; being the most general combinator, \texttt{generate} lacks any specific
+knowledge of the collective behaviour of the expression, so later frontend
+analysis or a specific backend implementation may lose opportunities for
+optimisation.
+
+\marginnote{hoom\ldots\ I think this is really just because I couldn't figure
+out how to do it.}
+%
+Finally, we should make a note about fusing consumer functions. Since Accelerate
+supports multiple backends, it is particularly important that we retain the
+property of the fusion transformation being a source-to-source transformation.
+This allows fusion to be easily integrated with other parts of the compiler ---
+which we may have no control over --- and potentially simplifies the
+implementation of a backend by being able to ignore producer/consumer fusion.
 
 \section{The Transformations Interacting}
 

@@ -5,11 +5,10 @@
 %
 % Document class definition
 %
-\documentclass[11pt,a4paper,twoside,final]{book}
+\documentclass[11pt,a4paper,twoside]{book}
 
 \usepackage{ifpdf}
 \ifpdf
-% rubber: clean build/thesis.out
 \RequirePackage{hyperref}
 \hypersetup{
     pdftitle={\doctitle},
@@ -32,7 +31,7 @@
 \usepackage{graphicx}
 \usepackage[all]{hypcap}
 \usepackage{ifthen}
-\usepackage{lastpage}
+% \usepackage{lastpage}
 \usepackage{listings}
 \usepackage{longtable}
 \usepackage{makeidx}
@@ -42,8 +41,9 @@
 \usepackage[numbers,sort&compress,nonamebreak]{natbib}
 \usepackage{setspace}
 % \usepackage{showidx}
-\usepackage[color]{showkeys}
+\usepackage[color,draft]{showkeys}
 \usepackage{subfig}
+\usepackage{textcomp}
 \usepackage{titlesec}
 \usepackage[width={autoauto}]{thumbs}
 
@@ -65,7 +65,7 @@
 % caption
 %
 \captionsetup{margin=\parindent/2,font=small,labelfont=bf}
-\captionsetup[subfloat]{margin=0pt,labelfont=default}
+% \captionsetup[subfloat]{margin=0pt,labelfont=default}
 
 %
 % DRAFT watermark
@@ -106,7 +106,7 @@
 % Extra depth in numbered sections
 %
 \setcounter{secnumdepth}{3}
-%\setcounter{tocdepth}{3}
+\setcounter{tocdepth}{3}
 %\setcounter{lofdepth}{2}
 
 %
@@ -142,6 +142,7 @@
     frame=single,
     rulecolor={\color[gray]{0.7}},
     numbers=left,
+    basicstyle=\ttfamily,
     numberstyle=\tiny\it\color{Gray},
     commentstyle=\it\color{MidnightBlue},
     stringstyle=\color{Maroon},
@@ -152,10 +153,9 @@
     aboveskip=2\medskipamount,
     xleftmargin=0.5\parindent,
     xrightmargin=0.5\parindent,
-    %
-    basicstyle=\ttfamily,
     flexiblecolumns=false,
-    basewidth={0.5em,0.45em}
+    basewidth={0.5em,0.45em},
+    escapechar={\%}
 }
 
 \lstloadlanguages{Haskell}
@@ -179,6 +179,7 @@
         {exists}{{$\exists$}}1
         {...}{{$\cdots$}}3
         {\\ldots}{{$\cdots$}}3
+        {`}{{\textasciigrave}}1
 %       {\ .}{{$\circ$}}2
 %       {\ .\ }{{$\circ$}}2
 }

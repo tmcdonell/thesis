@@ -7,6 +7,7 @@
 %
 \documentclass[11pt,a4paper,twoside]{book}
 
+\usepackage[T1]{fontenc}
 \usepackage{ifpdf}
 \ifpdf
 \RequirePackage{hyperref}
@@ -31,6 +32,7 @@
 \usepackage{graphicx}
 \usepackage[all]{hypcap}
 \usepackage{ifthen}
+\usepackage{inconsolata}
 % \usepackage{lastpage}
 \usepackage{listings}
 \usepackage{longtable}
@@ -39,11 +41,11 @@
 \usepackage{mathrsfs}
 \usepackage{mflogo}
 \usepackage[numbers,sort&compress,nonamebreak]{natbib}
+% \usepackage{pdfsync}
 \usepackage{setspace}
 % \usepackage{showidx}
 \usepackage[color,draft]{showkeys}
 \usepackage{subfig}
-\usepackage{textcomp}
 \usepackage{titlesec}
 \usepackage[width={autoauto}]{thumbs}
 
@@ -106,7 +108,7 @@
 % Extra depth in numbered sections
 %
 \setcounter{secnumdepth}{3}
-\setcounter{tocdepth}{3}
+%\setcounter{tocdepth}{3}
 %\setcounter{lofdepth}{2}
 
 %
@@ -131,9 +133,9 @@
 %
 % margin notes, delete for draft mode
 %
-\let\oldmarginnote\marginnote
-\providecommand{\marginnote}{\oldmarginnote }
-\renewcommand{\marginfont}{\color{BrickRed}\ttfamily\scriptsize}
+%\let\oldmarginnote\marginnote
+%\providecommand{\marginnote}{\oldmarginnote }
+\renewcommand*{\marginfont}{\color{BrickRed}\ttfamily\scriptsize}
 
 %
 % Code listings
@@ -155,17 +157,19 @@
     xrightmargin=0.5\parindent,
     flexiblecolumns=false,
     basewidth={0.5em,0.45em},
-    escapechar={\%}
+    escapechar={\%},
+    texcl=true
 }
 
 \lstloadlanguages{Haskell}
 
-\lstdefinestyle{inline}{frame=none,numbers=none,basicstyle=\footnotesize\ttfamily}
+% \lstdefinestyle{inline}{frame=none,numbers=none,basicstyle=\footnotesize\ttfamily}
 \lstdefinestyle{haskell}{
     language=Haskell,
     basicstyle=\scriptsize\ttfamily,
-    deletekeywords={class,data,default,deriving,instance,where},
+    deletekeywords={class,data,default,deriving,instance,where,case,of},
     morekeywords={[2]class,data,default,deriving,instance,where},
+    morekeywords={[3]case,of},
     literate=
         {\\}{{$\lambda$}}1
         {\\\\}{{\char`\\\char`\\}}1
@@ -178,8 +182,7 @@
         {forall}{{$\forall$}}1
         {exists}{{$\exists$}}1
         {...}{{$\cdots$}}3
-        {\\ldots}{{$\cdots$}}3
-        {`}{{\textasciigrave}}1
+        {`}{{\`{}}}1
 %       {\ .}{{$\circ$}}2
 %       {\ .\ }{{$\circ$}}2
 }

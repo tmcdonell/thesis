@@ -1047,6 +1047,44 @@ describe the transformation of individual elements, and based on a given
 collection of scalar operations, we must be able to reconstruct an appropriate
 collective operation form.
 
+\begin{lstlisting}[
+    style=haskell,
+    numbers=none,
+    float=tp,
+    label={lst:operations},
+    caption={[Core Accelerate array operations] Summary of Accelerate's core
+        collective array operations, omitting \texttt{Shape} and \texttt{Elt}
+        class constraints for brevity. In addition, there are other flavours of
+        folds and scans as well as segmented versions of these.
+        \textcolor{red}{integrate with body text}}]
+%\makebox[\textwidth]{\rm\bf Producers}%
+
+map         :: (Exp a -> Exp b) -> Acc (Array sh a) -> Acc (Array sh b)       %\rm map a function over an array%
+zipWith     :: (Exp a -> Exp b -> Exp c) -> Acc (Array sh a)                  %\rm apply funciton to\ldots%
+            -> Acc (Array sh b) -> Acc (Array sh c)                           %\rm \ldots a pair of arrays%
+
+backpermute :: Exp sh' -> (Exp sh' -> Exp sh) -> Acc (Array sh a)             %\rm backwards permutation%
+            -> Acc (Array sh' e)
+replicate   :: Slice slix                                                     %\rm extend array across\ldots%
+            => Exp slix -> Acc (Array (SliceShape slix) e)                    %\rm \ldots new dimensions%
+            -> Acc (Array (FullShape slix) e)
+slice       :: Slice slix                                                     %\rm remove existing dimensions%
+            => Acc (Array (FullShape  slix) e) -> Exp slix
+            -> Acc (Array (SliceShape slix) e)
+
+generate    :: Exp sh -> (Exp sh -> Exp a) -> Acc (Array sh a)                %\rm array from index mapping%
+
+%\makebox[\textwidth]{\rm\bf Consumers}%
+
+fold        :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Array (sh:.Int) a)  %\rm tree reduction along\ldots%
+            -> Acc (Array sh a)                                               %\rm \ldots innermost dimension%
+scan{l,r}   :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Vector a)           %\rm left-to-right or right-to-left%
+            -> Acc (Vector a)                                                 %\rm \ldots vector pre-scan%
+permute     :: (Exp a -> Exp a -> Exp a) -> Acc (Array sh' a)                 %\rm forward permutation%
+            -> (Exp sh -> Exp sh') -> Acc (Array sh a) -> Acc (Array sh' a)
+stencil     :: Stencil sh a stencil => (stencil -> Exp b) -> Boundary a       %\rm map a function with local\ldots%
+            -> Acc (Array sh a) -> Acc (Array sh b)                           %\rm \ldots neighbourhood context%
+\end{lstlisting}
 
 \subsubsection{The Elements of Style}
 

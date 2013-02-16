@@ -76,8 +76,6 @@
 %\AddToShipoutPicture{\resizebox{0.9\pdfpagewidth}{0.9\pdfpageheight}% 
 %{\rotatebox{60}{\color[gray]{0.9}\hspace*{5mm}\textsc{Draft}}}} 
 
-\newcommand{\derp}{\textcolor{red}{derp}}
-
 
 %
 % Fancy header style
@@ -131,11 +129,14 @@
 % \definecolor{labelkey}{cmyk}{0.0,0.89,0.94,0.28}
 
 %
-% margin notes, delete for draft mode
+% notes, margin notes, etc. delete for final mode
 %
 %\let\oldmarginnote\marginnote
 %\providecommand{\marginnote}{\oldmarginnote }
 \renewcommand*{\marginfont}{\color{BrickRed}\ttfamily\scriptsize}
+
+\newcommand{\derp}{\textcolor{BrickRed}{derp}}
+\newcommand{\note}[1]{\textcolor{BrickRed}{#1}}
 
 %
 % Code listings

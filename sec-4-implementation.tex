@@ -61,3 +61,14 @@ embedded DSL of operations over arrays, rich enough to express some interesting
 real-world problems. This chapter details the architecture of the embedding as
 well as the implementation of a backend for parallel execution on CUDA hardware.
 
+
+
+Compilation has five phases:
+\begin{itemize}
+    \item Lexing
+    \item Parsing
+    \item Semantic analysis
+    \item Optimisation
+    \item Code Generation
+\end{itemize}
+

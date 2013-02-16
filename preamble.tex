@@ -145,10 +145,10 @@
     rulecolor={\color[gray]{0.7}},
     numbers=left,
     basicstyle=\ttfamily,
-    numberstyle=\tiny\it\color{Gray},
-    commentstyle=\it\color{MidnightBlue},
+    numberstyle=\color{Gray}\tiny\it,
+    commentstyle=\color{MidnightBlue}\it,
     stringstyle=\color{Maroon},
-    keywordstyle=[2]\bf\color{ForestGreen},
+    keywordstyle=[2]\color{ForestGreen}\bf,
     keywordstyle=[3]\color{Bittersweet},
 %   keywordstyle=[4]\color{RoyalPurple},
     captionpos=b,
@@ -163,7 +163,6 @@
 
 \lstloadlanguages{Haskell}
 
-% \lstdefinestyle{inline}{frame=none,numbers=none,basicstyle=\footnotesize\ttfamily}
 \lstdefinestyle{haskell}{
     language=Haskell,
     basicstyle=\scriptsize\ttfamily,
@@ -185,6 +184,24 @@
         {`}{{\`{}}}1
 %       {\ .}{{$\circ$}}2
 %       {\ .\ }{{$\circ$}}2
+}
+
+\lstdefinestyle{cuda}{
+    language=CUDA,
+    basicstyle=\scriptsize\ttfamily,
+    keywordstyle=[1]\color{ForestGreen},
+    keywordstyle=[2]\color{Bittersweet},
+    keywordstyle=[3]\color{BrickRed},
+    keywordstyle=[4]\color{RoyalPurple},
+    keywordstyle=[5]\color{Cyan}
+}
+
+
+\lstdefinestyle{inline}{
+    style=haskell,
+    frame=none,
+    numbers=none,
+    basicstyle=\small\ttfamily
 }
 
 %

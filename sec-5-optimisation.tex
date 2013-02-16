@@ -943,6 +943,8 @@ towards implementation.
 
 The classic array fusion example is that of vector dot product:
 %
+%    label={lst:dotp},
+%    caption={Vector dot product in Accelerate}]
 \begin{lstlisting}[style=haskell]
 dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
 dotp xs ys = fold (+) 0 (zipWith (*) xs ys)
@@ -1051,7 +1053,7 @@ collective operation form.
         collective array operations, omitting \texttt{Shape} and \texttt{Elt}
         class constraints for brevity. In addition, there are other flavours of
         folds and scans as well as segmented versions of these.
-        \textcolor{red}{integrate with body text}}]
+        \note{integrate with body text}}]
 %\makebox[\textwidth]{\rm\bf Producers}%
 
 map         :: (Exp a -> Exp b) -> Acc (Array sh a) -> Acc (Array sh b)       %\rm map a function over an array%
@@ -1238,14 +1240,14 @@ In the style of the de Bruijn indices used for projecting environment variables
 \emph{snoc} lists. In contrast to environment indices, the base case does not
 refer to an empty environment, but instead the arbitrary environment to which we
 are extending. This witnesses how to connect the environment of the original
-term which we are currently deforesting (of type \texttt{aenv}), with the new
-terms being output by the deforester (\texttt{aenv'}). Binding these expressions
-to the term output by the deforester yields a completed term of the correct
-type.
+term which we are currently deforesting to the new terms being output by the
+deforester. We will refer to \texttt{aenv} as the external environment type, and
+\texttt{aenv'} as the internal environment type. Binding these expressions to
+the term output by the deforester yields a completed term of the correct type.
 %
 \begin{lstlisting}[style=haskell]
 bind :: Arrays a
-     => Extend aenv aenv'               -- collection of delayed environment bindings
+     => Extend aenv aenv'               -- collection of additional environment bindings
      -> PreOpenAcc OpenAcc aenv' a      -- term output by the deforester
      -> PreOpenAcc OpenAcc aenv  a
 bind BaseEnv         = id
@@ -1282,12 +1284,12 @@ bind (PushEnv env a) = bind env . Alet (OpenAcc a) . OpenAcc
 % 
 % \end{itemize}
 
-% \textcolor{red}{These previous bullet points can be integrated as actual text.
+% \note{These previous bullet points can be integrated as actual text.
 % Following the below, talk about the implementation of delay; what we do at
 % producer/consumer/control nodes.}
 
 Finally, we reach the question of how to implement the fusion optimisation. As
-evidenced in the preceding sections, 
+evidenced in the preceding sections,
 %As embodied in the previous work, and indicated by the preceding sections,
 fusion is expressed as a set of transformations between terms. We could attempt
 to do this statically, at compile time using rewrite rules \cite{Jones:2001wm},
@@ -1308,12 +1310,21 @@ we would either experience the same problem as Repa of introducing redundant
 computations, or have the concerns of fusion intermingled with the sharing
 recovery process. Both alternatives are unappealing.
 
-The strategy then is to manipulate the core, nameless de Bruijn\index{de Bruijn}
-representation. The idea is simple and well known: represent an array by the
-terms necessary to construct an element at each index. We traverse the
-expression bottom-up, converting terms into this intermediate representation,
-which is simpler to fuse together than the complete core language. Borrowing
-some nomenclature from Repa, we will call this a delayed array state.
+This means that we need to manipulate the core, nameless de Bruijn\index{de
+Bruijn} representation. The following sections discuss how we manipulate
+richly-typed de Bruijn indexed terms for the purposes of producer and consumer
+array fusion.
+
+
+\subsubsection{Delayed Arrays}
+
+How should we represent terms in order to manipulate the fusion rules outlined
+in section~\ref{sec:elements_of_style}? The strategy is simple and well known:
+represent an array by the terms necessary to construct an element at each index.
+We traverse the expression bottom-up, converting terms into this intermediate
+representation, which is simpler to fuse together than the complete core
+language. Borrowing some nomenclature from Repa, we will call this a delayed
+array state.
 %
 % , since in
 % general the form represents a way to construct an array, rather than manifest
@@ -1336,11 +1347,13 @@ data DelayedAcc aenv a where
 \end{lstlisting}
 %
 Note that even though \texttt{Done} represents a real array, we will still need
-to keep track of additional environment bindings with \texttt{Extend}. What
-about operations that we wish to fuse together? We can represent an array by its
-shape and a function to compute an element at each index, similar in spirit to
-the \texttt{generate} function. While this appears like element-based array
-processing, it still has a clear parallel implementation.
+to keep track of additional environment bindings with \texttt{Extend}.
+\marginnote{explain this: let floating etc.}
+What about operations that we wish to fuse together? We can represent an array
+by its shape and a function to compute an element at each index, similar in
+spirit to the \texttt{generate} function. While this appears like element-based
+array processing, it still has a clear parallel implementation.
+\marginnote{later: additional promises made by Done? (oops, can't remember)}
 %
 \begin{lstlisting}[style=haskell,firstnumber=last]
     Yield :: (Shape sh, Elt a)
@@ -1369,11 +1382,17 @@ index and/or value space transformation to an input array, in the manner of
           -> DelayedAcc     aenv  (Array sh' b)
 \end{lstlisting}
 %
+This intermediate form is clearly less general than \texttt{Yield}. The purpose
+for this more restrictive intermediate form is that it may afford greater
+opportunities for optimisation in the implementation of the collective
+operation, while avoiding the need to recover this information by analysing the
+term tree.
+
 Note that \texttt{Step} applies its transformation functions to an array stored
 as an environment index, rather than as an arbitrary term as \texttt{transform}
 does. This ensures that \texttt{Step} can always be fused into \emph{consumer}
-operations, and the embedded producer will simply access the input data via
-array indexing.
+operations by embedding the producer function and accessing the input data via
+array indexing. We will return this this when implementing consumer fusion.
 
 The astute reader may wonder; can \texttt{Step} subsume the rule of
 \texttt{Done} by specifying the identity function for the value and index
@@ -1405,6 +1424,8 @@ is sufficient. This may be more efficient on some backend implementations
 because, being shape agnostic, map does not require the full multidimensional
 array indexing of the surface language.
 
+\subsubsection{Producer Fusion}
+
 The last remaining piece of the puzzle is \texttt{delay}, which is the magic
 that will apply the fusion transformation between terms. We traverse the array
 expression bottom up, building terms in the \texttt{DelayedAcc} state, and
@@ -1422,9 +1443,9 @@ mapD :: (Shape sh, Elt a, Elt b)
      -> DelayedAcc aenv (Array sh a)
      -> DelayedAcc aenv (Array sh b)
 mapD f acc = case acc of
-  Yield env sh g        -> Yield env sh (liftF env f `compose` g)
-  Step env sh ix g a    -> Step env sh ix (liftF env f `compose` g) a
-  Done env a            -> Step env' (arrayShape ZeroIdx) identity (liftF env' f) ZeroIdx
+  Yield env sh g        -> Yield env sh (sinkF env f `compose` g)
+  Step env sh ix g a    -> Step env sh ix (sinkF env f `compose` g) a
+  Done env a            -> Step env' (arrayShape ZeroIdx) identity (sinkF env' f) ZeroIdx
     where env' = env `PushEnv` a        -- introduce \emph{a} as the outermost bound variable; \texttt{ZeroIdx}
 \end{lstlisting}
 %
@@ -1438,7 +1459,7 @@ introduced here.
 \paragraph{Function Composition}
 
 Beginning in familiar territory, \texttt{compose} is the equivalent of function
-composition (\texttt{(.)}) for core language terms. This critical piece of kit
+composition \texttt{(.)} for core language terms. This critical piece of kit
 allows us to combine unary scalar functions, and is based on the simultaneous
 substitution machinery developed earlier
 (\S\ref{sec:substitution}).\footnote{Annoyingly, we also require a second
@@ -1471,15 +1492,14 @@ substitute :: (Elt b, Elt c)
 substitute f g = Let g (rebuild split f)
   where
     split :: Elt c => Idx (env,b) c -> PreOpenExp acc ((env,a),b) aenv c
-    split ZeroIdx       = Var ZeroIdx
-    split (SuccIdx ix)  = Var (SuccIdx (SuccIdx ix))
+    split ...
 \end{lstlisting}
 
 
-\paragraph{Lifting}
+\paragraph{Sinking}
 
 The second piece of machinery hard at work in the \texttt{map}-fusion
-implementation of listing~\ref{lst:map_fusion} is that of \texttt{liftF}, which
+implementation of listing~\ref{lst:map_fusion} is that of \texttt{sinkF}, which
 is busy moving terms from one scope to another. Why is this necessary? If we
 want to combine terms --- for example for scalar function composition or as
 arguments to a collective array operation --- we require that the context of the
@@ -1497,15 +1517,15 @@ will be introduced from the extend environment. This is the job of sinking; to
 weaken a term by a number of indices specified by an external witness:
 %
 \begin{lstlisting}[style=haskell]
-lift :: Extend env env'
+sink :: Extend env env'
      -> Idx env  t
      -> Idx env' t
-lift BaseEnv       = id
-lift (PushEnv e _) = SuccIdx . lift e
+sink BaseEnv       = id
+sink (PushEnv e _) = SuccIdx . sink e
 \end{lstlisting}
 %
 Which we can then plug into \texttt{rebuild} from the simultaneous substitution
-toolkit to shift all variables in the term.\\
+toolkit to shift all variables in the term.
 %
 % \marginnote{use of varIn is ambiguous in choice of Syntactic?}
 % \begin{lstlisting}[style=haskell]
@@ -1515,15 +1535,22 @@ toolkit to shift all variables in the term.\\
 % weakenBy k = rebuild (Var . k)
 % \end{lstlisting}
 
-\noindent At long last we have implemented our \texttt{map/map} fusion rule.
-What of the other operators outlined in section~\ref{sec:elements_of_style}? The
-process for combining two index space transforms follows in precisely the same
-manner as \texttt{mapD}. Fusing \texttt{transpose} operations can be done by
-simply sequencing the index transformation and value transformation steps with
-these two functions, and \texttt{generate} is trivially rewritten into a
-\texttt{Yield} node. The only operator left to deal with is the multiple
-consumer function \texttt{zipWith}, which has historically proved difficult for
-fusion systems to handle. Nevertheless, let us begin by extending
+
+\paragraph{}
+
+At long last we have implemented our \texttt{map/map} fusion rule. Huzzah! The
+tactic for handling the other producer operations outlined in
+section~\ref{sec:elements_of_style} proceeds in the same way: recast the node
+into \texttt{DelayedAcc} form, fusing as we go by combining the scalar
+representation functions. The process for combining two index space transforms
+follows in precisely the same manner as \texttt{mapD}. Fusing \texttt{transpose}
+operations can be done by simply sequencing the index transformation and value
+transformation steps with these two functions, and \texttt{generate} is
+trivially rewritten into a \texttt{Yield} node.
+
+The only operator left to deal with is the multiple consumer function
+\texttt{zipWith}. Historically speaking, \texttt{zipWith} has proved notoriously
+difficult for fusion systems to handle. Nevertheless, let us begin by extending
 \texttt{mapD} in the obvious way and see how far we can get.
 
 % \begin{lstlisting}[style=haskell]
@@ -1555,21 +1582,23 @@ zipWithD f acc1 acc2 =
       Done env2 a2 -> ...               -- env2 :: Extend aenv aenv'2
 \end{lstlisting}
 %
-Even for the simplest case, not very far. The problem is difficult to see, but
-lies with the existentially quantified environment that the fragments are
-defined in terms of. We have:
+Even for the simplest case, not very far. The problem lies with the
+existentially quantified environment that the program fragments are defined in
+terms of. We have:
 %
 \begin{lstlisting}[style=haskell]
 env1 :: Extend aenv aenv'1
 env2 :: Extend aenv aenv'2
 
 a1   :: PreOpenAcc OpenAcc aenv'1 a
-a1   :: PreOpenAcc OpenAcc aenv'2 b
+a2   :: PreOpenAcc OpenAcc aenv'2 b
 \end{lstlisting}
 %
 What is the relationship between these skolem type variables \texttt{aenv'1} and
-\texttt{aenv'2}? Unfortunately nothing. Can we linearise the types somehow, say
+\texttt{aenv'2}? Unfortunately; nothing. Can we linearise the types somehow, say
 be concatenating our witnesses?
+%
+% http://stackoverflow.com/questions/12719435/what-are-skolems
 %
 \begin{lstlisting}[style=haskell]
 cat :: Extend env env' -> Extend env env'' -> Extend env ???
@@ -1585,10 +1614,12 @@ type instance Cat env (env',s) = (Cat env env', s)
 \end{lstlisting}
 %
 However this ends up leading to difficulties in other parts of the
-implementation. Since \texttt{zipWith} is the only function of its type in the
-core language, let us take a different route and treat it specially. The trick
-is to linearly construct the extended environments by delaying the second array
-after lifting it into the existentially quantified environment of the first.
+implementation, since all aspects of the fusion process including
+\texttt{DelayedAcc} must be defined in terms of \texttt{Cat}. Since
+\texttt{zipWith} is the only function of its type in the core language, let us
+take a different route and treat it specially. The trick is to linearly
+construct the extended environments by delaying the second array after lifting
+it into the existentially quantified environment of the first.
 %
 \begin{lstlisting}[style=haskell]
 zipWithD :: (Shape sh, Elt a, Elt b, Elt c)
@@ -1598,13 +1629,14 @@ zipWithD :: (Shape sh, Elt a, Elt b, Elt c)
          -> DelayedAcc         aenv (Array sh c)
 zipWithD f acc1 acc2 =
   case delay acc1 of
-    Done env1 a1 -> case delay (liftA env1 a2) of
+    Done env1 a1 -> case delay (sinkA env1 a2) of
       Done env2 a2 -> ...
 \end{lstlisting}
 %
-Where \texttt{liftA} shifts all array environment variables of the term
+Where \texttt{sinkA} shifts all array environment variables of the term
 according to the witness \texttt{env1} in the manner discussed previously. Now
-the \texttt{Extend} terms have the following existential types:
+the \texttt{Extend} witness and corresponding array terms have the following
+existential environment type:
 %
 \begin{lstlisting}[style=haskell]
 env1 :: Extend aenv   aenv'1
@@ -1617,8 +1649,336 @@ which are straightforward to combine using a standard snoc-list append:
 cat :: Extend env env' -> Extend env' env'' -> Extend env env''
 \end{lstlisting}
 %
-Whew!
+Phew! We can now view both input arrays with the same environment context. The
+last step is to express the input arrays in terms of a function from indices to
+elements, which are then composed into a single such function. As with the
+\texttt{mapD} case, which relied on unary function composition, the simultaneous
+substitution algorithm will be doing the heavy lifting, shifting variables to
+make space and substituting in new terms.
+%
+\begin{lstlisting}[style=haskell]
+substitute2 :: (Elt a, Elt b, Elt c, Shape sh)
+            => PreOpenExp acc ((env, a), b) aenv c      -- (a $\rightarrow$ b $\rightarrow$ c)
+            -> PreOpenExp acc (env, sh)     aenv a      -- (sh $\rightarrow$ a)
+            -> PreOpenExp acc (env, sh)     aenv b      -- (sh $\rightarrow$ b)
+            -> PreOpenExp acc (env, sh)     aenv c      -- (sh $\rightarrow$ c)
+substitute2 f a b = Let a $ Let (weaken b) $ rebuild split2 f
+  where
+    split2 :: Elt t => Idx ((env,a),b) t -> PreOpenExp acc (((env,sh),a),b) aenv t
+    ...
+\end{lstlisting}
 
+This completes a basic treatment of producer array fusion. It is important to
+note that no changes to the way Accelerate represents computations were required
+to complete this phase of the fusion optimisation. In essence, we have simply
+taken an array program and manipulated it to produce a ---hopefully--- more
+efficient version of the program, but it is entirely feasible that a user could
+have written this optimised version of the program themselves. As such, any
+backend implementation that could execute the first program can execute the
+second without modification.
+%
+This means, however, that since a user is not able to write a completely fused
+vector dot-product program, neither is our fusion transformation in its current
+state. The next section discusses fusing producer functions directly into the
+operations that consume those arrays, and the changes to a backend
+implementation required to implement this canonical array fusion program.
+
+
+\subsubsection{Consumer Fusion}
+
+So far we have only discussed how to fuse sequences of simple producer
+operations such as \texttt{map} and \texttt{generate}. However, to be truly
+useful we also need to fuse these producer functions directly into consumer
+operations. As hinted at previously, what we require is a way to represent the
+production of array elements, and to embed this directly into the consumer of
+those elements. % This section discusses how we do that.
+
+Recall for instance the example program of vector dot product:
+%
+\begin{lstlisting}[style=haskell]
+dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
+dotp xs ys = fold (+) 0 (zipWith (*) xs ys)
+\end{lstlisting}
+%
+We want to avoid storing the intermediate array result of
+\lstinline[style=inline]{zipWith (*) xs ys} to memory because the arithmetic
+work done per array element is very low: the processor spends most of its time
+waiting for data to be read from or written to memory. Instead, we want to fuse
+the production of elements directly into the consumer
+\lstinline[style=inline]{fold (+) 0}.
+
+At another example, consider an $n$-body simulation which models the evolution
+of a system of bodies in which each body continually interacts with each other
+body. A familiar example is an astrophysical simulation in which each body
+interacts via gravitational acceleration. The following is a na\"ive
+implementation of the $n$-body simulation, which calculates all $n^{2}$
+interactions between each pair of bodies in the system. The function
+\texttt{accel} computes the accelerate between two bodies, and \texttt{plus} is
+addition applied component-wise to the acceleration in each axis.
+%
+\begin{lstlisting}[style=haskell]
+calcAccels :: Acc (Vector Body) -> Acc (Vector Accel)
+calcAccels bodies
+  = let n       = A.size bodies
+        cols    = A.replicate (lift $ Z :. n :. All) bodies
+        rows    = A.replicate (lift $ Z :. All :. n) bodies
+    in
+    A.fold plus zero $ A.zipWith accel rows cols
+\end{lstlisting}
+%
+The idea is to expand the vector of bodies into a rank-two array by replicating
+across the first axis and then the second. Combining the two matrices
+element-wise corresponds to computing the interaction of each body with every
+other body. Summing across one dimension of the interaction matrix then
+calculates the total acceleration experienced by each body as a result of being
+influenced by all other bodies in the system.
+
+A direct implementation of the operations used in \texttt{calcAccels} would
+result in very bad space and time performance. As with vector dot product we
+wish to fuse \texttt{zipWith} into \texttt{fold} to avoid storing that
+intermediate array to memory, but it is important to also fuse the
+\texttt{replicate} operation to avoid producing those intermediate arrays of
+$n^2$ elements. Fusing this sequence of operations into a single step allows you
+to write an Accelerate program that does asymptotically more computation than it
+uses memory.\footnote{A hylomorphism deforestation} This section discusses the
+implementation of producer/consumer fusion to accomplish that.
+
+
+\paragraph{Intermediate Representation}
+
+\note{mention that this generalises to all producers / consumers; fold is
+just the specific example.}
+%
+Taking \texttt{fold} as our motivating example, recall that it is parameterised
+by a single binary associative function representing the reduction phase, plus a
+scalar value for the default element. Eliding class constraints the environment
+types for brevity, we have:
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+fold :: Fun (e -> e -> e) -> Exp e -> Acc (Array (sh:.Int) -> e) -> Acc (Array sh e)
+\end{lstlisting}
+
+The simplest case we might like to consider is applying a function to an array
+of elements via \texttt{map} and then reducing the result with \texttt{fold}. We
+could make the intermediate representation of \texttt{fold} a little more
+complex by also parameterising it by the mapping function:
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+foldMap :: Fun (a -> b)
+        -> Fun (b -> b -> b) -> Exp b -> Acc (Array (sh:.Int) -> a) -> Acc (Array sh b)
+\end{lstlisting}
+
+It is immediately obvious that \texttt{foldMap} is somewhat limited; as it
+carries only a value transformation function, it can not fuse index space
+transformations such as \texttt{replicate} or functions that map indices to
+values in the style of \texttt{generate}. So, let's instead decorate
+\texttt{fold} in the style of our the most general producer operation:
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+foldGen :: Exp (sh:.Int) -> Fun ((sh:.Int) -> e)
+        -> Fun (e -> e -> e) -> Exp e -> Acc (Array sh e)
+\end{lstlisting}
+%
+That producer/consumer array fusion is occurring is obvious: indeed there is no
+explicit input array so the values being reduced \emph{must} be generated on the
+fly. This doesn't look much like our original \texttt{fold} function any more,
+which is a little unfortunate. Additionally, we may incur a slight performance
+penalty from recasting all inputs into \texttt{generate} form, which requires
+multidimensional array indices to be generated even for cases such as
+\lstinline[style=inline]{(fold . map)} where linearly accessing the underlying
+memory is sufficient. Moreover, we need to change the definition of every
+consumer operation in a similar way.
+
+What we need is a way to decorate the intermediate representation of consumer
+operations that balances efficiency and generality. Happily, this is precisely
+the considerations which drove the design for representing delayed arrays for
+producer fusion. So, why not simply embed the \texttt{DelayedAcc} representation
+as the input array argument to \texttt{fold}?
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+fold :: Fun (e -> e -> e) -> Exp e -> DelayedAcc (Array (sh:.Int) e) -> Acc (Array sh e)
+\end{lstlisting}
+%
+This allows us to do all the \lstinline[style=inline]{(fold . map)} and
+\lstinline[style=inline]{(fold . generate)} fusions we desire, and contains
+sufficient information for a backend to provide a more efficient implementation
+when appropriate based on how exactly the data is input. However, there are
+several disadvantages with changing the internal representation of terms in this
+way.
+%
+\begin{itemize}
+    \item It intimately ties the definition of the core language with
+        considerations of array fusion, so any changes to the fusion
+        transformation may require changes to all aspects of the frontend.
+        Additionally, it requires substantial rewriting of existing frontend and
+        backend code.
+
+    \item The \texttt{DelayedAcc} representation encodes certain properties in
+        its constructors, so conversion to de Bruijn form with and embedded
+        delayed array representation may pollute other aspects of the frontend
+        with considerations from the fusion transformation.
+
+    \item Traversing the AST would require a case distinction when descending
+        into every array valued computation. From a practical sense this is
+        unwieldy: when a backend traverses terms for purposes such as code
+        generation or execution, it should not need to descend into subterms to
+        process a given node; the necessary information should be on hand.
+\end{itemize}
+%
+The final point hints at the next thread of investigation to pull on: once
+fusion has completed its analysis, is there a simpler way to represent how a
+computation can be fused into a consumer?
+
+
+\paragraph{A Classy Hack}
+
+In the previous section we saw that to do all the forms of producer/consumer
+fusion that we desire while retaining opportunities for optimisation, we could
+directly embed something equivalent to the representation of delayed arrays that
+is used by the fusion transformation. However, this had the disadvantage of
+polluting many other aspects of Accelerate and its backend implementation, while
+making the core terms unwieldy to manipulate.
+%
+The question is: when a collective operation such as \texttt{fold} accesses data
+from its input array, how should we express that this input might not be
+represented as manifest data?
+
+It is informative to think about the problem of representing fused
+producer/consumer operations and how to implement this at a specific example.
+Consider the Accelerate CUDA backend, and in particular how we generate CUDA C
+code for collective operations using a framework of algorithmic skeletons.
+Consider the \texttt{map} skeleton:
+%
+\begin{lstlisting}[style=cuda]
+__global__ void map(TyOut * d_out, const TyIn0 * d_in0, const int length)
+{
+    int ix   = blockDim.x * blockIdx.x + threadIdx.x;
+    int grid = blockDim.x * gridDim.x;
+
+    for (; ix < length; ix += grid) {
+        d_out[ix] = apply( d_in[ix] );          // read input array and apply scalar function
+    }
+}
+\end{lstlisting}
+%
+The skeleton fixes \texttt{map}'s parallel algorithmic structure and contains
+placeholders for the element types of the input and output arrays \texttt{TyIn0}
+and \texttt{TyOut}, as well as for the function \texttt{apply} that is applied
+to each individual array element. The skeleton instantiation is completed by
+bundling the skeleton code together with concrete definitions that fill in these
+placeholders to fix the array type and scalar function.
+
+Returning to our original question, what happens if the input array does not
+represent manifest array data?\footnote{Of course, \texttt{map} is typically
+fused into other operations, but the example is no less informative}. The key
+observation is that algorithmic skeletons not only encode the algorithmic
+structure of a collective operation, they implicitly encode a data access
+pattern of reading directly from manifest arrays. The fusion process invalidates
+this assumption. Instead of allowing the skeleton to read data as it pleases,
+the fusion transformation usurps this responsibility so that it can instead say
+``actually, read data at a different array index'', or ``read data from the
+array as as usual, but then apply this function to the result''. Now, to
+complete instantiation of a skeleton, we need to supply both the element types
+and scalar function as before, and additionally a function from indices to
+elements:
+%
+\begin{lstlisting}[style=cuda]
+__global__ void map( ... )
+{
+    for ( ... ) {
+        const TyIn0 val = get( ix );            // generate input data for this index
+        d_out[ix]       = apply( val );         // apply scalar function to produce output value
+    }
+}
+\end{lstlisting}
+
+Keeping in mind to retain opportunities for optimisation whenever possible, we
+can represent how to fuse arrays by describing how each element is generated.
+%
+\begin{lstlisting}[style=haskell]
+data DelayedAcc aenv a where
+  Manifest              :: PreOpenAcc DelayedAcc aenv a -> DelayedAcc aenv a
+
+  Delayed               :: (Shape sh, Elt e) =>
+    { extentD           :: PreExp DelayedAcc aenv sh
+    , indexD            :: PreFun DelayedAcc aenv (sh  -> e)
+    , linearIndexD      :: PreFun DelayedAcc aenv (Int -> e)
+    }                   -> DelayedAcc aenv (Array sh e)
+\end{lstlisting}
+
+
+
+
+
+
+\endinput
+
+we can distil the \texttt{DelayedAcc} representation into a form we can embed
+into arrays to indicate how to fuse an operation:
+
+fusion disconnects 
+
+previously, a backend is always given manifest arrays, and then they are free to
+access that data as it pleases. fusion changes this --- instead of reading data
+directly, I want to say ``actually, read data from this other array index'', or
+``read the data and then apply this function to it''. fusion takes this
+responsibility from a backend of how to read data at an index --- how to index an
+array (sh -> e) --- and instead provides a code fragment for how to do this.
+
+
+operation of reading data at an index, (sh -> e), and instead takes care of
+that. So 
+
+It is insightful to think of
+the difference between the 
+
+
+As hinted at previously, we need a way to
+
+
+As hinted to previously, what we need is a way
+to embed a representation of the producer array, which describes how each array
+element is generated, directly into the consumer of those elements. This section
+addresses the question of how we should represent uuu
+
+The
+question is how should we represent this fact.
+
+This section discusses how we do this.
+
+
+In other words: how shall we represent
+\texttt{fold} to indicate that production of the input array data should be
+fused directly into the reduction?
+
+
+\paragraph{Intermediate Representation}
+
+
+Bad choice: inserting the definition of DelayedAcc directly in place of the fold
+array input. continual checking of what style of array we have when traversing
+the array for optimisation / code generation / execution / etc.
+
+What are the things that we really need to know about the representation when it
+comes to executing the expression: for CUDA this corresponds to code generation.
+Essentially, the shape (extent) of the input, and a function that will produce
+an element at each index.
+
+backend specific \ldots last piece of the fragments are generated by \ldots 
+
+\paragraph{A Classy Hack}
+
+Oh man, this would be so cool if there actually was some class (or set of
+functions?) for spitting out those scalar code fragments\ldots
+
+
+
+
+\subsubsection{Rules were made to be broken}
+
+Let floating and fusing let bound operations.
+
+blurgh blurgh
 
 
 \endinput
@@ -1676,7 +2036,7 @@ programs.
 \section{Conclusion}
 
 % \section{Fusion / Global optimisation}
-% \textcolor{red}{[insert catchy name]}
+% \note{[insert catchy name]}
 % 
 % Inference rules for forcing\ldots
 

@@ -648,6 +648,7 @@ they are applied to.
 
 \subsubsection{Sharing Observation}
 
+\marginnote{n00b: introduce sharing and why difficult in DSLs}
 As described in section~\derp, operations of the embedded language do not
 directly issue computations; instead, they build term trees that represent
 the embedded computation. These term trees use \indexe{higher-order abstract
@@ -1946,6 +1947,7 @@ way.
         unwieldy: when a backend traverses terms for purposes such as code
         generation or execution, it should not need to descend into subterms to
         process a given node; the necessary information should be on hand.
+        \note{derp: required to do that anyway}.
 \end{itemize}
 %
 The final point hints at the next thread of investigation to pull on: once
@@ -1979,7 +1981,8 @@ __global__ void map(TyOut * d_out, const TyIn0 * d_in0, const int length)
     int grid = blockDim.x * gridDim.x;
 
     for (; ix < length; ix += grid) {
-        d_out[ix] = apply( d_in[ix] );          // read input array and apply scalar function
+        const TyOut val = d_in[ix];             // read data from array
+        d_out[ix]       = apply( val );         // apply scalar function to produce output value
     }
 }
 \end{lstlisting}
@@ -1998,11 +2001,11 @@ observation is that algorithmic skeletons not only encode the algorithmic
 structure of a collective operation, they implicitly encode a data access
 pattern of reading directly from manifest arrays. The fusion process invalidates
 this assumption. Instead of allowing the skeleton to read data as it pleases,
-the fusion transformation usurps this responsibility so that it can instead say
-``actually, read data at a different array index'', or ``read data from the
-array as as usual, but then apply this function to the result''. Now, to
-complete instantiation of a skeleton, we need to supply both the element types
-and scalar function as before, and additionally a function from indices to
+the fusion transformation usurps this responsibility so that it can instead, for
+example, say ``actually, read data at a different array index'', or ``read data
+from the array as as usual, but then apply this function to the result''. Now,
+to complete instantiation of a skeleton, we need to supply both the element
+types and scalar function as before, and additionally a function from indices to
 elements:
 %
 \begin{lstlisting}[style=cuda]
@@ -2010,13 +2013,18 @@ __global__ void map( ... )
 {
     for ( ... ) {
         const TyIn0 val = get( ix );            // generate input data for this index
-        d_out[ix]       = apply( val );         // apply scalar function to produce output value
+        d_out[ix]       = apply( val );         // apply scalar function
     }
 }
 \end{lstlisting}
 
-Keeping in mind to retain opportunities for optimisation whenever possible, we
-can represent how to fuse arrays by describing how each element is generated.
+We can represent how to embed fused arrays the shape (extent) of the array and a
+function describing how the element at each index is generated. The following
+representation is used to annotate the AST in the recursive knot to distinguish
+standard AST terms from operand arrays that should be embedded into their
+consumer. This indicates that production of the input array data should be
+embedded directly into the consumer of that array, and carries the expressions
+necessary to be able to do that.
 %
 \begin{lstlisting}[style=haskell]
 data DelayedAcc aenv a where
@@ -2028,83 +2036,176 @@ data DelayedAcc aenv a where
     , linearIndexD      :: PreFun DelayedAcc aenv (Int -> e)
     }                   -> DelayedAcc aenv (Array sh e)
 \end{lstlisting}
+%
+Keeping in mind to retain opportunities for optimisation whenever possible, note
+that the representation carries two methods of generating elements at an index.
+A backend is then able to process these additional expression fragments to
+insert code directly into the definition of a collective operation the method of
+generating input data, completing the final step of the fusion transformation.
 
 
+\subsubsection{Rules Were Made to be Broken}
 
+The preceding sections explained how to fuse producer operations such as
+\texttt{zipWith} and how to embed these operations into consumers such as
+\texttt{fold}. This completes the basic formulation of array fusion in
+Accelerate, so let us recap on the overall strategy of rewriting the AST to fuse
+terms:
+%
+\begin{itemize}
+    \item Fuse arbitrary sequences of producers into a single producer term.
+    \item Embed producers directly into consumers outputting a consumer term.
+    \item Control flow statements form stop points for the fusion transform.
+\end{itemize}
+%
+So far we have not explored how the deforester should handle control flow
+operators in the term tree. Previously we noted that the most immediately
+pressing problem with the delayed array implementation in Repa-1 was that it did
+not preserving sharing of collective operations, which led to excessive
+recomputation and severe repercussions on performance if the user did not
+explicitly force arrays to be evaluated. Consider the following example:
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+let b = map f a in mmMult b b
+\end{lstlisting}
+%
+Each access to an element of \texttt{b} will apply the (arbitrarily expensive)
+function \texttt{f} to the corresponding element of \texttt{a}. It follows that
+each of these arbitrarily expensive computations will be computed
+\emph{at least twice}, once for each argument in \texttt{mmMult} and quite
+contrary to the programmer's intent. Indeed, if \texttt{mmMult} itself consumes
+elements of its arguments in a non-linear way, accessing them more than once,
+the computation of \texttt{f} will be performed each time. The solution is to
+ensure that \texttt{b} is computed to a manifest array.
 
+Once this problem was identified, it guided the design for array fusion process:
+simply do not fuse into \texttt{let}-bindings as this introduces work
+duplication. Now that we have a decent story for producer and consumer array
+fusion, we can evaluate the effectiveness of this strategy. Consider the
+expression \lstinline[style=inline]{zipWith f xs (map g xs)} where we will
+take it that \texttt{xs} is a manifest array defined elsewhere. Since the input
+array \texttt{xs} is used twice, sharing recovery correctly generates the
+following expression, rewritten slightly for clarity:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)        -- xs
+in zipWith f a0 (map g a0)
+\end{lstlisting}
+%
+The transformation will fuse these two terms to produce the following:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+in generate (shape a0) (\ix -> let x = a0 ! ix
+                               in  f x (g x))
+\end{lstlisting}
+%
+This \texttt{generate} term is a prime candidate to fuse with further producer
+operations.\footnote{Recall that \texttt{generate} is represented by a
+\texttt{Yield} node in the internal representation.} For example, the source
+program may then \texttt{map} a function \texttt{h} over the result of the
+\texttt{zipWith} expression. This produces the following term:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+    a1 = generate (shape a0) (\ix -> let x = a0 ! ix
+                                     in  f x (g x))
+in map h a1
+\end{lstlisting}
+%
+Hmm, that is not what we wanted! The scalar function \texttt{h} should have been
+pushed into argument function of \texttt{generate}, yielding a single fused
+collective operation --- what went wrong?
 
+\paragraph{\texttt{\bf let}-floating}
 
-\endinput
+The problem is that \texttt{generate} appears as the body expression of the
+\texttt{let}-binding for the array \texttt{a0}. In a sense this, rather
+unintentionally, gets in the way of the fusion process: when inspecting the
+array argument to \texttt{map} to see if can be fused, we encounter the
+\texttt{let} node and cautiously proceed no further, lest we introduce duplicate
+work.
 
-we can distil the \texttt{DelayedAcc} representation into a form we can embed
-into arrays to indicate how to fuse an operation:
+However, as we have seen this is not quite correct. Instead we should look
+underneath the bound term and attempt to apply the fusion process to the binding
+term. In fact, this is straightforward to accomplish using our existing notion
+of extended environments, and applies not only to manifest arrays such as
+\texttt{use}, but all expressions thus far determined to be in a non-delayed
+representation:\footnote{This includes not only array injection such as
+\texttt{use}, but also consumers such as \texttt{fold} that must be computed at
+this point in the program.}
+%
+\begin{lstlisting}[style=haskell]
+aletD :: (Arrays arrs, Arrays brrs)
+      => PreOpenAcc OpenAcc aenv         arrs
+      -> PreOpenAcc OpenAcc (aenv, arrs) brrs
+      -> DelayedAcc         aenv         brrs
+aletD bndAcc bodyAcc =
+  case delay bndAcc of
+    Done env1 a1 -> case delay (sinkA1 env1 bodyAcc) of
+      Done env2 a2      -> Done (env1 `join` a1 `cons` env2) a2        -- combine extended environments\ldots
+      Yield env2 sh2 f2 -> Yield (env1 `join` a1 `cons` env2) sh2 f2   -- \ldots and traverse into the body
+      Step ...
+\end{lstlisting}
+%
+Here, \texttt{join} and \texttt{cons} combine the snoc-list of extended
+environments and are analogous to \texttt{(++)} and \texttt{(:)} for standard
+Haskell lists, respectively. This then allows us to push underneath
+\texttt{let}-bindings of manifest array data, as desired. However, what if the
+bound term is not in a manifest state, is there anything we can do in this case?
+\marginnote{didn't show the final, but should be obvious enough?}
 
-fusion disconnects 
+\paragraph{\texttt{\bf let}-elimination}
 
-previously, a backend is always given manifest arrays, and then they are free to
-access that data as it pleases. fusion changes this --- instead of reading data
-directly, I want to say ``actually, read data from this other array index'', or
-``read the data and then apply this function to it''. fusion takes this
-responsibility from a backend of how to read data at an index --- how to index an
-array (sh -> e) --- and instead provides a code fragment for how to do this.
+In the previous section we saw that it was necessary to allow
+\texttt{let}-bindings of manifest arrays to ``float'' so that we can inspect the
+body of the binding to possibly apply further fusion. The next question to ask
+is whether it makes sense to do something similar if the bound computation is in
+a delayed state? Consider the expression \lstinline[style=inline]{map f (reverse xs)}
+for some manifest array \texttt{xs}. Being a straightforward sequence of index
+and value transformation, we expect that these two functions fuse together to
+produce a term similar to \texttt{transform}. Applying fusion to the expression
+yields the following term:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+    a1 = backpermute (shape a0) (\x0 -> let Z :. i   = x0
+                                            Z :. len = shape a0
+                                        in Z :. len - i - 1) a0
+in map f a1
+\end{lstlisting}
+%
+which is, once again, not what was desired. The problem can be seen by
+inspecting the definition of \texttt{reverse}:
+%
+\begin{lstlisting}[style=haskell]
+reverse :: Elt e => Acc (Vector e) -> Acc (Vector e)
+reverse xs =
+  let Z :. len  = shape xs
+      pf i      = len - i - 1
+  in  backpermute (shape xs) (ilift1 pf) xs
+\end{lstlisting}
+%
+The array \texttt{xs} is clearly used multiple times in the definition of
+\texttt{reverse}, and so the sharing recovery algorithm correctly
+\texttt{let}-binds this array rather than inlining the definition into the three
+use sites to avoid work duplication.
+% The previous trick of moving underneath the
+% \texttt{let}-binding will not help us in this case.
 
+However, if we encounter this term as a delayed array during the fusion
+transformation, we can be a bit cleverer. The critical thing to note is that the
+input argument to \texttt{backpermute} is \texttt{let}-bound only so that the
+shape information of the array can be accessed: the actual array data itself is
+used only once. If we ignore uses of the array to extract shape information,
+then this fulfils our criteria for fusing operations which are used only once,
+and the terms can be fused as we expected initially. Luckily, the delayed
+representations, as seen in listing~\ref{lst:DelayedAcc}, include the shape of
+the array it represents as a scalar term. Thus, we can eliminate
+\texttt{let}-bindings by pushing the scalar shape and value generation functions
+of the bound term directly into the subject body, when there are only linear
+uses of the array data.
 
-operation of reading data at an index, (sh -> e), and instead takes care of
-that. So 
-
-It is insightful to think of
-the difference between the 
-
-
-As hinted at previously, we need a way to
-
-
-As hinted to previously, what we need is a way
-to embed a representation of the producer array, which describes how each array
-element is generated, directly into the consumer of those elements. This section
-addresses the question of how we should represent uuu
-
-The
-question is how should we represent this fact.
-
-This section discusses how we do this.
-
-
-In other words: how shall we represent
-\texttt{fold} to indicate that production of the input array data should be
-fused directly into the reduction?
-
-
-\paragraph{Intermediate Representation}
-
-
-Bad choice: inserting the definition of DelayedAcc directly in place of the fold
-array input. continual checking of what style of array we have when traversing
-the array for optimisation / code generation / execution / etc.
-
-What are the things that we really need to know about the representation when it
-comes to executing the expression: for CUDA this corresponds to code generation.
-Essentially, the shape (extent) of the input, and a function that will produce
-an element at each index.
-
-backend specific \ldots last piece of the fragments are generated by \ldots 
-
-\paragraph{A Classy Hack}
-
-Oh man, this would be so cool if there actually was some class (or set of
-functions?) for spitting out those scalar code fragments\ldots
-
-
-
-
-\subsubsection{Rules were made to be broken}
-
-Let floating and fusing let bound operations.
-
-blurgh blurgh
-
-
-\endinput
 
 \section{The Transformations Interacting}
 
@@ -2113,6 +2214,8 @@ transformations described in the preceding sections. Many of these motivating
 examples have shown up in real applications. The effects usually involve a
 combination of many transformations and so give an idea of how the
 transformations interact with one another.
+
+example: zipWith f xs xs for ordering of simplification / shrinking
 
 \subsection{Repeated Evaluations}
 % \subsection{Error tests eliminated}

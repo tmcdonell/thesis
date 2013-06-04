@@ -4,6 +4,8 @@
 # vim: ft=perl
 #
 
+# Skim has better auto refresh characteristics than Preview
+#
 $pdf_previewer = "open -a skim %S";
 
 add_cus_dep('mng', 'tex', 0, 'mng2tex');

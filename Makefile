@@ -1,11 +1,5 @@
-#
-# Variables
-#
 export MAINROOT = $(shell pwd)
 
-#
-# Rules
-#
 MAINFILE	= thesis
 
 SUBDIRS		= images semantics
@@ -14,9 +8,17 @@ BUILDDIR	= build
 LATEXMK_FLAGS	= -outdir=$(BUILDDIR) -pdf
 OTT_FLAGS	= -show_sort true -show_defns true -tex_wrap false
 
-begin: $(SUBDIRS) $(MISCDEP)
-	@for x in $(SUBDIRS); do $(MAKE) -C $$x; done
+default:continuous
+
+
+oneshot: deps
+	latexmk $(LATEXMK_FLAGS) $(MAINFILE)
+
+continuous: deps
 	latexmk $(LATEXMK_FLAGS) -pvc $(MAINFILE)
+
+deps:$(SUBDIRS) $(MISCDEP)
+	@for x in $(SUBDIRS); do $(MAKE) -C $$x; done
 
 %.tex: %.mng
 	ott $(OTT_FLAGS) -tex_filter $< $@ $(OTT_FILES)

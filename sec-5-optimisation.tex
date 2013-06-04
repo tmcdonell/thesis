@@ -125,11 +125,11 @@ data PreOpenExp acc env aenv t where
 To apply \texttt{heq} to the body expression, we need to know something about
 the type of the bound terms to ensure that the scalar environments are the same,
 namely \lstinline[mathescape]{a $\sim$ bnd_t $\sim$ b}.\footnote{Alternatively
-we can use \texttt{gcast} to provide a type-safe cast, but this quickly
-becomes unwieldy and is a little unsatisfactory.} To do this we must equip terms
-with a runtime witness to the existentially quantified type. Our reified
-dictionaries will allow us to do exactly this, so we can define heterogeneous
-equality for reified dictionaries:
+we can use \texttt{Data.Typeable.gcast} to provide a type-safe cast, but this
+quickly becomes unwieldy and is a little unsatisfactory.} To do this we must
+equip terms with a runtime witness to the existentially quantified type. Our
+reified dictionaries will allow us to do exactly this, so we can define
+heterogeneous equality for reified dictionaries:
 %
 \begin{lstlisting}[style=haskell]
 heqIntegralType :: IntegralType s -> IntegralType t -> Bool
@@ -328,6 +328,7 @@ until no further changes can me made, or an iteration limit is reached.
 % \end{itemize}
 
 \subsection{Simplification}
+\label{sec:simplification}
 
 Functional language compilers often perform optimisations. To avoid speculative
 optimisations that can blow up code size, we might wish to use only
@@ -362,7 +363,10 @@ developed in \autoref{sec:manipulating_terms}. This also suffices to eliminate
 dead code, as Accelerate does not have separate forms for \texttt{let}-bindings
 and lambda abstractions.
 %
-\begin{lstlisting}[style=Haskell,caption={The shrinking reduction}]
+\begin{lstlisting}[
+    style=Haskell,
+    label={lst:shrinking},
+    caption={The shrinking reduction}]
 usesOf :: Idx env s -> Term env t -> Int
 usesOf idx (Var idx')
     | Just REFL <- matchIdx idx idx'    = 1
@@ -549,16 +553,17 @@ $n$ gets.
     \begin{center}
         \includegraphics[width=0.8\textwidth]{images/sec-5/mandelbrot}
     \end{center}
-    \caption{Image of a Mandelbrot set with a continuously coloured
-    environment. Each pixel corresponds to a point $c$ in the complex plane, and
-    its colour depends the number of iterations $n$ before the relation diverges.}
+    \caption[The Mandelbrot fractal]{Image of a Mandelbrot set with a
+        continuously coloured environment. Each pixel corresponds to a point $c$
+        in the complex plane, and its colour depends the number of iterations
+        $n$ before the relation diverges.}
     \label{fig:mandelbrot}
 \end{figure}
 
-How can we express this computation in a language without iteration? In
-Accelerate, we can instead use generative meta-programming techniques to express
-the recurrence relation by first defining a single step of the iteration in
-Accelerate:
+How can we express this computation in a language without iteration? Instead we
+can use generative (meta-programming) techniques to express the recurrence
+relation by first defining a single step of the relation in the Accelerate
+scalar language:
 %
 \begin{lstlisting}[style=haskell]
 iter :: Exp Complex -> Exp (Complex, Int) -> Exp (Complex, Int)
@@ -571,21 +576,21 @@ iter c z_n = ...
 %
 This computes the next value of the polynomial $z_{n+1}$ as well as the number
 of iterations $n$ if the element has not diverged, otherwise returns the value
-and iteration count at divergence unchanged. This operation is then applied at
-all points in the plane \texttt{cs}:
+and iteration count at divergence unchanged. We then lift this to the Accelerate
+array language by applying the operation at all points in the plane \texttt{cs}:
 %
-\begin{lstlisting}[style=haskell]
+\begin{lstlisting}[style=haskell,firstnumber=last]
 step :: Acc (Array DIM2 (Complex,Int)) -> Acc (Array DIM2 (Complex,Int))
 step = A.zipWith iter cs
 \end{lstlisting}
 %
-We have to apply the function even to elements that have already diverged, which
-wastes work but means that there is less SIMD divergence because we still do the
-same thing to every element in every iteration. We can then use standard Haskell
-to unroll the loop a \emph{fixed} number of times to complete the Mandelbrot set
-calculation:
+Note that we have to apply the function even to elements that have already
+diverged. This wastes work but means that there is less SIMD divergence because
+we still do the same thing to every element in every iteration. We can then use
+standard Haskell to unroll the loop a \emph{fixed} number of times, which
+completes the Mandelbrot set calculation:
 %
-\begin{lstlisting}[style=haskell]
+\begin{lstlisting}[style=haskell,firstnumber=last]
 mandelbrot :: Acc (Array DIM2 (Complex,Int)) -> Acc (Array DIM2 (Complex,Int))
 mandelbrot = foldr ($) zs0 (replicate depth step)
 \end{lstlisting}
@@ -637,10 +642,14 @@ value \texttt{e1}. Similarly, loops can be joined:
 %
 Recovering scalar loops in this way enables a backend to generate explicit loops
 in its target language, such as CUDA, and ultimately results in higher
-performance code.
+performance code. In future, it would be beneficial to augment it with related
+loop optimisations such as loop invariant code motion in the frontend and
+lower-level code generation optimisations in a backend.
+\marginnote{why can't we use an observable technique?}
 
 
 \subsection{Redundancy Elimination}
+\label{sec:redundancy_elimination}
 
 The optimisations in this section deal with the elimination of redundant
 computations. These procedures almost always improve the performance of the code
@@ -648,7 +657,8 @@ they are applied to.
 
 \subsubsection{Sharing Observation}
 
-\marginnote{n00b: introduce sharing and why difficult in DSLs}
+\marginnote{describe why this is difficult for deeply embedded DSLs. approaches
+other than sharing}
 As described in section~\derp, operations of the embedded language do not
 directly issue computations; instead, they build term trees that represent
 the embedded computation. These term trees use \indexe{higher-order abstract
@@ -680,7 +690,9 @@ If we do not take care, the expression will be inefficiently translated as:
 zipWith g (map f xs) (map f xs)
 \end{lstlisting}
 %
-To recover sharing, we user a variant of Gill's technique \cite{Gill:2009}; in
+because the straightforward evaluation of the surface language program results
+in a complete unfolding of the expression into embedded language terms. To
+recover sharing, we user a variant of Gill's technique \cite{Gill:2009}; in
 contrast to this work, we preserve types and produce a nested term with minimal
 flattening, instead of a graph. A complete treatment of the sharing recovery
 algorithm appears in \derp; in brief it proceeds in the following phases:
@@ -736,10 +748,10 @@ following (simplified) core language term:
 \end{lstlisting}
 
 
-\subsubsection{Common-Subexpression Elimination}
+\subsubsection{Common Subexpression Elimination}
 \label{sec:cse}
 
-\emph{Common-subexpression elimination} finds computations that are performed at
+\emph{Common subexpression elimination} finds computations that are performed at
 least twice on a given execution path and eliminates the second and later
 occurrences, replacing them with uses of saved values. The current
 implementation performs a simplified version of common subexpression, where we
@@ -753,7 +765,7 @@ and replace all occurrences of \texttt{e1} in \texttt{e2} with \texttt{x}. This
 is not complete full redundancy analysis, but is good enough to catch some
 cases.%\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
 
-While it may seem that common-subexpression elimination is always worthwhile, as
+While it may seem that common subexpression elimination is always worthwhile, as
 it reduces the number of arithmetic operations performed, this is not
 necessarily advantageous. The simplest case in which it may not be desirable is
 if it causes a register to be occupied for a long time in order to hold the
@@ -1292,7 +1304,7 @@ as part of the fusion transformation.
 Armed with a strategy to deal with an index or value transformation applied to
 an array (as we shall see, \texttt{slice} and \texttt{replicate} can be
 represented in terms of \texttt{backpermute}), we now need to develop a way to
-deal with multiple arrays (\texttt{zipWith}), which historically speaking have
+deal with multiple arrays (\texttt{zipWith}), which historically speaking has
 proved to be rather challenging for fusion systems, as well as the
 \texttt{generate} function which takes no explicit input arrays. Since
 \texttt{generate} has no input arrays, we only need to consider a single rule:
@@ -1336,6 +1348,7 @@ a backend by being able to ignore producer/consumer fusion.
 
 
 \subsection{Environment Manipulation}
+\label{sec:environment_manipulation}
 
 As discovered in the previous section, as part of the fusion transformation of
 recasting terms we often need to lift array valued inputs to be
@@ -1589,8 +1602,8 @@ substitution machinery developed earlier
 (\S\ref{sec:substitution}).\footnote{Annoyingly, we also require a second
 catch-all case to suppress a compilation warning about unmatched patterns,
 because GHC's type checker can not determine that the function type prohibits
-any valid term except those caught by this single case. We elide the impossible
-case for brevity.}
+any valid term except those caught by this single case. Here and in future, we
+shall elide the impossible cases for brevity.}
 %
 \begin{lstlisting}[style=haskell]
 compose :: Elt c
@@ -1945,9 +1958,9 @@ way.
     \item Traversing the AST would require a case distinction when descending
         into every array valued computation. From a practical sense this is
         unwieldy: when a backend traverses terms for purposes such as code
-        generation or execution, it should not need to descend into subterms to
-        process a given node; the necessary information should be on hand.
-        \note{derp: required to do that anyway}.
+        generation or execution, it should not need to arbitrarily descend into
+        subterms to process a given node; the necessary information should be on
+        hand. \note{derp: required to do that anyway}.
 \end{itemize}
 %
 The final point hints at the next thread of investigation to pull on: once
@@ -2002,11 +2015,10 @@ structure of a collective operation, they implicitly encode a data access
 pattern of reading directly from manifest arrays. The fusion process invalidates
 this assumption. Instead of allowing the skeleton to read data as it pleases,
 the fusion transformation usurps this responsibility so that it can instead, for
-example, say ``actually, read data at a different array index'', or ``read data
-from the array as as usual, but then apply this function to the result''. Now,
-to complete instantiation of a skeleton, we need to supply both the element
-types and scalar function as before, and additionally a function from indices to
-elements:
+example, read data at a different array index or read several elements and
+combine them in some way to produce a single value. Now, to complete
+instantiation of a skeleton, we need to supply both the element types and scalar
+function as before, and additionally a function from indices to elements:
 %
 \begin{lstlisting}[style=cuda]
 __global__ void map( ... )
@@ -2069,26 +2081,27 @@ explicitly force arrays to be evaluated. Consider the following example:
 let b = map f a in mmMult b b
 \end{lstlisting}
 %
-Each access to an element of \texttt{b} will apply the (arbitrarily expensive)
-function \texttt{f} to the corresponding element of \texttt{a}. It follows that
-each of these arbitrarily expensive computations will be computed
-\emph{at least twice}, once for each argument in \texttt{mmMult} and quite
-contrary to the programmer's intent. Indeed, if \texttt{mmMult} itself consumes
-elements of its arguments in a non-linear way, accessing them more than once,
-the computation of \texttt{f} will be performed each time. The solution is to
-ensure that \texttt{b} is computed to a manifest array.
+If the result \texttt{b} is not evaluated, each access to an element of
+\texttt{b} in \texttt{mmMult} will apply the (arbitrarily expensive) function
+\texttt{f} to the corresponding element of \texttt{a}. It follows that each of
+these arbitrarily expensive computations will be computed \emph{at least twice},
+once for each argument in \texttt{mmMult} and quite contrary to the programmer's
+intent. Indeed, if \texttt{mmMult} itself consumes elements of its arguments in
+a non-linear way, accessing them more than once, the computation of \texttt{f}
+will be performed each time. The solution is to ensure that \texttt{b} is
+computed to a manifest array.
 
-Once this problem was identified, it guided the design for array fusion process:
-simply do not fuse into \texttt{let}-bindings as this introduces work
-duplication. Now that we have a decent story for producer and consumer array
-fusion, we can evaluate the effectiveness of this strategy. Consider the
-expression \lstinline[style=inline]{zipWith f xs (map g xs)} where we will
-take it that \texttt{xs} is a manifest array defined elsewhere. Since the input
-array \texttt{xs} is used twice, sharing recovery correctly generates the
-following expression, rewritten slightly for clarity:
+Once this problem was identified, it helped to guide the design for the
+Accelerate array fusion process: simply do not fuse into \texttt{let}-bindings,
+as this introduces work duplication. Now that we have a decent story for
+producer and consumer array fusion, we can evaluate the effectiveness of this
+strategy. Consider the expression \lstinline[style=inline]{zipWith f xs (map g xs)}
+where we will take it that \texttt{xs} is a manifest array defined elsewhere.
+Since the input array \texttt{xs} is used twice, sharing recovery correctly
+generates the following expression, rewritten slightly for clarity:
 %
 \begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)        -- xs
+let a0 = use (Array ...)        -- input array \texttt{xs}
 in zipWith f a0 (map g a0)
 \end{lstlisting}
 %
@@ -2129,11 +2142,15 @@ work.
 However, as we have seen this is not quite correct. Instead we should look
 underneath the bound term and attempt to apply the fusion process to the binding
 term. In fact, this is straightforward to accomplish using our existing notion
-of extended environments, and applies not only to manifest arrays such as
-\texttt{use}, but all expressions thus far determined to be in a non-delayed
-representation:\footnote{This includes not only array injection such as
-\texttt{use}, but also consumers such as \texttt{fold} that must be computed at
-this point in the program.}
+of extended environments, which should be unsurprising since the \texttt{Extend}
+apparatus was developed to prevent \texttt{let}-bindings introduced by the
+fusion transformation from causing exactly the same problem
+(\S\ref{sec:environment_manipulation}). This process of ``floating'' bindings
+applies not only to manifest arrays but to all expressions that were determined
+to be in a non-delayed representation:
+\footnote{This includes not only array injection such as \texttt{use}, but also
+consumers such as \texttt{fold} that must be computed at this point in the
+program.}
 %
 \begin{lstlisting}[style=haskell]
 aletD :: (Arrays arrs, Arrays brrs)
@@ -2144,24 +2161,25 @@ aletD bndAcc bodyAcc =
   case delay bndAcc of
     Done env1 a1 -> case delay (sinkA1 env1 bodyAcc) of
       Done env2 a2      -> Done (env1 `join` a1 `cons` env2) a2        -- combine extended environments\ldots
-      Yield env2 sh2 f2 -> Yield (env1 `join` a1 `cons` env2) sh2 f2   -- \ldots and traverse into the body
+      Yield env2 sh2 f2 -> Yield (env1 `join` a1 `cons` env2) sh2 f2   -- \ldots so we can traverse into the body
       Step ...
 \end{lstlisting}
 %
 Here, \texttt{join} and \texttt{cons} combine the snoc-list of extended
 environments and are analogous to \texttt{(++)} and \texttt{(:)} for standard
 Haskell lists, respectively. This then allows us to push underneath
-\texttt{let}-bindings of manifest array data, as desired. However, what if the
+\texttt{let}-bindings of manifest array terms, as desired. However, what if the
 bound term is not in a manifest state, is there anything we can do in this case?
 \marginnote{didn't show the final, but should be obvious enough?}
 
 \paragraph{\texttt{\bf let}-elimination}
 
 In the previous section we saw that it was necessary to allow
-\texttt{let}-bindings of manifest arrays to ``float'' so that we can inspect the
+\texttt{let}-bindings of manifest arrays to float so that we can inspect the
 body of the binding to possibly apply further fusion. The next question to ask
 is whether it makes sense to do something similar if the bound computation is in
-a delayed state? Consider the expression \lstinline[style=inline]{map f (reverse xs)}
+a delayed state? Consider the expression
+\lstinline[style=inline]{map f (reverse xs)}
 for some manifest array \texttt{xs}. Being a straightforward sequence of index
 and value transformation, we expect that these two functions fuse together to
 produce a term similar to \texttt{transform}. Applying fusion to the expression
@@ -2175,8 +2193,9 @@ let a0 = use (Array ...)
 in map f a1
 \end{lstlisting}
 %
-which is, once again, not what was desired. The problem can be seen by
-inspecting the definition of \texttt{reverse}:
+which is, once again, not what was desired, as the \texttt{map} and
+\texttt{backpermute} operators were not. The problem can be seen by inspecting
+the definition of \texttt{reverse}:
 %
 \begin{lstlisting}[style=haskell]
 reverse :: Elt e => Acc (Vector e) -> Acc (Vector e)
@@ -2190,21 +2209,69 @@ The array \texttt{xs} is clearly used multiple times in the definition of
 \texttt{reverse}, and so the sharing recovery algorithm correctly
 \texttt{let}-binds this array rather than inlining the definition into the three
 use sites to avoid work duplication.
-% The previous trick of moving underneath the
-% \texttt{let}-binding will not help us in this case.
 
 However, if we encounter this term as a delayed array during the fusion
 transformation, we can be a bit cleverer. The critical thing to note is that the
 input argument to \texttt{backpermute} is \texttt{let}-bound only so that the
 shape information of the array can be accessed: the actual array data itself is
-used only once. If we ignore uses of the array to extract shape information,
-then this fulfils our criteria for fusing operations which are used only once,
-and the terms can be fused as we expected initially. Luckily, the delayed
-representations, as seen in listing~\ref{lst:DelayedAcc}, include the shape of
-the array it represents as a scalar term. Thus, we can eliminate
-\texttt{let}-bindings by pushing the scalar shape and value generation functions
-of the bound term directly into the subject body, when there are only linear
-uses of the array data.
+used only once. Recall that the delayed representations
+(listing~\ref{lst:DelayedAcc}) include the shape of the array it represents as a
+scalar term. This allows us to ignore uses of the array for shape information,
+and so potentially eliminate \texttt{let}-bindings by pushing the scalar shape
+and value generation functions of the bound term directly into the subject body
+when uses of the array \emph{data} component satisfy the standard criteria for
+fusing terms.
+
+\marginnote{should mention somewhere, much earlier, that we rely on all array
+expressions being lifted out of scalar computations.}
+Implementation of \texttt{let}-elimination requires a modified version of
+\texttt{usesOf} (listing~\ref{lst:shrinking}) that does not consider
+contributions from \texttt{Shape}, and a function to replace shape and indexing
+of a given array with scalar expressions:
+%
+\begin{lstlisting}[style=haskell]
+replace :: (Shape sh, Elt e)
+        -> Idx                aenv (Array sh e)         -- replace this embedded array\ldots
+        -> PreOpenExp acc env aenv sh                   -- \ldots with this shape\ldots
+        -> PreOpenFun acc env aenv (sh -> e)            -- \ldots and value generation function
+        -> PreOpenExp acc env aenv t
+        -> PreOpenExp acc env aenv t
+replace idx sh' f' exp =
+  case exp of
+    Let bnd body  -> Let (replace idx sh' f' bnd)
+                         (replace idx (weaken sh') (weaken f') body)
+    ...
+    Shape avar                                          -- if \texttt{avar} referes to \texttt{idx}\ldots
+      | Just REFL <- match idx avar     = sh            -- \ldots replace with scalar shape term
+      | otherwise                       = exp
+    Index avar ix ...                                   -- similarly replace indexing with generator \texttt{f'}
+\end{lstlisting}
+
+\marginnote{type of matchIdx? *wave hands*}
+Eliminating \texttt{let}-bindings in this way can also be done to
+\emph{introduce} work duplication, which may be beneficial if we can estimate
+that the cost of re-computation is less than the cost of completely evaluating
+the array and subsequently retrieving the data from memory. Currently we adopt
+the strategy of the shrinking transform, and only eliminate the binding when the
+number of uses of the array data is less than or equal to one.
+\note{replace, as with most everything, should be made nicerer}
+
+
+\paragraph{Conclusion}
+
+This section has discussed the algorithm for fusing the richly typed terms of
+the Accelerate core language. Following the success of previous array fusion
+techniques, we express collective operations in terms of a small combinator set
+and apply rules to this form instead of directly to Accelerate language terms,
+which reduces the number of combinations that must be considered. To balance the
+tension between performance and simplicity, we use three intermediate forms to
+represent the fusion state.
+%
+To exploit all fusion opportunities while still respecting sharing of subterms,
+special attention was paid to manipulating the array environment, in the form of
+\texttt{let}-floating
+% (both explicit and implicit via the \texttt{Extend} data type)
+and \texttt{let}-elimination.
 
 
 \section{The Transformations Interacting}
@@ -2215,10 +2282,76 @@ examples have shown up in real applications. The effects usually involve a
 combination of many transformations and so give an idea of how the
 transformations interact with one another.
 
-example: zipWith f xs xs for ordering of simplification / shrinking
+\subsection{Ordering}
+
+There are several possible orderings for the transformations discussed in this
+chapter, and one can easily invent examples to show that no order can be optimal
+for all programs, but some orderings are generally preferable to others. This
+section describes the motivation for the current sequence of transformations.
+
+Consider the term \lstinline[style=inline]{zipWith f xs xs}. The fusion
+transformation rewrites this into \texttt{generate} style as per
+section~\ref{sec:elements_of_style}. Before simplification this produces the
+following term, rewritten slightly:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+    a1 = a0
+    a2 = a1
+    a3 = a1
+in generate (intersect (shape a2) (shape a3))
+            (\x0 -> let x1 = a2!x0
+                        x2 = a3!x0
+                    in x1 + x2)
+\end{lstlisting}
+%
+There are a number of simplifications we would like to apply to this expression,
+including shrinking (\S\ref{sec:simplification}) and common subexpression
+elimination (\S\ref{sec:redundancy_elimination}). The additional array bindings
+are an artefact of the way the fusion transformation handles extended
+environment bindings \note{which Trevor is ashamed of and has promised to fix},
+and clearly all array variables refer to the same manifest data, \texttt{xs} in
+the expression expression. Applying shrinking to the array terms conceals this
+infelicity:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+in generate (intersect (shape a0) (shape a0))
+            (\x0 -> let x1 = a0!x0
+                        x2 = a0!x0
+                    in  x1 + x2)
+\end{lstlisting}
+%
+Applying shrinking simplifies the binding structure making it apparent that the
+scalar terms are indeed referring to the same array. If we follow the same
+strategy of shrinking the scalar expressions:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+in generate (intersect (shape a0) (shape a0))
+            (\x0 -> a0!x0 + a0!x0)
+\end{lstlisting}
+%
+This term is a completely valid interpretation of the source program that does
+not introduce any additional work, but we can do better. Applying shrinking
+inlines the two terms \texttt{x1} and \texttt{x2} because they are each only
+referenced once in the body, resulting in two accesses of the array to the same
+index. Since our straightforward implementation of common subexpression
+elimination is aimed at removing redundant \texttt{let}-bindings, we should
+always apply redundancy elimination before shrinking, resulting in a term that
+only accesses the underlying array once:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+in generate (intersect (shape a0) (shape a0))
+            (\x0 -> let x1 = a0!x0
+                    in  x1 + x1)
+\end{lstlisting}
 
 \subsection{Repeated Evaluations}
+
 % \subsection{Error tests eliminated}
+
 \subsection{Confluence and Termination}
 
 The set of transformations can be seen as a set of term rewriting rules. We

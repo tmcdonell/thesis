@@ -97,10 +97,10 @@ same type. In some instances we might not care, and as such can define standard
 heterogeneous equality:
 %
 \begin{lstlisting}[style=haskell]
-instance Eq (OpenExp env aenv t) where
+instance Eq (PreOpenExp acc env aenv t) where
     (==) = heq
     where
-        heq :: OpenExp env aenv a -> OpenExp env aenv b -> Bool
+        heq :: PreOpenExp acc env aenv a -> PreOpenExp acc env aenv b -> Bool
         heq = ...
 \end{lstlisting}
 %
@@ -168,13 +168,13 @@ allow us to test for equality \emph{homogeneously}, ensuring that positive
 results from singleton tests give the bonus of unifying types for other tests:
 %
 \begin{lstlisting}[style=haskell]
-matchOpenExp :: OpenExp env aenv s -> OpenExp env aenv t -> Maybe (s :=: t)
-matchOpenExp (Let x1 e1) (Let x2 e2)
+matchPreOpenExp :: PreOpenExp acc env aenv s -> PreOpenExp acc env aenv t -> Maybe (s :=: t)
+matchPreOpenExp (Let x1 e1) (Let x2 e2)
   | Just REFL <- matchOpenExp x1 x2     -- if the bound expressions match
   , Just REFL <- matchOpenExp e1 e2     -- then the environment of the body term will also match
   = Just REFL
 
-matchOpenExp ...
+matchPreOpenExp ...
 \end{lstlisting}
 
 % \paragraph{Congruence}
@@ -189,18 +189,19 @@ addition, where an operator yields the same result when the order of the
 operands are reversed. When checking equality of primitive applications, we
 discriminate binary functions whose arguments commute, and return those
 arguments in a stable ordering by comparing a hash of each of the
-sub-terms.\marginnote{elide snippet?}
+sub-terms.
 %
 \begin{lstlisting}[style=haskell]
-commutes :: PrimFun (a -> r) -> OpenExp env aenv a -> Maybe (OpenExp env aenv a)
+commutes :: PrimFun (a -> r) -> PreOpenExp acc env aenv a -> Maybe (PreOpenExp acc env aenv a)
 commutes f x = case f of
   PrimAdd _     -> Just (swizzle x)
     ...         -> Nothing
   where
-    swizzle :: OpenExp env aenv (a,a) -> OpenExp env aenv (a,a)
-    swizzle exp@(Tuple (NilTup `SnocTup` a `SnocTup` b))
-      | hashOpenExp a > hashOpenExp b   = Tuple (NilTup `SnocTup` b `SnocTup` a)
-      | otherwise                       = exp
+    swizzle :: PreOpenExp acc env aenv (a,a) -> PreOpenExp acc env aenv (a,a)
+    swizzle exp
+      | Tuple (NilTup `SnocTup` a `SnocTup` b) <- exp
+      , hashPreOpenExp a > hashPreOpenExp b     = Tuple (NilTup `SnocTup` b `SnocTup` a)
+      | otherwise                               = exp
 \end{lstlisting}
 
 

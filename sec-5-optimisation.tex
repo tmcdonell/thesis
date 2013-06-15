@@ -369,8 +369,8 @@ and lambda abstractions.
     label={lst:shrinking},
     caption={The shrinking reduction}]
 usesOf :: Idx env s -> Term env t -> Int
-usesOf idx (Var idx')
-    | Just REFL <- matchIdx idx idx'    = 1
+usesOf idx (Var this)
+    | Just REFL <- match this idx       = 1
     | otherwise                         = 0
 usesOf idx (Let bnd body)               = usesOf idx bnd + usesOf (SuccIdx idx) body
 usesOf ...
@@ -389,7 +389,7 @@ shrink ...
 \subsubsection{Constant-Expression Evaluation}
 
 \emph{Constant-expression evaluation}, or \emph{constant folding}, refers to the
-evaluation at compile time of expressions whose operands are known to be
+evaluation at compile time of scalar expressions whose operands are known to be
 constant. Essentially, constant-expression evaluation involves determining that
 all the operands in an expression are constant valued and performing the
 evaluation of the expression at compile time, replacing the expression by this
@@ -411,8 +411,8 @@ denormalised values --- all of which should be taken into account.
 
 The current implementation performs constant folding of scalar expressions for
 all primitive functions and all element types. However, no explicit checks for
-under/overflows are made, nor for invalid or exceptional values. For example,
-the following rewrite is always applied:
+underflow or overflow is made, nor for invalid or exceptional values. For
+example, the following rewrite is always applied:
 %
 % As Accelerate programs are just-in-time compiled and thus the optimisation is
 % applied at program runtime, I consider these checks to be of lower priority than
@@ -428,10 +428,14 @@ the following rewrite is always applied:
 The attentive reader will note that it is straightforward to choose a positive
 non-zero floating-point value \texttt{eps} such that \lstinline{eps + 1.0 > 1.0}
 is \texttt{False}. Issues arising from simplification of floating-point
-expressions are currently ignored.
+expressions are currently ignored, but this is not so outrageous as it would be
+for a traditional offline compiler: since Accelerate programs are just-in-time
+compiled, any such issues still occur only at program runtime. The only
+distinction is from in phase of program execution the problem manifests, not
+that it does.
 
 % Constant folding is also used to eliminate branches when the value of the
-% predicate can be determined.
+% predicate can be determined, or the branches are congruent.
 
 
 \paragraph{Constant Propagation}
@@ -511,6 +515,7 @@ based on the type of the expression, particularly for floating point
 terms. Both these concerns are left for future work. An example of the current
 implementation of constant folding is shown below.
 
+\marginnote{bugs in the associativity code; needs to be fixed}
 \begin{lstlisting}[style=Haskell,mathescape,caption={Example of constant expression evaluation}]
 f :: Exp Float -> Exp Float
 f x = let a = lift (constant 30, x)

@@ -684,7 +684,8 @@ converts HOAS terms into a \emph{nameless de Bruijn representation} \index{de
 Bruijn} in the style of \citet{Altenkirch:2003kz}, using GADTs \cite{Jones:2006}
 and type families \cite{Chakravarty:2005a,Schrijvers:2008} to preserve the
 embedded program's type information. The type-preserving HOAS to de Bruijn
-conversion is described elsewhere \cite{Atkey:2009,Chakravarty:2009uo}.
+conversion is described elsewhere
+\cite{Atkey:2009,Chakravarty:2009uo,McDonell:2013wi}.
 
 Together with the conversion to a nameless representation, we recover the
 sharing introduced by \texttt{let}-bound subterms in the embedded program. For
@@ -703,7 +704,7 @@ zipWith g (map f xs) (map f xs)
 %
 because the straightforward evaluation of the surface language program results
 in a complete unfolding of the expression into embedded language terms. To
-recover sharing, we user a variant of Gill's technique \cite{Gill:2009}; in
+recover sharing, we user a variant of Gill's technique \cite{Gill:2009dx}; in
 contrast to this work, we preserve types and produce a nested term with minimal
 flattening, instead of a graph. A complete treatment of the sharing recovery
 algorithm appears in \derp; in brief it proceeds in the following phases:
@@ -890,7 +891,7 @@ operations to avoid the intermediary.
 
 Building upon the original deforestation algorithm, Andy
 Gill's doctoral thesis introduces another approach to deforestation known as
-\indexe{foldr/build fusion} \cite{Gill:1996tf,Gill:1993}.
+\indexe{foldr/build fusion} \cite{Gill:1996tf,Gill:1993de}.
 % This techniques performs a range of optimisations as broad as previous
 % approaches the listless transformer \cite{Wadler:1984ia,Wadler:2005iw} while
 % addressing their drawbacks.

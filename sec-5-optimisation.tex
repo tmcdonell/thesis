@@ -668,28 +668,52 @@ they are applied to.
 
 \subsubsection{Sharing Observation}
 
-\marginnote{describe why this is difficult for deeply embedded DSLs. approaches
-other than sharing}
 As described in section~\derp, operations of the embedded language do not
-directly issue computations; instead, they build term trees that represent
-the embedded computation. These term trees use \indexe{higher-order abstract
-syntax} (HOAS)\index{HOAS|see{higher-order abstract syntax}}
-to embed function-valued scalar expressions as well as typeclass overloading to
-reflect arithmetic expressions.
+directly issue computations; instead, they build \emph{abstract syntax
+trees}\index{abstract syntax tree} that represent the embedded computation.
+These term trees use \indexe{higher-order abstract syntax}
+(HOAS)\index{HOAS|see{higher-order abstract syntax}} to embed function-valued
+scalar expressions as well as typeclass overloading to reflect arithmetic
+expressions.
 
-The HOAS representation, while convenient for the human reader, is awkward for
-program transformations as it complicates looking under lambdas --- i.e.,
-inspecting and manipulating the bodies of function abstractions. The frontend
-converts HOAS terms into a \emph{nameless de Bruijn representation} \index{de
-Bruijn} in the style of \citet{Altenkirch:2003kz}, using GADTs \cite{Jones:2006}
-and type families \cite{Chakravarty:2005a,Schrijvers:2008} to preserve the
-embedded program's type information. The type-preserving HOAS to de Bruijn
-conversion is described elsewhere
-\cite{Atkey:2009,Chakravarty:2009uo,McDonell:2013wi}.
+% The HOAS representation, while convenient for the human reader, is awkward for
+% program transformations as it complicates looking under lambdas --- i.e.,
+% inspecting and manipulating the bodies of function abstractions. The frontend
+% converts HOAS terms into a \emph{nameless de Bruijn representation} \index{de
+% Bruijn} in the style of \citet{Altenkirch:2003kz}, using GADTs \cite{Jones:2006}
+% and type families \cite{Chakravarty:2005a,Schrijvers:2008} to preserve the
+% embedded program's type information. The type-preserving HOAS to de Bruijn
+% conversion is described elsewhere
+% \cite{Atkey:2009,Chakravarty:2009uo,McDonell:2013wi}.
+%
+% Together with the conversion to a nameless representation, we recover the
+% sharing introduced by \texttt{let}-bound subterms in the embedded program. For
+% example, consider:
+% %
+% \begin{lstlisting}[style=Haskell]
+% let ys = map f xs
+% in  zipWith g ys ys
+% \end{lstlisting}
+% %
+% If we do not take care, the expression will be inefficiently translated as:
+% %
+% \begin{lstlisting}[style=Haskell]
+% zipWith g (map f xs) (map f xs)
+% \end{lstlisting}
+% %
+% because the straightforward evaluation of the surface language program results
+% in a complete unfolding of the expression into embedded language terms. To
+% recover sharing, we user a variant of Gill's technique \cite{Gill:2009dx}; in
+% contrast to this work, we preserve types and produce a nested term with minimal
+% flattening, instead of a graph. A complete treatment of the sharing recovery
+% algorithm appears in \derp; in brief it proceeds in the following phases:
 
-Together with the conversion to a nameless representation, we recover the
-sharing introduced by \texttt{let}-bound subterms in the embedded program. For
-example, consider:
+A well known problem of deeply embedded languages is that a straightforward
+reification of the surface language program would result in a complete unfolding
+of the expression into embedded language terms. That is, each occurrence of a
+let-bound variable in the source program would create a separate unfolding of
+the bound expression in the compiled code. For example, consider the following
+program:
 %
 \begin{lstlisting}[style=Haskell]
 let ys = map f xs
@@ -701,13 +725,15 @@ If we do not take care, the expression will be inefficiently translated as:
 \begin{lstlisting}[style=Haskell]
 zipWith g (map f xs) (map f xs)
 \end{lstlisting}
-%
-because the straightforward evaluation of the surface language program results
-in a complete unfolding of the expression into embedded language terms. To
-recover sharing, we user a variant of Gill's technique \cite{Gill:2009dx}; in
-contrast to this work, we preserve types and produce a nested term with minimal
-flattening, instead of a graph. A complete treatment of the sharing recovery
-algorithm appears in \derp; in brief it proceeds in the following phases:
+
+This problem was solved elegantly by \citet{Gill:2009dx} who proposed the use
+of \indexe{stable names}~\cite{Jones:2000} to recover sharing of source terms in
+a deeply embedded language. Unfortunately, Gill's original approach (1) reifies
+the abstract syntax in \emph{graph} form, and (2) assumes an \emph{untyped}
+syntax representation. We use a variant of Gill's technique that instead
+preserves types and produces a tested tree with minimal
+flattening~\cite{McDonell:2013wi}. In brief the method proceeds as follows:
+
 
 \paragraph{Phase 1: Build the occurrence map}
 
@@ -735,6 +761,7 @@ correctness.
 
 \paragraph{Phase 2: Determine scope and inject sharing information}
 
+\note{mention environment layouts?}
 A bottom-up traversal that determines the scope for every binding to be
 introduced to share a subterm. It uses the occurrence map to determine, for
 every shared subtree, the meet of all the shared subtree occurrences --- the

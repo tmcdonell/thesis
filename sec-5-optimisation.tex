@@ -817,7 +817,7 @@ target-dependent issue by, for now, simply ignoring it.
 \section{Array Fusion}
 \label{sec:fusion}
 
-Fusion or deforestation is a term used to describe techniques for having a
+Fusion, or deforestation, is a term used to describe techniques for having a
 compiler automatically eliminate intermediate data structures in a computation.
 For example, to compute the sum of squares of all integers from one to a given
 number in Haskell~\cite{Haskell:1998}, I could write:
@@ -831,8 +831,8 @@ sum_of_squares n
 \end{lstlisting}
 %
 but while the meaning of the program is clear, it is inefficient, as this code
-produces two intermediate lists of numbers which requires $O(n)$ space and
-associated memory pressure to manipulate. Instead, one could write the program
+produces two intermediate lists of numbers which each require $O(n)$ memory to
+store and data transfers to manipulate. Instead, one could write the program
 as a single tail-recursive loop as such:
 %
 \begin{lstlisting}[style=haskell]
@@ -843,7 +843,7 @@ sum_of_squares n = go 1 0
              | otherwise = go (i+1) (acc + i*i)  -- add to accumulator and step to next element
 \end{lstlisting}
 %
-The second program is much more efficient than the first, because it does not
+The second program is much more efficient than the first because it does not
 involve the production of any intermediate lists and executes is constant space.
 Unfortunately, the clarity of the original program has been lost. What we
 \emph{really} want is to write the first program, and have the compiler
@@ -906,15 +906,16 @@ operations to avoid the intermediary.
 
     \item Limited: many computations can not be expressed in terms of these
         three operations, so the framework can not eliminate intermediate lists
-        in these case. \marginnote{check this, c.f. adv of foldr/build}
+        in these case.
 \end{itemize}
 
 
 \subsubsection{foldr/build}
 
-Building upon the original deforestation algorithm, Andy
-Gill's doctoral thesis introduces another approach to deforestation known as
-\indexe{foldr/build fusion} \cite{Gill:1996tf,Gill:1993de}.
+Building upon the original deforestation algorithm, Andy Gill's doctoral thesis
+introduces another approach to deforestation known as \emph{foldr/build
+fusion}~\cite{Gill:1996tf,Gill:1993de}.
+\index{fusion!foldr/build}\index{foldr/build|see{fusion!foldr/build}}
 % This techniques performs a range of optimisations as broad as previous
 % approaches the listless transformer \cite{Wadler:1984ia,Wadler:2005iw} while
 % addressing their drawbacks.
@@ -931,10 +932,10 @@ foldr :: (a -> b -> b) -> b -> [a] -> b
 The idea is to think of \texttt{build} as a function that constructs a list, and
 \texttt{foldr} as a list consumer. Because of this uniform treatment of lists as
 \emph{complete objects}, rather than being composed of many individual
-constructor cells, we can have a single \texttt{foldr/build} rule, which is
-analogous to standard case reduction rules, but instead of removing a single
-constructor removes the \emph{entire data structure}. This method became the
-first non-trivial deforestation system to be included as an active part of a
+constructor cells, we can have a single \texttt{foldr/build} rule analogous to
+standard case reduction rules, but instead of removing a single constructor
+removes the \emph{entire data structure}. This method became the first
+non-trivial deforestation system to be included as an active part of a
 production quality functional language compiler.
 
 \paragraph{Advantages}
@@ -947,7 +948,7 @@ production quality functional language compiler.
 %        deforestation scheme is not hampered and simply leaves the list intact.
 
     \item Single rule: unlike the original deforestation algorithm, a single
-        rule suffices. When new list operations are added, so long as they cane
+        rule suffices. When new list operations are added, so long as they can
         be expressed in terms of \texttt{foldr} and \texttt{build}, the
         transformation will apply; there is no need to consider all combinations
         with the existing operations.
@@ -971,8 +972,9 @@ Following Gill's work, a whole cottage industry of new deforestation approaches
 appeared with the goal of covering the cases left out by \texttt{foldr/build}.
 Most of that work was theoretical, a lot of it was based on category theory, and
 almost none of it had any impact in practice. Unlike those systems of the prior
-two decades, \indexe{stream fusion} \cite{Coutts:2007} succeeded in this goal and
-at the same time stayed simple and useful in practice.
+two decades, \emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007}
+succeeded in this goal and at the same time stayed simple and useful in
+practice.
 
 Stream fusion has a similar structure to \texttt{foldr/build}: a single rule
 eliminates matching pairs of constructor and destructor, and operations need to
@@ -995,8 +997,9 @@ stream from one state to the next, possibly yielding a new value. The
 \texttt{stream} constructor \texttt{Yield}s values from its input until it runs
 out, and the \texttt{unstream} destructor build a list by consuming its input
 stream until encountering \texttt{Done}, discarding \texttt{Skip}s along the
-way. Applying the rule to keep the computation in the non-recursive
-\texttt{Stream} formulation allows the compiler to aggressively apply standard
+way. The \texttt{Stream} constructors are chosen so as to keep the definition of
+each element as a non-recursive function. When \texttt{Stream}s are fused by
+applying the rule, this enables the compiler to aggressively apply standard
 optimisation techniques.
 
 \paragraph{Advantages}
@@ -1005,11 +1008,11 @@ optimisation techniques.
     \item Adds supports operations with accumulators and multiple inputs.
 \end{itemize}
 
-% \paragraph{Disadvantages}
-%
-% \begin{itemize}
-%     \item None, really\ldots? Requires a highly optimising compiler?
-% \end{itemize}
+\paragraph{Disadvantages}
+\begin{itemize}
+    \item Fuses a sequence of bulk operations into a single scalar loop, losing
+        the parallel interpretation of the program.
+\end{itemize}
 
 
 \subsubsection{Delayed Arrays}
@@ -1017,10 +1020,10 @@ optimisation techniques.
 The previous fusion transformations are based on the idea of expressing
 computations in terms of a builder and consumer function, and then having the
 compiler identify and remove adjacent constructor/destructor pairs. In contrast,
-the Repa \cite{Keller:2010} library uses a functional representation of
-\indexe{delayed arrays} that instead \emph{avoids} creating unnecessary
-intermediate structures, rather than relying on a subsequent fusion
-transformation to remove them.
+the Repa~\cite{Keller:2010} library uses a functional representation of
+\emph{delayed arrays}\index{fusion!delayed arrays} that instead \emph{avoids}
+creating unnecessary intermediate structures, rather than relying on a
+subsequent fusion transformation to remove them.
 
 \begin{lstlisting}[style=Haskell,numbers=none,caption={Repa-1 style array definition},label={lst:repa_arrays}]
 data Array sh e = Manifest sh (Vector e)    -- unboxed data
@@ -1029,8 +1032,7 @@ data Array sh e = Manifest sh (Vector e)    -- unboxed data
 
 The key principle of the design is to avoid generating an explicit
 (\texttt{Manifest}) representation of intermediate arrays that can instead be
-represented as the original array combined with an index-space transformation
-function.
+represented as a transformation function from array indices to values.
 
 % Repa retains the functional programming style by exposing an interface of
 % collective operations over arrays --- such as maps, folds, and permutations ---
@@ -1040,7 +1042,7 @@ function.
 \paragraph{Advantages}
 \begin{itemize}
     \item Explicitly avoids intermediate structures by design, rather than
-        relying on potentially fragile post hoc compiler transformations.
+        relying on potentially fragile post-hoc compiler transformations.
 \end{itemize}
 
 \paragraph{Disadvantages}

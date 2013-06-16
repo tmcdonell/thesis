@@ -210,10 +210,10 @@ commutes f x = case f of
 
 In order to do things like renaming and substitution we require a value-level
 substitution algorithm for the richly typed terms. The implementation follows
-the method of \citet{McBride:2006,McBride:2005}, where it is seen that renaming
-and substitution are both instances of a \emph{single} traversal operation,
-pushing functions from variables to ``stuff'' through terms, for a suitable
-notion of stuff.
+the method of \citet{McBride:2006up,McBride:2005jv}, where it is seen that
+renaming and substitution are both instances of a \emph{single} traversal
+operation, pushing functions from variables to ``stuff'' through terms, for a
+suitable notion of stuff.
 %
 The trick is to push a \emph{type-preserving} but \emph{environment changing}
 operation structurally through terms:
@@ -261,12 +261,13 @@ make sense; if a conclusion is justified by a hypothesis, it is still justified
 if we add more hypotheses; a term remains in scope if we bind new (fresh)
 variables. Weakening is the process of shifting things from one scope to a
 larger scope in which new things have become meaningful, but no old things have
-vanished. When we use a named representation (or HOAS\index{HOAS}) we get
-weakening for free, but in the de Bruijn\index{de Bruijn} representation
-weakening takes work: we need to shift all the variable references to make room
-for new bindings. To do this we need to explain how to shift the \texttt{v}
-operation into an extended environment; saying what to do with the new variable
-and how to account for it on the output side.
+vanished. When we use a named representation (or HOAS\index{higher-order
+abstract syntax}\index{HOAS|see{higher-order abstract syntax}}) we get weakening
+for free, but in the de Bruijn\index{de Bruijn} representation weakening takes
+work: we need to shift all the variable references to make room for new
+bindings. To do this we need to explain how to shift the \texttt{v} operation
+into an extended environment; saying what to do with the new variable and how to
+account for it on the output side.
 %
 \begin{lstlisting}[style=haskell]
 shift :: Syntactic f
@@ -670,50 +671,18 @@ they are applied to.
 
 As described in section~\derp, operations of the embedded language do not
 directly issue computations; instead, they build \emph{abstract syntax
-trees}\index{abstract syntax tree} that represent the embedded computation.
-These term trees use \indexe{higher-order abstract syntax}
-(HOAS)\index{HOAS|see{higher-order abstract syntax}} to embed function-valued
-scalar expressions as well as typeclass overloading to reflect arithmetic
-expressions.
+trees}\index{abstract syntax tree}\index{AST|see{abstract syntax tree}} that
+represent the embedded computation. These term trees use \indexe{higher-order
+abstract syntax} (HOAS)\index{higher-order abstract syntax} to embed
+function-valued scalar expressions as well as typeclass overloading to reflect
+arithmetic expressions.
 
-% The HOAS representation, while convenient for the human reader, is awkward for
-% program transformations as it complicates looking under lambdas --- i.e.,
-% inspecting and manipulating the bodies of function abstractions. The frontend
-% converts HOAS terms into a \emph{nameless de Bruijn representation} \index{de
-% Bruijn} in the style of \citet{Altenkirch:2003kz}, using GADTs \cite{Jones:2006}
-% and type families \cite{Chakravarty:2005a,Schrijvers:2008} to preserve the
-% embedded program's type information. The type-preserving HOAS to de Bruijn
-% conversion is described elsewhere
-% \cite{Atkey:2009,Chakravarty:2009uo,McDonell:2013wi}.
-%
-% Together with the conversion to a nameless representation, we recover the
-% sharing introduced by \texttt{let}-bound subterms in the embedded program. For
-% example, consider:
-% %
-% \begin{lstlisting}[style=Haskell]
-% let ys = map f xs
-% in  zipWith g ys ys
-% \end{lstlisting}
-% %
-% If we do not take care, the expression will be inefficiently translated as:
-% %
-% \begin{lstlisting}[style=Haskell]
-% zipWith g (map f xs) (map f xs)
-% \end{lstlisting}
-% %
-% because the straightforward evaluation of the surface language program results
-% in a complete unfolding of the expression into embedded language terms. To
-% recover sharing, we user a variant of Gill's technique \cite{Gill:2009dx}; in
-% contrast to this work, we preserve types and produce a nested term with minimal
-% flattening, instead of a graph. A complete treatment of the sharing recovery
-% algorithm appears in \derp; in brief it proceeds in the following phases:
-
-A well known problem of deeply embedded languages is that a straightforward
-reification of the surface language program would result in a complete unfolding
-of the expression into embedded language terms. That is, each occurrence of a
-let-bound variable in the source program would create a separate unfolding of
-the bound expression in the compiled code. For example, consider the following
-program:
+A well known problem of defining (deeply) embedded languages in this way is that
+a straightforward reification of the surface language program would result in a
+complete unfolding of the expression into embedded language terms. That is, each
+occurrence of a let-bound variable in the source program would create a separate
+unfolding of the bound expression in the compiled code. For example, consider
+the following program:
 %
 \begin{lstlisting}[style=Haskell]
 let ys = map f xs
@@ -727,64 +696,92 @@ zipWith g (map f xs) (map f xs)
 \end{lstlisting}
 
 This problem was solved elegantly by \citet{Gill:2009dx} who proposed the use
-of \indexe{stable names}~\cite{Jones:2000} to recover sharing of source terms in
-a deeply embedded language. Unfortunately, Gill's original approach (1) reifies
-the abstract syntax in \emph{graph} form, and (2) assumes an \emph{untyped}
-syntax representation. We use a variant of Gill's technique that instead
-preserves types and produces a tested tree with minimal
-flattening~\cite{McDonell:2013wi}. In brief the method proceeds as follows:
+of \index{stable name}\emph{stable names}~\cite{PeytonJones:2000ks} to recover
+sharing of source terms in a deeply embedded language. Unfortunately, Gill's
+original approach (1) reifies the abstract syntax in \emph{graph} form, and (2)
+assumes an \emph{untyped} syntax representation. We use a variant of Gill's
+technique that instead preserves types and produces a tree with minimal
+flattening~\cite{McDonell:2013wi}, which is able to recover exactly those let
+bindings used in the source program.
+
+The higher-order abstract syntax\index{higher-order abstract syntax}
+representation of the surface language, while convenient for the human reader,
+is awkward for program transformations as it complicates looking under lambdas.
+We convert the source representation to a type-safe internal representation
+based on nameless de Bruijn\index{de Bruijn} indices in the style of
+\citet{Altenkirch:2003kz}, using GADTs \cite{Jones:2006eh} and type families
+\cite{Chakravarty:2005dx,Schrijvers:2008ir} to preserve the embedded program's
+type information. While developed independently
+\cite{McDonell:2013wi,Chakravarty:2009uo}, this conversion is similar to the
+\emph{unembedding} of \citet{Atkey:2009dj}. Unembedding and sharing recovery are
+necessarily intertwined. Sharing recovery must be performed on the source
+representation, otherwise sharing will have already been lost, but we cannot
+perform sharing recovery on higher-order abstract syntax\index{higher-order
+abstract syntax} as we need to traverse below the lambda abstractions. Hence,
+both operations go hand in hand. In brief the method proceeds in three stages:
 
 
-\paragraph{Phase 1: Build the occurrence map}
+\paragraph{Phase 1: Prune shared terms:}
 
-A top-down traversal of the AST that computes a map from AST nodes to the number
-of occurrences of that node in the overall program; an occurrence count of two
-or more indicates sharing. During computation of the occurrences, the tree is
-annotated with the \indexe{stable name} \cite{Jones:2000} of that node, and all
-but the first occurrence of shared subtrees are pruned and replaced with
-variable bindings. Note that to avoid completely unfolding the embedded
-expression, we do not descend into subterms that have been encountered
-previously, making the complexity of sharing observation proportional to the
+A top-down traversal of the AST\index{abstract syntax tree} annotates each node
+with its unique stable name\index{stable name}, and builds an occurrence map for
+the number of times we see each node in the overall program. The stable names of
+two Haskell terms are equal only when the terms are represented by the same heap
+structure in memory. Likewise, when the abstract syntax tree of two terms of an
+embedded language program have the same stable name, we know that they represent
+the same value. If we encounter a node already in the occurrence map, it represents a
+previously visited node and is thus a \emph{shared subterm}. We replace the
+entire subterm at that node with a placeholder containing its stable name. In
+this way all but the first occurrence of a shared subterm are pruned and
+replaced with variable bindings, so that we do not descend into terms that have
+been previously encountered. This avoids completely unfolding the embedded
+expression, so the complexity of sharing observation is proportional to the
 number of nodes in the tree \emph{with} sharing.
 
-As it is based on stable names this phase of the algorithm is impure and,
-strictly speaking, because of this it is not deterministic. The stable name API
-does not guarantee completeness,\footnote{For two stable names \lstinline{sn1}
-and \lstinline{sn2}, if \lstinline{sn1 == sn2} then the two stable names were
-created from the same object. However, the reverse is not necessarily true; if
-the two stable names are not equal the objects they come from may still be
-equal.} which means that we may miss some equalities which implies we fail to
-discover some sharing. Luckily, sharing does not affect the denotational meaning
-of the program, and hence a lack of sharing does not compromise denotational
-correctness.
+As the stable name of an expression is an intensional property, it can only be
+determined in Haskell's \lstinline{IO} monad, and strictly speaking because of
+this it is not deterministic. The stable name API does not guarantee
+completeness: for two stable names \lstinline{sn1} and \lstinline{sn2}, if
+\lstinline{sn1 == sn2} then the two stable names were created from the same heap
+object. However, the reverse is not necessarily true; if the two stable names
+are not equal the objects they come from may still be equal. Put another way,
+equality on stable names may return a false negative, which means that we fail
+to discover some sharing, but can never return a false positive since stable
+names from different heap objects are not considered equal. Luckily, sharing
+does not affect the denotational meaning of the program, and hence a lack of
+sharing does not compromise denotational correctness.
 
 
-\paragraph{Phase 2: Determine scope and inject sharing information}
+\paragraph{Phase 2: Float shared terms:}
 
-\note{mention environment layouts?}
 A bottom-up traversal that determines the scope for every binding to be
 introduced to share a subterm. It uses the occurrence map to determine, for
-every shared subtree, the meet of all the shared subtree occurrences --- the
-lowest AST node at which the binding for the subterm can be placed.
+every shared subterm, the meet of all the shared subterm occurrences --- the
+lowest AST node at which the binding for the subterm can be placed. This is why
+the occurrence map generated in the previous phase can not be simplified to
+a set of occurring names: we need the actual occurrence count to determine where
+shared subterms should be \texttt{let}-bound.
 
-\paragraph{Phase 3: Convert to de Bruijn form}
 
-Finally, the AST with environment layout and sharing information can be
-converted into de Bruijn form while incorporating sharing by introducing
-appropriate \texttt{let} bindings.\\
+\paragraph{Phase 3: Binder introduction:}
 
-\noindent
-We now correctly observe the sharing of our motivating example, producing the
-following (simplified) core language term:
-%
-\marginnote{this is weird: mixes core/library language terms}
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-%\bf$\langle$ sharing observation $\rangle$%
-    let ys = map f xs in zipWith g ys ys
-      $\mapsto$
-      Alet (Map f xs)
-           (ZipWith g (Var ZeroIdx) (Var ZeroIdx))
-\end{lstlisting}
+Finally, each floated subterm gets \texttt{let}-bound right above the node it
+floated to. At the same time, we convert the AST into nameless de
+Bruijn\index{de Bruijn} form by introducing de Bruijn indices at the same time
+as introducing the \texttt{let}s.\\
+
+% \paragraph{}
+% We now correctly observe the sharing of our motivating example, producing the
+% following (simplified) core language term:
+% %
+% \marginnote{this is weird: mixes core/library language terms}
+% \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+% %\bf$\langle$ sharing observation $\rangle$%
+%     let ys = map f xs in zipWith g ys ys
+%       $\mapsto$
+%       Alet (Map f xs)
+%            (ZipWith g (Var ZeroIdx) (Var ZeroIdx))
+% \end{lstlisting}
 
 
 \subsubsection{Common Subexpression Elimination}
@@ -801,21 +798,20 @@ look for expressions of the form:
 \end{lstlisting}
 %
 and replace all occurrences of \texttt{e1} in \texttt{e2} with \texttt{x}. This
-is not complete full redundancy analysis, but is good enough to catch some
-cases.%\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
+will not completely eliminate redundant expressions from the program, as it will
+not eliminate any common subterms not already defined in the source program. It
+will however catch some cases, in particular those that tend to be introduced
+during the array fusion optimisation discussed in the next section.
+%\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
 
 While it may seem that common subexpression elimination is always worthwhile, as
 it reduces the number of arithmetic operations performed, this is not
 necessarily advantageous. The simplest case in which it may not be desirable is
 if it causes a register to be occupied for a long time in order to hold the
 shared expression's value, which hence reduces the number of registers available
-for other uses. Even worse is if the value has to be spilled to memory because
+for other uses. Even worse is if that value has to be spilled to memory because
 there are insufficient registers available. We sidestep this tricky and
 target-dependent issue by, for now, simply ignoring it.
-
-
-% \subsubsection{derp Loop-Recovery [DEPRECATED]}
-% \subsubsection{derp Loop-Invariant Code Motion [TODO]}
 
 
 \section{Array Fusion}

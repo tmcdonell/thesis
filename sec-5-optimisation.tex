@@ -818,9 +818,10 @@ target-dependent issue by, for now, simply ignoring it.
 \label{sec:fusion}
 
 Fusion, or deforestation, is a term used to describe techniques for having a
-compiler automatically eliminate intermediate data structures in a computation.
-For example, to compute the sum of squares of all integers from one to a given
-number in Haskell~\cite{Haskell:1998}, I could write:
+compiler automatically eliminate intermediate data structures in a computation
+by combining successive traversals over these structures. For example, to
+compute the sum of squares of all integers from one to a given number in
+Haskell~\cite{Haskell:1998}, I could write:
 %
 \begin{lstlisting}[style=haskell]
 sum_of_squares :: Int -> Int
@@ -863,7 +864,8 @@ interpretation has been lost.
 
 The desire to program in a functional style while still achieving the
 performance level of an imperative language has been around for as long as
-functional programming itself. This section briefly summarises some of the key
+functional programming itself. Fusion has received plenty of attention in the
+context of functional program. This section briefly summarises some of the key
 milestones in the history of deforestation as a compiler optimisation that
 influences this work.
 
@@ -969,12 +971,12 @@ production quality functional language compiler.
 \subsubsection{Stream Fusion}
 
 Following Gill's work, a whole cottage industry of new deforestation approaches
-appeared with the goal of covering the cases left out by \texttt{foldr/build}.
-Most of that work was theoretical, a lot of it was based on category theory, and
-almost none of it had any impact in practice. Unlike those systems of the prior
-two decades, \emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007}
-succeeded in this goal and at the same time stayed simple and useful in
-practice.
+appeared with the goal of covering the cases left out by
+\texttt{foldr/build}\index{fusion!foldr/build}. Most of that work was
+theoretical, a lot of it was based on category theory, and almost none of it had
+any impact in practice. Unlike those systems of the prior two decades,
+\emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007} succeeded in this
+goal and at the same time stayed simple and useful in practice.
 
 Stream fusion has a similar structure to \texttt{foldr/build}: a single rule
 eliminates matching pairs of constructor and destructor, and operations need to
@@ -1004,7 +1006,8 @@ optimisation techniques.
 
 \paragraph{Advantages}
 \begin{itemize}
-    \item Preserves the nice properties of \texttt{foldr/build} fusion.
+    \item Preserves the nice properties of
+        \texttt{foldr/build}\index{fusion!foldr/build} fusion.
     \item Adds supports operations with accumulators and multiple inputs.
 \end{itemize}
 
@@ -1051,6 +1054,30 @@ represented as a transformation function from array indices to values.
         (made manifest), else performance suffers due to redundant computation.
 \end{itemize}
 
+\subsubsection{Hylomorphism fusion?}
+\citet{Takano:1995}
+
+\subsubsection{Loop fusion?}
+From imperative languages. \citet{Warren:1984ka}. \citet{Sarkar:1991ff}
+
+
+\subsubsection{Conclusion}
+
+The most practically successful fusion systems ---
+\texttt{foldr/build}\index{fusion!foldr/build} fusion,
+stream\index{fusion!stream} fusion and delayed arrays\index{fusion!delayed
+arrays} --- are \emph{short-cut fusion}\index{fusion!short-cut} methods that
+rely on local program transformations. These methods are implemented as simple
+but specific rewrite rules combined with general purpose program
+transformations.
+
+In contrast, \emph{loop fusion}\index{fusion!loop} methods used in imperative
+languages merge multiple loop nests, typically using dependency
+graphs to determine whether fusion is legal and beneficial.
+When a producer and consumer loop are merged, array
+contraction can then remove or reduce the size of the
+intermediate arrays. These systems require fusion-specific compiler support and
+more global reasoning than short-cut fusion.
 
 
 \subsection{Accelerate Arrays, Accelerated}
@@ -1061,8 +1088,8 @@ transformation that is to be developed for the Accelerate language:
 
 \begin{itemize}
     \item The transformation must retain the combinator-based interpretation of
-        the program, which is necessary to support execution on parallel
-        architectures such as CUDA.
+        the program. This is necessary to support execution on parallel
+        architectures such as CUDA\index{CUDA}.
 
     \item Fuse everything: The transformation should cover all Accelerate
         operations, and not be limited to common special cases such as
@@ -1075,8 +1102,8 @@ transformation that is to be developed for the Accelerate language:
         adherence to the first requirement.
 
     \item Have a constant number of rewrite rules: Adding new terms to the core
-        language should not require adding new rules for each combination of the
-        new operator to the existing operations. Furthermore, adding new
+        language should not require adding new rules for every combination of
+        the new operator to the existing operations. Furthermore, adding new
         combinators should be relatively easy to integrate into the fusion
         schema.
 \end{itemize}
@@ -1090,18 +1117,19 @@ algorithm:
         source language terms, requiring a number of rewrite rules quadratic in
         the number of operations that are to be fused.
 
-    \item Gill's \texttt{foldr/build} instead requires a constant number of
-        rewrite rules because it first expressed the source language operations
-        in terms of more primitive operations --- \texttt{foldr} and
-        \texttt{build} --- and then applied the transformation to this reduced
-        set.
+    \item Gill's \texttt{foldr/build}\index{fusion!foldr/build} instead requires
+        a constant number of rewrite rules because it first expressed the source
+        language operations in terms of more primitive operations ---
+        \texttt{foldr} and \texttt{build} --- and then applies the
+        transformation to this reduced set.
 
-    \item However, \texttt{foldr/build} fails to capture all cases because its
-        core combinators are not expressive enough. This infelicity is addressed
-        by both stream fusion and delayed arrays, which fuse all operations
-        using a constant set of rules by having a sufficiently expressive
-        intermediate form to be able to define all operations in their
-        respective libraries.
+    \item However, \texttt{foldr/build}\index{fusion!foldr/build} fails to
+        capture all cases because its core combinators are not expressive
+        enough. This infelicity is addressed by both stream
+        fusion\index{fusion!stream} and delayed arrays\index{fusion!delayed
+        arrays}, which fuse all operations using a constant set of rules. We
+        will require a sufficiently expressive intermediate form to be able to
+        define all operations in the library.
 \end{itemize}
 
 The task, then, is to identify this reduced set of operations within which we
@@ -1116,9 +1144,9 @@ towards implementation.
 
 The classic array fusion example is that of vector dot product:
 %
-%    label={lst:dotp},
-%    caption={Vector dot product in Accelerate}]
-\begin{lstlisting}[style=haskell]
+\begin{lstlisting}[style=haskell,
+    label={lst:dotp},
+    caption={Vector dot product in Accelerate}]
 dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
 dotp xs ys = fold (+) 0 (zipWith (*) xs ys)
 \end{lstlisting}

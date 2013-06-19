@@ -975,7 +975,7 @@ appeared with the goal of covering the cases left out by
 \texttt{foldr/build}\index{fusion!foldr/build}. Most of that work was
 theoretical, a lot of it was based on category theory, and almost none of it had
 any impact in practice. Unlike those systems of the prior two decades,
-\emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007} succeeded in this
+\emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007kp} succeeded in this
 goal and at the same time stayed simple and useful in practice.
 
 Stream fusion has a similar structure to \texttt{foldr/build}: a single rule
@@ -1023,7 +1023,7 @@ optimisation techniques.
 The previous fusion transformations are based on the idea of expressing
 computations in terms of a builder and consumer function, and then having the
 compiler identify and remove adjacent constructor/destructor pairs. In contrast,
-the Repa~\cite{Keller:2010} library uses a functional representation of
+the Repa~\cite{Keller:2010er} library uses a functional representation of
 \emph{delayed arrays}\index{fusion!delayed arrays} that instead \emph{avoids}
 creating unnecessary intermediate structures, rather than relying on a
 subsequent fusion transformation to remove them.

@@ -69,607 +69,28 @@ focusing primarily on the approach to operator fusion in the context of the
 stratified Accelerate language and skeleton-based implementation of the CUDA
 backend.
 
-
-\section{Manipulating Terms}
-\label{sec:manipulating_terms}
-
-The Accelerate core language is richly typed, maintaining full type information
-of the embedded language in the term tree. In order to apply transformations to
-these terms while maintaining the correctness of the program as encoded in its
-type, we require methods to manipulate these richly typed terms in a type- and
-scope-preserving manner. This section describes the basic operations required
-for manipulating terms, upon which the optimisation algorithms are built.
-
-% \subsubsection{Preserving Types vis-\`a-vis Correctness}
-
-\subsection{Equality}
-
-If we want to test whether two terms are equal, for example to determine if two
-subexpressions are equivalent and can be shared (\S\ref{sec:cse}), we
-immediately run into the problem that terms are existentially typed:
-%
-\begin{lstlisting}[style=haskell]
-Exp s == Exp t = ??
-\end{lstlisting}
-%
-There is no reason that \texttt{s} and \texttt{t} should be expressions of the
-same type. In some instances we might not care, and as such can define standard
-heterogeneous equality:
-%
-\begin{lstlisting}[style=haskell]
-instance Eq (PreOpenExp acc env aenv t) where
-    (==) = heq
-    where
-        heq :: PreOpenExp acc env aenv a -> PreOpenExp acc env aenv b -> Bool
-        heq = ...
-\end{lstlisting}
-%
-where we do not care about the result type of each expression, and only require
-that the environment type, re size, of free scalar and array variables are the
-same so that we can test equality of variable indices.
-
-However, we often \emph{do} care about the specific types of our existentially
-quantified terms. Consider the case of defining equality for \texttt{Let}
-bindings. Recall:
-%
-\begin{lstlisting}[style=haskell]
-data PreOpenExp acc env aenv t where
-
-  -- Local binding of a scalar expression
-  Let   :: (Elt bnd_t, Elt body_t)
-        => PreOpenExp acc env          aenv bnd_t       -- bound term
-        -> PreOpenExp acc (env, bnd_t) aenv body_t      -- body/scope of binding
-        -> PreOpenExp acc env          aenv body_t
-\end{lstlisting}
-%
-To apply \texttt{heq} to the body expression, we need to know something about
-the type of the bound terms to ensure that the scalar environments are the same,
-namely \lstinline[mathescape]{a $\sim$ bnd_t $\sim$ b}.\footnote{Alternatively
-we can use \texttt{Data.Typeable.gcast} to provide a type-safe cast, but this
-quickly becomes unwieldy and is a little unsatisfactory.} To do this we must
-equip terms with a runtime witness to the existentially quantified type. Our
-reified dictionaries will allow us to do exactly this, so we can define
-heterogeneous equality for reified dictionaries:
-%
-\begin{lstlisting}[style=haskell]
-heqIntegralType :: IntegralType s -> IntegralType t -> Bool
-heqIntegralType (TypeInt _)  (TypeInt _)  = True
-heqIntegralType (TypeWord _) (TypeWord _) = True
-  ...
-heqIntegralType _            _            = False
-\end{lstlisting}
-%
-However, doing this is perfectly useless as it only gives us a value of type
-\texttt{Bool}, with no idea what that value means or to what its truth might
-entitle us. The type checker does not gain any useful knowledge about the types
-the dictionaries \texttt{a} and \texttt{b} witness simply by knowing that
-\lstinline{heqIntegralType a b = True}. A boolean is a bit uninformative.
-
-Instead, we can write essentially the same test, but in the positive case
-deliver some \emph{evidence} that the types are equal:
-%
-\begin{lstlisting}[style=haskell]
-data s :=: t where
-  REFL :: s :=: s
-
-matchIntegralType :: IntegralType s -> IntegralType t -> Maybe (s :=: t)
-matchIntegralType (TypeInt _)  (TypeInt _)  = Just REFL
-matchIntegralType (TypeWord _) (TypeWord _) = Just REFL
-  ...
-matchIntegralType _            _            = Nothing
-\end{lstlisting}
-%
-Matching on \lstinline{Just REFL} will inject the knowledge into the type
-checker that the types \texttt{s} and \texttt{t} are the same. Now with our
-evidence-producing heterogeneous equality test for reified dictionary families,
-we can compare two terms and gain type-level knowledge when they witness the
-same value-level types. These witnesses for existentially quantified types then
-allow us to test for equality \emph{homogeneously}, ensuring that positive
-results from singleton tests give the bonus of unifying types for other tests:
-%
-\begin{lstlisting}[style=haskell]
-matchPreOpenExp :: PreOpenExp acc env aenv s -> PreOpenExp acc env aenv t -> Maybe (s :=: t)
-matchPreOpenExp (Let x1 e1) (Let x2 e2)
-  | Just REFL <- matchOpenExp x1 x2     -- if the bound expressions match
-  , Just REFL <- matchOpenExp e1 e2     -- then the environment of the body term will also match
-  = Just REFL
-
-matchPreOpenExp ...
-\end{lstlisting}
-
-% \paragraph{Congruence}
-
-As we are interested in the facility of matching terms for the purposes of
-optimisations such as common subexpression elimination, it is beneficial to
-define not equality but instead \indexe{congruence} of terms. Two nodes are
-considered congruent if the nodes they label are constants and the constants are
-equal; or they have the same operator and the operands are congruent. The crux
-of the latter condition refers to commutative relations, such as scalar
-addition, where an operator yields the same result when the order of the
-operands are reversed. When checking equality of primitive applications, we
-discriminate binary functions whose arguments commute, and return those
-arguments in a stable ordering by comparing a hash of each of the
-sub-terms.
-%
-\begin{lstlisting}[style=haskell]
-commutes :: PrimFun (a -> r) -> PreOpenExp acc env aenv a -> Maybe (PreOpenExp acc env aenv a)
-commutes f x = case f of
-  PrimAdd _     -> Just (swizzle x)
-    ...         -> Nothing
-  where
-    swizzle :: PreOpenExp acc env aenv (a,a) -> PreOpenExp acc env aenv (a,a)
-    swizzle exp
-      | Tuple (NilTup `SnocTup` a `SnocTup` b) <- exp
-      , hashPreOpenExp a > hashPreOpenExp b     = Tuple (NilTup `SnocTup` b `SnocTup` a)
-      | otherwise                               = exp
-\end{lstlisting}
-
-
-\subsection{Simultaneous Substitution}
-\label{sec:substitution}
-
-In order to do things like renaming and substitution we require a value-level
-substitution algorithm for the richly typed terms. The implementation follows
-the method of \citet{McBride:2006up,McBride:2005jv}, where it is seen that
-renaming and substitution are both instances of a \emph{single} traversal
-operation, pushing functions from variables to ``stuff'' through terms, for a
-suitable notion of stuff.
-%
-The trick is to push a \emph{type-preserving} but \emph{environment changing}
-operation structurally through terms:
-%
-\begin{lstlisting}[style=haskell]
-v :: forall t'. Idx env t' -> f env' t'
-\end{lstlisting}
-
-Where the operation differs is in the image of variables: renaming maps
-variables to variables and substitution maps variables to terms. We then lift
-this to an operation which traverses terms, with appropriate lifting to push
-under a lambda, and rebuilding the term after applying \texttt{v} to the
-variables:
-%
-\begin{lstlisting}[style=haskell]
-rebuild :: Syntactic f
-        => (forall t'. Idx env t' -> f env' t')
-        -> Term env  t
-        -> Term env' t
-\end{lstlisting}
-
-The \texttt{Syntactic} class\footnote{Since Accelerate is a stratified language
-there are separate implementations of this toolkit on syntactic elements for the
-scalar and collective operations, but the details are identical. The discussion
-uses the generic \texttt{Term} to mean either of these operations.} tells us
-everything we need to know about \texttt{f} --- our notion of ``stuff'' --- in
-order to rebuild terms: a mapping in from variables, a mapping out to terms, and
-a weakening map which extends the context. Renaming will instantiate \texttt{f}
-with \texttt{Idx}, whereas for substitutions we may choose \texttt{Term}
-instead.
-%
-\begin{lstlisting}[style=haskell]
-class Syntactic f where
-    varIn   :: Idx env t -> f env t             -- variables embed in f
-    termOut :: f env t   -> Term env t          -- f embeds in terms
-    weaken  :: f env t   -> f (env, s) t        -- f allows weakening
-
-instance Syntactic Idx
-instance Syntactic Term
-\end{lstlisting}
-
-A key component of this toolkit, \indexe{weakening} describes an operation we
-usually take for granted: every time we learn a new word, old sentences still
-make sense; if a conclusion is justified by a hypothesis, it is still justified
-if we add more hypotheses; a term remains in scope if we bind new (fresh)
-variables. Weakening is the process of shifting things from one scope to a
-larger scope in which new things have become meaningful, but no old things have
-vanished. When we use a named representation (or HOAS\index{higher-order
-abstract syntax}\index{HOAS|see{higher-order abstract syntax}}) we get weakening
-for free, but in the de Bruijn\index{de Bruijn} representation weakening takes
-work: we need to shift all the variable references to make room for new
-bindings. To do this we need to explain how to shift the \texttt{v} operation
-into an extended environment; saying what to do with the new variable and how to
-account for it on the output side.
-%
-\begin{lstlisting}[style=haskell]
-shift :: Syntactic f
-      => (forall t'. Idx env t' -> f env' t')
-      -> Idx (env,  s) t
-      -> f   (env', s) t
-\end{lstlisting}
-%
-Overall, the crucial functionality of simultaneous substitution is to propagate
-a class of operations on variables closed under shifting, which is what
-\texttt{Syntactic} and \texttt{rebuild} offer.
-
-The question, then, is how to write the function \texttt{v} which we push
-through terms? This is the final piece of equipment that essentially takes our
-simultaneous substitution algorithm and specialises it to one-at-a-time
-substitution. Let's say we have a term with one free variable, and we want to
-replace that variable with a term. The following takes a replacement for the top
-variable and yields a simultaneous substitution that eliminates
-\texttt{ZeroIdx}:
-%
-\begin{lstlisting}[style=haskell,caption={A simultaneous substitution to inline terms}]
-inline :: Term (env, s) t -> Term env s -> Term env t
-inline body bnd = rebuild (subTop bnd) body
-  where
-    subTop :: Term env s -> Idx (env, s) t -> Term env t
-    subTop s ZeroIdx      = s
-    subTop _ (SuccIdx ix) = Var ix
-\end{lstlisting}
-%
-The demonic $\forall$ --- which is to say that the quantifier is in a position
-which gives us obligation, not opportunity --- of the operator \texttt{v} forces
-us to respect type: when pattern matching detects the variable we care about,
-happily we discover that it has the type we must respect. The demon is not so
-free to mess with us as one might at first fear.
-
-% Typing rules; each rule types the general usage of a symbol, below the
-% line, in terms of the parameters above the line.??
-
-
-\section{Optimisation Techniques}
-
-Now that we have the mechanisms to correctly analyse and manipulate terms, we
-can consider optimisations that may be valuable in improving the quality of the
-core program. It should be noted that ``optimisation'' is a misnomer; only
-rarely does applying optimisations to a program result in object code whose
-performance is optimal, by any measure. Rather, the goal is to \emph{improve}
-the performance of the object code generated by a backend, although it is
-entirely possible that they may decrease it or make no difference at all. As
-with many interesting problems in [computer] science, in most cases it is
-formally undecidable whether a particular optimisation improves, or at least
-does not worsen, performance.
+It should be noted that ``optimisation'' is a misnomer; only rarely does
+applying optimisations to a program result in object code whose performance is
+optimal, by any measure. Rather, the goal is to \emph{improve} the performance
+of the object code generated by a backend, although it is entirely possible that
+they may decrease it or make no difference at all. As with many interesting
+problems in [computer] science, in most cases it is formally undecidable whether
+a particular optimisation improves, or at least does not worsen, performance.
 
 In general, we would like to be as aggressive as possible in improving code, but
-not at the expense of making it incorrect. Optimisations are applied repeatedly
-until no further changes can me made, or an iteration limit is reached.
-
-% \begin{itemize}
-%     \item{Importance of Individual Optimisations}
-%     \item{Order and Repetition of Optimisations}
-% \end{itemize}
-
-\subsection{Simplification}
-\label{sec:simplification}
-
-Functional language compilers often perform optimisations. To avoid speculative
-optimisations that can blow up code size, we might wish to use only
-optimisations guaranteed to make the program smaller: these include
-dead-variable elimination, constant folding, and a restricted $\beta$-reduction
-rule that only inlines functions that are called just once. This leads to a
-simplification system guaranteed not to lead to code blowup or nonterminating
-compilation.
-
-\subsubsection{Shrinking}
-
-The \emph{shrinking reduction} arises as a restriction of $\beta$-reduction
-(i.e. inlining) to cases where the bound variable is used zero (dead-code
-elimination) or one (linear inlining) times. By simplifying terms,
-%As well as reducing binding overhead,
-the shrinking reduction exposes opportunities for further optimisation such as
-more aggressive inlining, constant folding and common sub-expression
-elimination. %by exposing the binding to local context information.
-
-The difficulty with implementing the shrinking reduction is that dead-code
-elimination at one redex can expose further shrinking reductions at completely
-different portions of the term, so attempts at writing a straightforward
-compositional algorithm fail. The current implementation uses a na\"ive
-algorithm that re-traverses the whole reduct whenever a redex is reduced,
-although more efficient imperative algorithms exist
-\cite{Appel:1997gs,Benton:2004ua,Kennedy:2007cb}.
-
-The only interesting case of the \texttt{shrink} function is that of a
-$\beta$-redex where the number of uses is less than or equal to one. The
-implementation, outlined below, uses the de Bruijn manipulation techniques
-developed in \autoref{sec:manipulating_terms}. This also suffices to eliminate
-dead code, as Accelerate does not have separate forms for \texttt{let}-bindings
-and lambda abstractions.
-%
-\begin{lstlisting}[
-    style=Haskell,
-    label={lst:shrinking},
-    caption={The shrinking reduction}]
-usesOf :: Idx env s -> Term env t -> Int
-usesOf idx (Var this)
-    | Just REFL <- match this idx       = 1
-    | otherwise                         = 0
-usesOf idx (Let bnd body)               = usesOf idx bnd + usesOf (SuccIdx idx) body
-usesOf ...
-
-shrink :: Term env t -> Term env t
-shrink (Let bnd body)
-    | usesOf ZeroIdx bnd' <= 1          = shrink (inline body' bnd')
-    | otherwise                         = Let bnd' body'
-    where
-        bnd'  = shrink bnd
-        body' = shrink body
-shrink ...
-\end{lstlisting}
+not at the expense of making it incorrect.
 
 
-\subsubsection{Constant-Expression Evaluation}
-
-\emph{Constant-expression evaluation}, or \emph{constant folding}, refers to the
-evaluation at compile time of scalar expressions whose operands are known to be
-constant. Essentially, constant-expression evaluation involves determining that
-all the operands in an expression are constant valued and performing the
-evaluation of the expression at compile time, replacing the expression by this
-result.
-
-The applicability of the transformation depends on the type of the expression
-under consideration. For Boolean values, the optimisation is always applicable.
-For integers, it is almost always applicable, with the exceptions being cases
-that would produce run-time exceptions if they were executed, such as division
-by zero and underflow or overflow. For floating-point values, the situation is
-even more complicated; the compiler's floating point arithmetic must match that
-of the processor being compiled for, otherwise floating-point operations may
-produce different results. Furthermore, the IEEE-754 standard specifies many
-types of exceptions and exceptional values --- including infinities, NaNs and
-denormalised values --- all of which should be taken into account.
-
-
-\paragraph{Constant Folding}
-
-The current implementation performs constant folding of scalar expressions for
-all primitive functions and all element types. However, no explicit checks for
-underflow or overflow is made, nor for invalid or exceptional values. For
-example, the following rewrite is always applied:
-%
-% As Accelerate programs are just-in-time compiled and thus the optimisation is
-% applied at program runtime, I consider these checks to be of lower priority than
-% they would be in a traditional offline compiler.
-%
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-%\bf$\langle$ constant folding $\rangle$%
-    PrimAdd (%\rm$\langle$elided type info$\rangle$%)
-      `PrimApp`
-      Tuple (NilTup `SnocTup` Const x `SnocTup` Const y) $\mapsto$ Const (x+y)
-\end{lstlisting}
-%
-The attentive reader will note that it is straightforward to choose a positive
-non-zero floating-point value \texttt{eps} such that \lstinline{eps + 1.0 > 1.0}
-is \texttt{False}. Issues arising from simplification of floating-point
-expressions are currently ignored, but this is not so outrageous as it would be
-for a traditional offline compiler: since Accelerate programs are just-in-time
-compiled, any such issues still occur only at program runtime. The only
-distinction is from in phase of program execution the problem manifests, not
-that it does.
-
-% Constant folding is also used to eliminate branches when the value of the
-% predicate can be determined, or the branches are congruent.
-
-
-\paragraph{Constant Propagation}
-
-The effectiveness of constant folding can be increased by combining it with
-other data-flow optimisations, particularly constant propagation. When
-determining whether the arguments to a primitive function application are
-constants, we consider \texttt{let}-bound constants and constant-valued tuple
-components in addition to literal constants as material for constant folding.
-
-
-\paragraph{Algebraic Simplification}
-
-\emph{Algebraic simplifications} use algebraic properties of operators, or
-particular operator/operand combinations to simplify expressions. The most
-obvious algebraic simplifications involve combining a binary operator with an
-operand that is the algebraic identity of that operator, or with an operand that
-always yields a constant, independent of the other value of the operand. For
-example, for a term \texttt{x} the following are always true:
-%
-\begin{lstlisting}[style=Haskell,numbers=none]
-%\bf$\langle$ algebraic simplification $\rangle$%
-    x + 0 = 0 + x = x - 0 = x
-    0 - x = -x
-    x * 1 = 1 * x = x / 1 = x
-    x * 0 = 0 * x = 0
-\end{lstlisting}
-%
-Similarly, there are simplifications that apply to unary operators and
-combinations of unary and binary operators. Some operations can also be viewed
-as strength reductions, that is, replacing an operator by one that is faster to
-compute, such as:
-%
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-%\bf$\langle$ strength reduction $\rangle$%
-    x $\uparrow$ 2 = x * x
-    2 * x = x + x
-\end{lstlisting}
-%
-Likewise, multiplications by small constants can frequently be computed faster
-by sequences of shifts and adds and/or subtractions. These techniques are often
-more effective if applied during code generation rather than optimisation, so
-strength reductions are not currently applied.
-
-
-\paragraph{Algebraic Reassociation}
-
-\emph{Reassociation} refers to using specific algebraic properties --- namely
-associativity, commutativity and distributivity --- to divide an expression into
-parts that are constant and variable.
-%To further increase opportunities for constant folding, algebraic reassociations
-%are applied.
-This is particularly relevant when only one operand of a binary
-operator is identified as being constant valued. For example, the expression
-\lstinline{x + 1 + 2} would only be simplified if the second addition occurred
-first. For the case of commutative binary operators where only one operand is
-constant valued, the constant expression is applied as the first operand. The
-previous term would then be rewritten as:
-%
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-%\bf$\langle$ algebraic reassociation $\rangle$%
-    x + 1 + 2 $\mapsto$ 1 + x + 2
-              $\mapsto$ 1 + 2 + x
-              $\mapsto$ 3 + x
-\end{lstlisting}
-
-
-\paragraph{Summary}
-
-Constant folding and algebraic simplifications are applied to scalar and array
-term. The list of algebraic simplifications presented here and currently
-implemented is not necessarily exhaustive, and adding additional simplifications
-might be eased through the use of a rewrite rule system expressed in terms of
-the source language, rather than by direct manipulation of de Bruijn terms.
-Furthermore, it may be important to assess the validity of constant folding
-based on the type of the expression, particularly for floating point
-terms. Both these concerns are left for future work. An example of the current
-implementation of constant folding is shown below.
-
-\marginnote{bugs in the associativity code; needs to be fixed}
-\begin{lstlisting}[style=Haskell,mathescape,caption={Example of constant expression evaluation}]
-f :: Exp Float -> Exp Float
-f x = let a = lift (constant 30, x)
-          b = 9 - fst a / 5
-          c = b * b * 4
-          d = c >* pi + 10 ? (c - 15, x)
-      in x * d * (60 / fst a)
-    $\mapsto$
-    42.0 * x
-\end{lstlisting}
-
-
-\subsubsection{Scalar Loop Recovery}
-
-\note{We need to add recursion into the scalar and array languages to support
-iteration and divide-and-conquer algorithms. Could add this explicitly, but can
-we use an observable technique?}
-
-% Compared to regular Haskell, the scalar expression language of Accelerate is
-% rather limited in order to meet the restrictions of what can be efficiently
-% implemented on specialised hardware, such as GPUs. For example, to avoid
-% excessive SIMD divergence, we do not provide any explicit form of recursion or
-% iteration in scalar expressions. This harmonises well with the stratified design
-% of the Accelerate language: collective array operations comprise many scalar
-% computations that are executed in parallel, so for simplicity of scheduling
-% these operations we would like some assurance that each scalar computation takes
-% approximately the same time to execute as all others.
-% 
-% Of course, some computations are naturally expressed in terms of iteration.
-% Consider for example the Mandelbrot set, a mathematical set of points whose
-% boundary is a distinctive and easily recognisable two-dimensional fractal shape
-% as seen in \autoref{fig:mandelbrot}. Images of the Mandelbrot fractal are
-% generated by sampling values $c$ in the complex plane and determining for each
-% whether the under iteration of the complex quadratic polynomial $z_{n+1} =
-% z_{n}^{2} + c$ that $\left|z_n\right|$ remains bounded however large $n$ gets.
-% 
-% % Stolen from: \url{http://en.wikipedia.org/wiki/Mandelbrot_set}, 2013-02-20
-% % Perhaps we should use one generated by my own Mandelbrot code?
-% %
-% \begin{figure}[htbp]
-%     \begin{center}
-%         \includegraphics[width=0.8\textwidth]{images/sec-5/mandelbrot}
-%     \end{center}
-%     \caption[The Mandelbrot fractal]{Image of a Mandelbrot set with a
-%         continuously coloured environment. Each pixel corresponds to a point $c$
-%         in the complex plane, and its colour depends the number of iterations
-%         $n$ before the relation diverges.}
-%     \label{fig:mandelbrot}
-% \end{figure}
-% 
-% \note{Introduce the (?) operator, talk about what divergence is, why it is bad,
-% etc.}
-% 
-% How can we express this computation in a language without iteration? Instead, we
-% use generative (meta-programming) techniques to express the recurrence relation.
-% Begin by first defining a single step of the relation for a single point in the
-% plane. For each point $c$ we keep a pair of elements $\left( z, n \right)$ where
-% $z$ is the current value of the relation and $n$ is the iteration that
-% divergence occurred at, or the current iteration otherwise.
-% %
-% \begin{lstlisting}[style=haskell]
-% iter :: Exp Complex -> Exp (Complex, Int) -> Exp (Complex, Int)
-% iter c z_n = ...
-% \end{lstlisting}
-% %
-% This computes the next value of the polynomial $z_{n+1}$ as well as the number
-% of iterations $n$ if the element has not diverged, otherwise returns the value
-% and iteration count (at divergence) unchanged. We then lift this to the
-% Accelerate array language by applying the operation at all points in the plane
-% \texttt{cs}:
-% %
-% \begin{lstlisting}[style=haskell,firstnumber=last]
-% step :: Acc (Array DIM2 (Complex,Int)) -> Acc (Array DIM2 (Complex,Int))
-% step = A.zipWith iter cs
-% \end{lstlisting}
-% %
-% Note that we have to apply the function even to elements that have already
-% diverged. This wastes work but means that there is less SIMD divergence because
-% we still do the same thing to every element at every iteration. Here the ``same
-% thing'' does imply a small amount if divergence, between elements that have
-% already diverged and those that have not, but w
-% 
-% We can then use
-% standard Haskell to unroll the loop a \emph{fixed} number of times, which
-% completes the Mandelbrot set calculation:
-% %
-% \begin{lstlisting}[style=haskell,firstnumber=last]
-% mandelbrot :: Acc (Array DIM2 (Complex,Int)) -> Acc (Array DIM2 (Complex,Int))
-% mandelbrot = foldr ($) zs0 (replicate depth step)
-% \end{lstlisting}
-% %
-% Here \texttt{foldr} and \texttt{replicate} come from the standard Haskell
-% prelude, and \texttt{depth} is the maximum iteration count of the relation.
-% 
-% This correctly computes the Mandelbrot set, but is outrageously slow because it
-% must read and write the values $z$ and $n$ to memory at each step of the
-% computation, rather than keeping these values in registers, computing the entire
-% recurrence relation and storing only the final result to memory. Later, we will
-% see how the technique of \emph{array fusion} (\S\ref{sec:fusion}) can be used to
-% eliminate this intermediate memory traffic by combining the \emph{depth}
-% applications of the collective operation \texttt{zipWith iter} into a single
-% operation containing \texttt{depth} instances of the scalar function
-% \texttt{iter}, which does not require us to write the intermediate values to
-% memory. However, doing this we uncover an embarrassing secret: \emph{a C
-% compiler does not compile C code}, it compiles \emph{idiomatic} C code. While
-% combining the sequence of collective operations into a single collective
-% operation containing a sequence of scalar operations produces faster code due to
-% reduced memory traffic, it is still far from optimal.
-% 
-% The problem is that fusing the collective operations in this way does not
-% preserve the iteration structure of the recurrence relation, and the loop is
-% completely unrolled in the single fused operation. We can introduce scalar loops
-% by looking for the following pattern:
-% %
-% \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-% %\bf$\langle$ loop introduction $\rangle$%
-%     let x =
-%         let y = e1
-%         in e2
-%     in e3
-%     $\mapsto$
-%     iterate[2] (\y -> e2) e1            %\rm if \texttt{e2} $\equiv$ \texttt{e3}%
-% \end{lstlisting}
-% %
-% The nested bindings are replaced with an explicit scalar value iteration
-% structure, where the expression \texttt{e2} is repeated twice with the initial
-% value \texttt{e1}. Similarly, loops can be joined:
-% %
-% \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-% %\bf$\langle$ loop joining $\rangle$%
-%     let x = iterate[n] f e1
-%     in e2
-%     $\mapsto$
-%     iterate[n+1] f e1                   %\rm if the body of \texttt{f} $\equiv$ \texttt{e2}%
-% \end{lstlisting}
-% %
-% Recovering scalar loops in this way enables a backend to generate explicit loops
-% in its target language, such as CUDA, and ultimately results in higher
-% performance code. In future, it would be beneficial to augment it with related
-% loop optimisations such as loop invariant code motion in the frontend and
-% lower-level code generation optimisations in a backend.
-
-
-\subsection{Redundancy Elimination}
+\section{Redundancy Elimination}
 \label{sec:redundancy_elimination}
 
 The optimisations in this section deal with the elimination of redundant
 computations. These procedures almost always improve the performance of the code
 they are applied to.
 
-\subsubsection{Sharing Observation}
+\subsection{Sharing Observation}
 
-As described in section~\derp, operations of the embedded language do not
+As described in section~TK, operations of the embedded language do not
 directly issue computations; instead, they build \emph{abstract syntax
 trees}\index{abstract syntax tree}\index{AST|see{abstract syntax tree}} that
 represent the embedded computation. These term trees use \indexe{higher-order
@@ -708,7 +129,7 @@ The higher-order abstract syntax\index{higher-order abstract syntax}
 representation of the surface language, while convenient for the human reader,
 is awkward for program transformations as it complicates looking under lambdas.
 We convert the source representation to a type-safe internal representation
-based on nameless de Bruijn\index{de Bruijn} indices in the style of
+based on nameless \indext{de Bruijn} indices in the style of
 \citet{Altenkirch:2003kz}, using GADTs \cite{Jones:2006eh} and type families
 \cite{Chakravarty:2005dx,Schrijvers:2008ir} to preserve the embedded program's
 type information. While developed independently
@@ -766,42 +187,29 @@ shared subterms should be \texttt{let}-bound.
 \paragraph{Phase 3: Binder introduction:}
 
 Finally, each floated subterm gets \texttt{let}-bound right above the node it
-floated to. At the same time, we convert the AST into nameless de
-Bruijn\index{de Bruijn} form by introducing de Bruijn indices at the same time
-as introducing the \texttt{let}s.\\
-
-% \paragraph{}
-% We now correctly observe the sharing of our motivating example, producing the
-% following (simplified) core language term:
-% %
-% \marginnote{this is weird: mixes core/library language terms}
-% \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
-% %\bf$\langle$ sharing observation $\rangle$%
-%     let ys = map f xs in zipWith g ys ys
-%       $\mapsto$
-%       Alet (Map f xs)
-%            (ZipWith g (Var ZeroIdx) (Var ZeroIdx))
-% \end{lstlisting}
+floated to. At the same time, we convert the AST into nameless \indext{de
+Bruijn} form by introducing de Bruijn indices at the same time as introducing
+the \texttt{let}s.\\
 
 
-\subsubsection{Common Subexpression Elimination}
+\subsection{Common Subexpression Elimination}
 \label{sec:cse}
 
 \emph{Common subexpression elimination} finds computations that are performed at
 least twice on a given execution path and eliminates the second and later
 occurrences, replacing them with uses of saved values. The current
-implementation performs a simplified version of common subexpression, where we
-look for expressions of the form:
+implementation performs a simplified version of common subexpression
+elimination, where we look for expressions of the form:
 %
 \begin{lstlisting}[style=Haskell,numbers=none]
 %\bf$\langle$ common subexpression elimination $\rangle$% let x = e1 in [x/e1]e2
 \end{lstlisting}
 %
 and replace all occurrences of \texttt{e1} in \texttt{e2} with \texttt{x}. This
-will not completely eliminate redundant expressions from the program, as it will
+might not completely eliminate redundant expressions from the program, as it will
 not eliminate any common subterms not already defined in the source program. It
 will however catch some cases, in particular those that tend to be introduced
-during the array fusion optimisation discussed in the next section.
+during the array fusion optimisation.
 %\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
 
 While it may seem that common subexpression elimination is always worthwhile, as
@@ -812,6 +220,7 @@ shared expression's value, which hence reduces the number of registers available
 for other uses. Even worse is if that value has to be spilled to memory because
 there are insufficient registers available. We sidestep this tricky and
 target-dependent issue by, for now, simply ignoring it.
+
 
 
 \section{Array Fusion}
@@ -1019,8 +428,9 @@ optimisation techniques.
 
 
 
-\subsubsection{Split/Join}
-From DPH.\index{data-parallel Haskell}\index{DPH|see{data-parallel Haskell}}
+\subsubsection{Data Parallel Haskell}
+\texttt{split/join}\index{fusion!split/join} fusion from
+DPH.\index{data-parallel Haskell}\index{DPH|see{data-parallel Haskell}}
 \citet{Chakravarty:2007tc,Jones:2008uu}.
 
 
@@ -1063,8 +473,8 @@ represented as a transformation function from array indices to values.
 \subsubsection{Hylomorphism fusion?}
 \citet{Takano:1995}
 
-\subsubsection{Loop fusion?}
-From imperative languages. \citet{Warren:1984ka}. \citet{Sarkar:1991ff}
+\subsubsection{Loop fusion (from imperative languages)?}
+\citet{Warren:1984ka,Sarkar:1991ff}
 
 
 \subsubsection{Conclusion}
@@ -1203,6 +613,8 @@ operations, we do not need to consider them further.
 % thesis is me providing for myself. YOU THIK I DONT KNOW WHAT. Stupid thesis.
 % Go home.
 % LET'S FUCK!
+%
+%   - pookie 19/06/2013
 
 \paragraph{Fusion on typed de Bruijn indices:} We fuse Accelerate programs by
 rewriting typed \indext{de Bruijn} terms in a type preserving manner.
@@ -1250,9 +662,817 @@ stencil     :: Stencil sh a stencil => (stencil -> Exp b) -> Boundary a       %\
             -> Acc (Array sh a) -> Acc (Array sh b)                           %\rm \ldots neighbourhood context%
 \end{lstlisting}
 
+% \begin{figure}[htbp]
+%     \begin{center}
+%         \psfig{figure=<+eps file+>}
+%     \end{center}
+%     \caption{<+caption text+>}
+%     \label{fig:<+label+>}
+% \end{figure}<++>
+
+
+\section{Typed Equality}
+\label{sec:equality}
+
+The Accelerate core language is richly typed, maintaining full type information
+of the embedded language in the term tree. In order to apply transformations to
+these terms while maintaining the correctness of the program as encoded in its
+type, we require methods to manipulate these richly typed terms in a type- and
+scope-preserving manner.
+
+For example, if we want to test whether two terms are equal to determine whether
+the subexpressions can be shared, we immediately run into the problem that terms
+are existentially typed:
+%
+\begin{lstlisting}[style=haskell]
+Exp s == Exp t = ??
+\end{lstlisting}
+%
+There is no reason that \texttt{s} and \texttt{t} should be expressions of the
+same type. In some instances we might not care, and as such can define standard
+heterogeneous equality:
+%
+\begin{lstlisting}[style=haskell]
+instance Eq (PreOpenExp acc env aenv t) where
+    (==) = heq
+    where
+        heq :: PreOpenExp acc env aenv a -> PreOpenExp acc env aenv b -> Bool
+        heq = ...
+\end{lstlisting}
+%
+where we do not care about the result type of each expression, and only require
+that the environment type, re size, of free scalar and array variables are the
+same so that we can test equality of \indext{de Bruijn} indices.
+
+However, we often \emph{do} care about the specific types of our existentially
+quantified terms. Consider the case of defining equality for \texttt{Let}
+bindings. Recall:
+%
+\begin{lstlisting}[style=haskell]
+data PreOpenExp acc env aenv t where
+
+  -- Local binding of a scalar expression
+  Let   :: (Elt bnd_t, Elt body_t)
+        => PreOpenExp acc env          aenv bnd_t       -- bound term
+        -> PreOpenExp acc (env, bnd_t) aenv body_t      -- body/scope of binding
+        -> PreOpenExp acc env          aenv body_t
+\end{lstlisting}
+%
+To apply \texttt{heq} to the body expression, we need to know something about
+the type of the bound terms to ensure that the scalar environments are the same,
+namely \lstinline[mathescape]{a $\sim$ bnd_t $\sim$ b}.\footnote{Alternatively
+we can use \texttt{Data.Typeable.gcast} to provide a type-safe cast, but this
+quickly becomes unwieldy and is a little unsatisfactory.} To do this we must
+equip terms with a runtime witness to the existentially quantified type. Our
+reified dictionaries will allow us to do exactly this, so we can define
+heterogeneous equality for reified dictionaries:
+%
+\begin{lstlisting}[style=haskell]
+heqIntegralType :: IntegralType s -> IntegralType t -> Bool
+heqIntegralType (TypeInt _)  (TypeInt _)  = True
+heqIntegralType (TypeWord _) (TypeWord _) = True
+  ...
+heqIntegralType _            _            = False
+\end{lstlisting}
+%
+However, doing this is perfectly useless as it only gives us a value of type
+\texttt{Bool}, with no idea what that value means or to what its truth might
+entitle us. The type checker does not gain any useful knowledge about the types
+the dictionaries \texttt{a} and \texttt{b} witness simply by knowing that
+\lstinline{heqIntegralType a b = True}. A boolean is a bit uninformative.
+
+Instead, we can write essentially the same test, but in the positive case
+deliver some \emph{evidence} that the types are equal:
+%
+\begin{lstlisting}[style=haskell]
+data s :=: t where
+  REFL :: s :=: s
+
+matchIntegralType :: IntegralType s -> IntegralType t -> Maybe (s :=: t)
+matchIntegralType (TypeInt _)  (TypeInt _)  = Just REFL
+matchIntegralType (TypeWord _) (TypeWord _) = Just REFL
+  ...
+matchIntegralType _            _            = Nothing
+\end{lstlisting}
+%
+Matching on \lstinline{Just REFL} will inject the knowledge into the type
+checker that the types \texttt{s} and \texttt{t} are the same. Now with our
+evidence-producing heterogeneous equality test for reified dictionary families,
+we can compare two terms and gain type-level knowledge when they witness the
+same value-level types. These witnesses for existentially quantified types then
+allow us to test for equality \emph{homogeneously}, ensuring that positive
+results from singleton tests give the bonus of unifying types for other tests:
+%
+\begin{lstlisting}[style=haskell]
+matchPreOpenExp :: PreOpenExp acc env aenv s -> PreOpenExp acc env aenv t -> Maybe (s :=: t)
+matchPreOpenExp (Let x1 e1) (Let x2 e2)
+  | Just REFL <- matchOpenExp x1 x2     -- if the bound expressions match
+  , Just REFL <- matchOpenExp e1 e2     -- then the environment of the body term will also match
+  = Just REFL
+
+matchPreOpenExp ...
+\end{lstlisting}
+
+
+\subsection{Congruence}
+
+As we are interested in the facility of matching terms for the purposes of
+optimisations such as common subexpression elimination, it is beneficial to
+define not equality but instead \indexe{congruence} of terms. Two nodes are
+considered congruent if the nodes they label are constants and the constants are
+equal; or they have the same operator and the operands are congruent. The crux
+of the latter condition refers to commutative relations, such as scalar
+addition, where an operator yields the same result when the order of the
+operands are reversed. When checking equality of primitive applications, we
+discriminate binary functions whose arguments commute, and return those
+arguments in a stable ordering by comparing a hash of each of the
+sub-terms.
+%
+\begin{lstlisting}[style=haskell]
+commutes :: PrimFun (a -> r) -> PreOpenExp acc env aenv a -> Maybe (PreOpenExp acc env aenv a)
+commutes f x = case f of
+  PrimAdd _     -> Just (swizzle x)
+    ...         -> Nothing
+  where
+    swizzle :: PreOpenExp acc env aenv (a,a) -> PreOpenExp acc env aenv (a,a)
+    swizzle exp
+      | Tuple (NilTup `SnocTup` a `SnocTup` b) <- exp
+      , hashPreOpenExp a > hashPreOpenExp b     = Tuple (NilTup `SnocTup` b `SnocTup` a)
+      | otherwise                               = exp
+\end{lstlisting}
+
+
+\section{Simultaneous Substitution}
+\label{sec:substitution}
+
+In order to do things like renaming and substitution we require a value-level
+substitution algorithm for the richly typed terms. The implementation follows
+the method of \citet{McBride:2006up,McBride:2005jv}, where it is seen that
+renaming and substitution are both instances of a \emph{single} traversal
+operation, pushing functions from variables to ``stuff'' through terms, for a
+suitable notion of stuff.
+%
+The trick is to push a \emph{type-preserving} but \emph{environment changing}
+operation structurally through terms:
+%
+\begin{lstlisting}[style=haskell]
+v :: forall t'. Idx env t' -> f env' t'
+\end{lstlisting}
+
+Where the operation differs is in the image of variables: renaming maps
+variables to variables and substitution maps variables to terms. We then lift
+this to an operation which traverses terms, with appropriate lifting to push
+under a lambda, and rebuilding the term after applying \texttt{v} to the
+variables:
+%
+\begin{lstlisting}[style=haskell]
+rebuild :: Syntactic f
+        => (forall t'. Idx env t' -> f env' t')
+        -> Term env  t
+        -> Term env' t
+\end{lstlisting}
+
+The \texttt{Syntactic} class\footnote{Since Accelerate is a stratified language
+there are separate implementations of this toolkit on syntactic elements for the
+scalar and collective operations, but the details are identical. The discussion
+uses the generic \texttt{Term} to mean either of these operations.} tells us
+everything we need to know about \texttt{f} --- our notion of ``stuff'' --- in
+order to rebuild terms: a mapping in from variables, a mapping out to terms, and
+a weakening map which extends the context. Renaming will instantiate \texttt{f}
+with \texttt{Idx}, whereas for substitutions we may choose \texttt{Term}
+instead.
+%
+\begin{lstlisting}[style=haskell]
+class Syntactic f where
+    varIn   :: Idx env t -> f env t             -- variables embed in f
+    termOut :: f env t   -> Term env t          -- f embeds in terms
+    weaken  :: f env t   -> f (env, s) t        -- f allows weakening
+
+instance Syntactic Idx
+instance Syntactic Term
+\end{lstlisting}
+
+A key component of this toolkit, \indexe{weakening} describes an operation we
+usually take for granted: every time we learn a new word, old sentences still
+make sense; if a conclusion is justified by a hypothesis, it is still justified
+if we add more hypotheses; a term remains in scope if we bind new (fresh)
+variables. Weakening is the process of shifting things from one scope to a
+larger scope in which new things have become meaningful, but no old things have
+vanished. When we use a named representation (or HOAS\index{higher-order
+abstract syntax}\index{HOAS|see{higher-order abstract syntax}}) we get weakening
+for free, but in the de Bruijn\index{de Bruijn} representation weakening takes
+work: we need to shift all the variable references to make room for new
+bindings. To do this we need to explain how to shift the \texttt{v} operation
+into an extended environment; saying what to do with the new variable and how to
+account for it on the output side.
+%
+\begin{lstlisting}[style=haskell]
+shift :: Syntactic f
+      => (forall t'. Idx env t' -> f env' t')
+      -> Idx (env,  s) t
+      -> f   (env', s) t
+\end{lstlisting}
+%
+Overall, the crucial functionality of simultaneous substitution is to propagate
+a class of operations on variables closed under shifting, which is what
+\texttt{Syntactic} and \texttt{rebuild} offer.
+
+The question, then, is how to write the function \texttt{v} which we push
+through terms? This is the final piece of equipment that essentially takes our
+simultaneous substitution algorithm and specialises it to one-at-a-time
+substitution. Let's say we have a term with one free variable, and we want to
+replace that variable with a term. The following takes a replacement for the top
+variable and yields a simultaneous substitution that eliminates
+\texttt{ZeroIdx}:
+%
+\begin{lstlisting}[style=haskell,caption={A simultaneous substitution to inline terms}]
+inline :: Term (env, s) t -> Term env s -> Term env t
+inline body bnd = rebuild (subTop bnd) body
+  where
+    subTop :: Term env s -> Idx (env, s) t -> Term env t
+    subTop s ZeroIdx      = s
+    subTop _ (SuccIdx ix) = Var ix
+\end{lstlisting}
+%
+The demonic $\forall$ --- which is to say that the quantifier is in a position
+which gives us obligation, not opportunity --- of the operator \texttt{v} forces
+us to respect type: when pattern matching detects the variable we care about,
+happily we discover that it has the type we must respect. The demon is not so
+free to mess with us as one might at first fear.
+
+% Typing rules; each rule types the general usage of a symbol, below the
+% line, in terms of the parameters above the line.??
+
+\subsection{Example: Inlining}
+%TK
+
+\subsection{Example: Function composition}
+%TK
 
 
 
+\section{Environment Manipulation}
+\label{sec:environment_manipulation}
+
+As discovered in the previous section, as part of the fusion transformation of
+recasting terms we often need to lift array valued inputs to be
+\texttt{let}-bound at higher points to avoid work duplication, but at the same
+time we can not immediately add these bindings to the output term because they
+will interfere with further fusion steps. We need to collect these extra
+bindings separately from the main term, and only add them to the output once we
+encounter a node that forces the computation, such as a consumer. Furthermore,
+we must ensure we correctly track the types of the environments between the
+fused terms and the collected \texttt{let}-bindings.
+
+The following is a heterogeneous snoc-list of array terms that witnesses how an
+array environment is extended by the application of these operations:
+%
+\begin{lstlisting}[
+    style=haskell,
+    label={lst:Extend},
+    caption={Extending an array environment}]
+data Extend aenv aenv' where
+    BaseEnv ::                                                                Extend aenv aenv
+    PushEnv :: Arrays a => Extend aenv aenv' -> PreOpenAcc OpenAcc aenv' a -> Extend aenv (aenv', a)
+\end{lstlisting}
+%
+In the style of the \indext{de Bruijn} indices used for projecting environment
+variables (\S TK), \texttt{Extend} uses an inductive notion of tuples as
+heterogeneous \emph{snoc} lists. In contrast to environment indices, the base
+case does not refer to an empty environment, but instead the arbitrary
+environment to which we are extending. This witnesses how to connect the
+environment of the original term which we are currently deforesting to the new
+terms being output by the deforester. We will refer to \texttt{aenv} as the
+external environment type, and \texttt{aenv'} as the internal environment type.
+Binding these expressions to the term output by the deforester yields a
+completed term of the correct type.
+%
+\begin{lstlisting}[style=haskell]
+bind :: Arrays a
+     => Extend aenv aenv'               -- collection of additional environment bindings
+     -> PreOpenAcc OpenAcc aenv' a      -- term output by the deforester
+     -> PreOpenAcc OpenAcc aenv  a
+bind BaseEnv         = id
+bind (PushEnv env a) = bind env . Alet (OpenAcc a) . OpenAcc
+\end{lstlisting}
+
+
+
+\section{Implementing Array Fusion}
+
+\section{Simplification}
+\label{sec:simplification}
+
+Functional language compilers often perform optimisations. To avoid speculative
+optimisations that can blow up code size, we might wish to use only
+optimisations guaranteed to make the program smaller: these include
+dead-variable elimination, constant folding, and a restricted $\beta$-reduction
+rule that only inlines functions that are called just once. This leads to a
+simplification system guaranteed not to lead to code blowup or nonterminating
+compilation.
+
+\subsection{Shrinking}
+
+The \emph{shrinking reduction} arises as a restriction of $\beta$-reduction
+(i.e. inlining) to cases where the bound variable is used zero (dead-code
+elimination) or one (linear inlining) times. By simplifying terms,
+%As well as reducing binding overhead,
+the shrinking reduction exposes opportunities for further optimisation such as
+more aggressive inlining, constant folding and common sub-expression
+elimination. %by exposing the binding to local context information.
+
+The difficulty with implementing the shrinking reduction is that dead-code
+elimination at one redex can expose further shrinking reductions at completely
+different portions of the term, so attempts at writing a straightforward
+compositional algorithm fail. The current implementation uses a na\"ive
+algorithm that re-traverses the whole reduct whenever a redex is reduced,
+although more efficient imperative algorithms exist
+\cite{Appel:1997gs,Benton:2004ua,Kennedy:2007cb}.
+
+The only interesting case of the \texttt{shrink} function is that of a
+$\beta$-redex where the number of uses is less than or equal to one. The
+implementation, outlined below, uses the \indext{de Bruijn} manipulation
+techniques developed in sections~\ref{sec:equality} and \ref{sec:substitution}.
+This also suffices to eliminate dead code, as Accelerate does not have separate
+forms for \texttt{let}-bindings and lambda abstractions.
+%
+\begin{lstlisting}[
+    style=Haskell,
+    label={lst:shrinking},
+    caption={The shrinking reduction}]
+usesOf :: Idx env s -> Term env t -> Int
+usesOf idx (Var this)
+    | Just REFL <- match this idx       = 1
+    | otherwise                         = 0
+usesOf idx (Let bnd body)               = usesOf idx bnd + usesOf (SuccIdx idx) body
+usesOf ...
+
+shrink :: Term env t -> Term env t
+shrink (Let bnd body)
+    | usesOf ZeroIdx bnd' <= 1          = shrink (inline body' bnd')
+    | otherwise                         = Let bnd' body'
+    where
+        bnd'  = shrink bnd
+        body' = shrink body
+shrink ...
+\end{lstlisting}
+
+
+\subsection{Constant-Expression Evaluation}
+
+\emph{Constant-expression evaluation}, or \emph{constant folding}, refers to the
+evaluation at compile time of scalar expressions whose operands are known to be
+constant. Essentially, constant-expression evaluation involves determining that
+all the operands in an expression are constant valued and performing the
+evaluation of the expression at compile time, replacing the expression by this
+result.
+
+The applicability of the transformation depends on the type of the expression
+under consideration. For Boolean values, the optimisation is always applicable.
+For integers, it is almost always applicable, with the exceptions being cases
+that would produce run-time exceptions if they were executed, such as division
+by zero and underflow or overflow. For floating-point values, the situation is
+even more complicated; the compiler's floating point arithmetic must match that
+of the processor being compiled for, otherwise floating-point operations may
+produce different results. Furthermore, the IEEE-754 standard specifies many
+types of exceptions and exceptional values --- including infinities, NaNs and
+denormalised values --- all of which should be taken into account.
+
+
+\subsubsection{Constant Folding}
+
+The current implementation performs constant folding of scalar expressions for
+all primitive functions and all element types. However, no explicit checks for
+underflow or overflow is made, nor for invalid or exceptional values. For
+example, the following rewrite is always applied:
+%
+% As Accelerate programs are just-in-time compiled and thus the optimisation is
+% applied at program runtime, I consider these checks to be of lower priority than
+% they would be in a traditional offline compiler.
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+%\bf$\langle$ constant folding $\rangle$%
+    PrimAdd (%\rm$\langle$elided type info$\rangle$%)
+      `PrimApp`
+      Tuple (NilTup `SnocTup` Const x `SnocTup` Const y) $\mapsto$ Const (x+y)
+\end{lstlisting}
+%
+The attentive reader will note that it is straightforward to choose a positive
+non-zero floating-point value \texttt{eps} such that \lstinline{eps + 1.0 > 1.0}
+is \texttt{False}. Issues arising from simplification of floating-point
+expressions are currently ignored, but this is not so outrageous as it would be
+for a traditional offline compiler: since Accelerate programs are just-in-time
+compiled, any such issues still occur only at program runtime. The only
+distinction is from in phase of program execution the problem manifests, not
+that it does.
+
+% Constant folding is also used to eliminate branches when the value of the
+% predicate can be determined, or the branches are congruent.
+
+
+\subsubsection{Constant Propagation}
+
+The effectiveness of constant folding can be increased by combining it with
+other data-flow optimisations, particularly constant propagation. When
+determining whether the arguments to a primitive function application are
+constants, we consider \texttt{let}-bound constants and constant-valued tuple
+components in addition to literal constants as material for constant folding.
+
+
+\subsubsection{Algebraic Simplification}
+
+\emph{Algebraic simplifications} use algebraic properties of operators, or
+particular operator/operand combinations to simplify expressions. The most
+obvious algebraic simplifications involve combining a binary operator with an
+operand that is the algebraic identity of that operator, or with an operand that
+always yields a constant, independent of the other value of the operand. For
+example, for a term \texttt{x} the following are always true:
+%
+\begin{lstlisting}[style=Haskell,numbers=none]
+%\bf$\langle$ algebraic simplification $\rangle$%
+    x + 0 = 0 + x = x - 0 = x
+    0 - x = -x
+    x * 1 = 1 * x = x / 1 = x
+    x * 0 = 0 * x = 0
+\end{lstlisting}
+%
+Similarly, there are simplifications that apply to unary operators and
+combinations of unary and binary operators. Some operations can also be viewed
+as strength reductions, that is, replacing an operator by one that is faster to
+compute, such as:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+%\bf$\langle$ strength reduction $\rangle$%
+    x $\uparrow$ 2 = x * x
+    2 * x = x + x
+\end{lstlisting}
+%
+Likewise, multiplications by small constants can frequently be computed faster
+by sequences of shifts and adds and/or subtractions. These techniques are often
+more effective if applied during code generation rather than optimisation, so
+strength reductions are not currently applied.
+
+
+\subsubsection{Algebraic Reassociation}
+
+\emph{Reassociation} refers to using specific algebraic properties --- namely
+associativity, commutativity and distributivity --- to divide an expression into
+parts that are constant and variable.
+%To further increase opportunities for constant folding, algebraic reassociations
+%are applied.
+This is particularly relevant when only one operand of a binary
+operator is identified as being constant valued. For example, the expression
+\lstinline{x + 1 + 2} would only be simplified if the second addition occurred
+first. For the case of commutative binary operators where only one operand is
+constant valued, the constant expression is applied as the first operand. The
+previous term would then be rewritten as:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+%\bf$\langle$ algebraic reassociation $\rangle$%
+    x + 1 + 2 $\mapsto$ 1 + x + 2
+              $\mapsto$ 1 + 2 + x
+              $\mapsto$ 3 + x
+\end{lstlisting}
+
+
+\subsubsection{Summary}
+
+Constant folding and algebraic simplifications are applied to scalar and array
+term. The list of algebraic simplifications presented here and currently
+implemented is not necessarily exhaustive, and adding additional simplifications
+might be eased through the use of a rewrite rule system expressed in terms of
+the source language, rather than by direct manipulation of \indext{de Bruijn}
+terms. Furthermore, it may be important to assess the validity of constant
+folding based on the type of the expression, particularly for floating point
+terms. Both these concerns are left for future work. An example of the current
+implementation of constant folding is shown below.
+
+\marginnote{bugs in the associativity code; needs to be fixed}
+\begin{lstlisting}[style=Haskell,mathescape,caption={Example of constant expression evaluation}]
+f :: Exp Float -> Exp Float
+f x = let a = lift (constant 30, x)
+          b = 9 - fst a / 5
+          c = b * b * 4
+          d = c >* pi + 10 ? (c - 15, x)
+      in x * d * (60 / fst a)
+    $\mapsto$
+    42.0 * x
+\end{lstlisting}
+
+
+\subsection{Loop Recovery}
+
+\note{We need to add recursion into the scalar and array languages to support
+iteration and divide-and-conquer algorithms. Could add this explicitly, but can
+we use an observable technique?}
+
+% Compared to regular Haskell, the scalar expression language of Accelerate is
+% rather limited in order to meet the restrictions of what can be efficiently
+% implemented on specialised hardware, such as GPUs. For example, to avoid
+% excessive SIMD divergence, we do not provide any explicit form of recursion or
+% iteration in scalar expressions. This harmonises well with the stratified design
+% of the Accelerate language: collective array operations comprise many scalar
+% computations that are executed in parallel, so for simplicity of scheduling
+% these operations we would like some assurance that each scalar computation takes
+% approximately the same time to execute as all others.
+% 
+% Of course, some computations are naturally expressed in terms of iteration.
+% Consider for example the Mandelbrot set, a mathematical set of points whose
+% boundary is a distinctive and easily recognisable two-dimensional fractal shape
+% as seen in \autoref{fig:mandelbrot}. Images of the Mandelbrot fractal are
+% generated by sampling values $c$ in the complex plane and determining for each
+% whether the under iteration of the complex quadratic polynomial $z_{n+1} =
+% z_{n}^{2} + c$ that $\left|z_n\right|$ remains bounded however large $n$ gets.
+% 
+% % Stolen from: \url{http://en.wikipedia.org/wiki/Mandelbrot_set}, 2013-02-20
+% % Perhaps we should use one generated by my own Mandelbrot code?
+% %
+% \begin{figure}[htbp]
+%     \begin{center}
+%         \includegraphics[width=0.8\textwidth]{images/sec-5/mandelbrot}
+%     \end{center}
+%     \caption[The Mandelbrot fractal]{Image of a Mandelbrot set with a
+%         continuously coloured environment. Each pixel corresponds to a point $c$
+%         in the complex plane, and its colour depends the number of iterations
+%         $n$ before the relation diverges.}
+%     \label{fig:mandelbrot}
+% \end{figure}
+% 
+% \note{Introduce the (?) operator, talk about what divergence is, why it is bad,
+% etc.}
+% 
+% How can we express this computation in a language without iteration? Instead, we
+% use generative (meta-programming) techniques to express the recurrence relation.
+% Begin by first defining a single step of the relation for a single point in the
+% plane. For each point $c$ we keep a pair of elements $\left( z, n \right)$ where
+% $z$ is the current value of the relation and $n$ is the iteration that
+% divergence occurred at, or the current iteration otherwise.
+% %
+% \begin{lstlisting}[style=haskell]
+% iter :: Exp Complex -> Exp (Complex, Int) -> Exp (Complex, Int)
+% iter c z_n = ...
+% \end{lstlisting}
+% %
+% This computes the next value of the polynomial $z_{n+1}$ as well as the number
+% of iterations $n$ if the element has not diverged, otherwise returns the value
+% and iteration count (at divergence) unchanged. We then lift this to the
+% Accelerate array language by applying the operation at all points in the plane
+% \texttt{cs}:
+% %
+% \begin{lstlisting}[style=haskell,firstnumber=last]
+% step :: Acc (Array DIM2 (Complex,Int)) -> Acc (Array DIM2 (Complex,Int))
+% step = A.zipWith iter cs
+% \end{lstlisting}
+% %
+% Note that we have to apply the function even to elements that have already
+% diverged. This wastes work but means that there is less SIMD divergence because
+% we still do the same thing to every element at every iteration. Here the ``same
+% thing'' does imply a small amount if divergence, between elements that have
+% already diverged and those that have not, but w
+% 
+% We can then use
+% standard Haskell to unroll the loop a \emph{fixed} number of times, which
+% completes the Mandelbrot set calculation:
+% %
+% \begin{lstlisting}[style=haskell,firstnumber=last]
+% mandelbrot :: Acc (Array DIM2 (Complex,Int)) -> Acc (Array DIM2 (Complex,Int))
+% mandelbrot = foldr ($) zs0 (replicate depth step)
+% \end{lstlisting}
+% %
+% Here \texttt{foldr} and \texttt{replicate} come from the standard Haskell
+% prelude, and \texttt{depth} is the maximum iteration count of the relation.
+% 
+% This correctly computes the Mandelbrot set, but is outrageously slow because it
+% must read and write the values $z$ and $n$ to memory at each step of the
+% computation, rather than keeping these values in registers, computing the entire
+% recurrence relation and storing only the final result to memory. Later, we will
+% see how the technique of \emph{array fusion} (\S\ref{sec:fusion}) can be used to
+% eliminate this intermediate memory traffic by combining the \emph{depth}
+% applications of the collective operation \texttt{zipWith iter} into a single
+% operation containing \texttt{depth} instances of the scalar function
+% \texttt{iter}, which does not require us to write the intermediate values to
+% memory. However, doing this we uncover an embarrassing secret: \emph{a C
+% compiler does not compile C code}, it compiles \emph{idiomatic} C code. While
+% combining the sequence of collective operations into a single collective
+% operation containing a sequence of scalar operations produces faster code due to
+% reduced memory traffic, it is still far from optimal.
+% 
+% The problem is that fusing the collective operations in this way does not
+% preserve the iteration structure of the recurrence relation, and the loop is
+% completely unrolled in the single fused operation. We can introduce scalar loops
+% by looking for the following pattern:
+% %
+% \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+% %\bf$\langle$ loop introduction $\rangle$%
+%     let x =
+%         let y = e1
+%         in e2
+%     in e3
+%     $\mapsto$
+%     iterate[2] (\y -> e2) e1            %\rm if \texttt{e2} $\equiv$ \texttt{e3}%
+% \end{lstlisting}
+% %
+% The nested bindings are replaced with an explicit scalar value iteration
+% structure, where the expression \texttt{e2} is repeated twice with the initial
+% value \texttt{e1}. Similarly, loops can be joined:
+% %
+% \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+% %\bf$\langle$ loop joining $\rangle$%
+%     let x = iterate[n] f e1
+%     in e2
+%     $\mapsto$
+%     iterate[n+1] f e1                   %\rm if the body of \texttt{f} $\equiv$ \texttt{e2}%
+% \end{lstlisting}
+% %
+% Recovering scalar loops in this way enables a backend to generate explicit loops
+% in its target language, such as CUDA, and ultimately results in higher
+% performance code. In future, it would be beneficial to augment it with related
+% loop optimisations such as loop invariant code motion in the frontend and
+% lower-level code generation optimisations in a backend.
+
+
+
+
+\section{The Transformations Interacting}
+
+This section follows a few examples to discuss the effect of applying the
+transformations described in the preceding sections. Many of these motivating
+examples have shown up in real applications. The effects usually involve a
+combination of many transformations and so give an idea of how the
+transformations interact with one another.
+
+\subsection{Ordering}
+
+There are several possible orderings for the transformations discussed in this
+chapter, and one can easily invent examples to show that no order can be optimal
+for all programs, but some orderings are generally preferable to others. This
+section describes the motivation for the current sequence of transformations.
+
+Consider the term \lstinline[style=inline]{zipWith f xs xs}. The fusion
+transformation rewrites this into \texttt{generate} style as per
+section~\ref{sec:elements_of_style}. Before simplification this produces the
+following term, rewritten slightly:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+    a1 = a0
+    a2 = a1
+    a3 = a1
+in generate (intersect (shape a2) (shape a3))
+            (\x0 -> let x1 = a2!x0
+                        x2 = a3!x0
+                    in x1 + x2)
+\end{lstlisting}
+%
+There are a number of simplifications we would like to apply to this expression,
+including shrinking (\S\ref{sec:simplification}) and common subexpression
+elimination (\S\ref{sec:redundancy_elimination}). The additional array bindings
+are an artefact of the way the fusion transformation handles extended
+environment bindings \note{which Trevor is ashamed of and has promised to fix},
+and clearly all array variables refer to the same manifest data, \texttt{xs} in
+the expression expression. Applying shrinking to the array terms conceals this
+infelicity:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+in generate (intersect (shape a0) (shape a0))
+            (\x0 -> let x1 = a0!x0
+                        x2 = a0!x0
+                    in  x1 + x2)
+\end{lstlisting}
+%
+Applying shrinking simplifies the binding structure making it apparent that the
+scalar terms are indeed referring to the same array. If we follow the same
+strategy of shrinking the scalar expressions:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+in generate (intersect (shape a0) (shape a0))
+            (\x0 -> a0!x0 + a0!x0)
+\end{lstlisting}
+%
+This term is a completely valid interpretation of the source program that does
+not introduce any additional work, but we can do better. Applying shrinking
+inlines the two terms \texttt{x1} and \texttt{x2} because they are each only
+referenced once in the body, resulting in two accesses of the array to the same
+index. Since our straightforward implementation of common subexpression
+elimination is aimed at removing redundant \texttt{let}-bindings, we should
+always apply redundancy elimination before shrinking, resulting in a term that
+only accesses the underlying array once:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...)
+in generate (intersect (shape a0) (shape a0))
+            (\x0 -> let x1 = a0!x0
+                    in  x1 + x1)
+\end{lstlisting}
+
+\subsection{Repeated Evaluations}
+
+% \subsection{Error tests eliminated}
+
+\subsection{Confluence and Termination}
+
+The set of transformations can be seen as a set of term rewriting rules. We
+would like this set of transformations to be:
+%
+\begin{itemize}
+    \item Correct: The transformed code retains the same semantics as the
+        original code. This correctness is proved in
+        section~\derp.
+
+    \item Improving efficiency: The transformed code should require less time
+        and/or fewer resources to execute than the original. We return to this
+        topic in the analysis of benchmarks in chapter~\ref{ch:results}.
+\end{itemize}
+%
+In addition, it would be of significant practical advantage if the
+transformations were:
+%
+\begin{itemize}
+    \item Confluent: When more than one transformation is applicable to a given
+        term, applying the transformations in any ordering should yield the same
+        result. This is important to ensure that opportunities to apply
+        transformations are not lost, or worse code is generated, due to
+        the choice of applying one transformation before another.
+
+    \item Terminating: We reach a point when no transformation is applicable so
+        the simplification process stops. One must be careful that one
+        transformation [sequence] can not generate terms that can be transformed
+        back to the original; that no transformation undoes the work of another.
+\end{itemize}
+
+TK: Do some work dis/proving these two things, then write about it here.
+
+
+\section{Compiling the TK program}
+
+TK: Step through compiling a particular program, the effect each optimisation has,
+needing to iterate simplifications etc. Probably need a few different example
+programs.
+
+
+\section{Conclusion}
+
+% \section{Fusion / Global optimisation}
+% \note{[insert catchy name]}
+% 
+% Inference rules for forcing\ldots
+
+% \inference[force 1: ]
+% {\Gamma |- \textsc{Done}\ \Gamma'\ a}
+% {\Gamma |> \Gamma' |- a}
+% 
+% \inference[force 2: ]
+% {\Gamma |- \textsc{Yield}\ \Gamma'\ sh\ f}
+% {\Gamma |> \Gamma' |- \mathrm{Generate}\ sh\ f}
+% 
+% \inference[force 3a: ]
+% {\Gamma |- \textsc{Step}\ \Gamma'\ sh\ ix\ f\ a & sh \equiv \mathrm{shape}\ a &
+% \mathrm{identity}\ f & \mathrm{identity}\ ix}
+% {\Gamma |> \Gamma' |- \mathrm{Avar}\ a}
+% 
+% \inference[force 3b: ]
+% {\Gamma |- \textsc{Step}\ \Gamma'\ sh\ ix\ f\ a & sh \equiv \mathrm{shape}\ a & \mathrm{identity}\ ix}
+% {\Gamma |> \Gamma' |- \mathrm{Map}\ f\ a}
+% 
+% \inference[force 3c: ]
+% {\Gamma |- \textsc{Step}\ \Gamma'\ sh\ ix\ f\ a & \mathrm{identity}\ f}
+% {\Gamma |> \Gamma' |- \mathrm{Backpermute}\ sh\ ix\ a}
+% 
+% \inference[force 3d: ]
+% {\Gamma |- \textsc{Step}\ \Gamma'\ sh\ ix\ f\ a}
+% {\Gamma |> \Gamma' |- \mathrm{Transform}\ sh\ ix\ f\ a}
+
+% \section{Simplification / Local optimisation}
+
+
+
+\endinput
+
+\section{Manipulating Terms}
+\label{sec:manipulating_terms}
+
+This section describes the basic operations required
+for manipulating terms, upon which the optimisation algorithms are built.
+
+% \subsubsection{Preserving Types vis-\`a-vis Correctness}
+
+\section{Optimisation Techniques}
+
+Now that we have the mechanisms to correctly analyse and manipulate terms, we
+can consider optimisations that may be valuable in improving the quality of the
+core program. 
+
+Optimisations are applied repeatedly
+until no further changes can me made, or an iteration limit is reached.
+
+% \begin{itemize}
+%     \item{Importance of Individual Optimisations}
+%     \item{Order and Repetition of Optimisations}
+% \end{itemize}
+
+\section{Array Fusion}
 \subsection{Of Predators and Prey}
 
 The classic array fusion example is that of vector dot product:
@@ -1487,51 +1707,6 @@ we may have no control over --- and potentially simplifies the implementation of
 a backend by being able to ignore producer/consumer fusion.
 
 
-\subsection{Environment Manipulation}
-\label{sec:environment_manipulation}
-
-As discovered in the previous section, as part of the fusion transformation of
-recasting terms we often need to lift array valued inputs to be
-\texttt{let}-bound at higher points to avoid work duplication, but at the same
-time we can not immediately add these bindings to the output term because they
-will interfere with further fusion steps. We need to collect these extra
-bindings separately from the main term, and only add them to the output once we
-encounter a node that forces the computation, such as a consumer. Furthermore,
-we must ensure we correctly track the types of the environments between the
-fused terms and the collected \texttt{let}-bindings.
-
-The following is a heterogeneous snoc-list of array terms that witnesses how an
-array environment is extended by the application of these operations:
-%
-\begin{lstlisting}[
-    style=haskell,
-    label={lst:Extend},
-    caption={Extending an array environment}]
-data Extend aenv aenv' where
-    BaseEnv ::                                                                Extend aenv aenv
-    PushEnv :: Arrays a => Extend aenv aenv' -> PreOpenAcc OpenAcc aenv' a -> Extend aenv (aenv', a)
-\end{lstlisting}
-%
-In the style of the de Bruijn indices used for projecting environment variables
-(\S\derp), \texttt{Extend} uses an inductive notion of tuples as heterogeneous
-\emph{snoc} lists. In contrast to environment indices, the base case does not
-refer to an empty environment, but instead the arbitrary environment to which we
-are extending. This witnesses how to connect the environment of the original
-term which we are currently deforesting to the new terms being output by the
-deforester. We will refer to \texttt{aenv} as the external environment type, and
-\texttt{aenv'} as the internal environment type. Binding these expressions to
-the term output by the deforester yields a completed term of the correct type.
-%
-\begin{lstlisting}[style=haskell]
-bind :: Arrays a
-     => Extend aenv aenv'               -- collection of additional environment bindings
-     -> PreOpenAcc OpenAcc aenv' a      -- term output by the deforester
-     -> PreOpenAcc OpenAcc aenv  a
-bind BaseEnv         = id
-bind (PushEnv env a) = bind env . Alet (OpenAcc a) . OpenAcc
-\end{lstlisting}
-
-
 \subsection{Implementing Fusion}
 
 % The basic strategy of the fusion process is to traverse the array expression
@@ -1587,10 +1762,9 @@ we would either experience the same problem as Repa of introducing redundant
 computations, or have the concerns of fusion intermingled with the sharing
 recovery process. Both alternatives are unappealing.
 
-This means that we need to manipulate the core, nameless de Bruijn\index{de
-Bruijn} representation. The following sections discuss how we manipulate
-richly-typed de Bruijn indexed terms for the purposes of producer and consumer
-array fusion.
+This means that we need to manipulate the core, nameless \indext{de Bruijn}
+representation. The following sections discuss how we manipulate richly-typed de
+Bruijn indexed terms for the purposes of producer and consumer array fusion.
 
 
 \subsubsection{Delayed Arrays}
@@ -2413,156 +2587,4 @@ special attention was paid to manipulating the array environment, in the form of
 % (both explicit and implicit via the \texttt{Extend} data type)
 and \texttt{let}-elimination.
 
-
-\section{The Transformations Interacting}
-
-This section follows a few examples to discuss the effect of applying the
-transformations described in the preceding sections. Many of these motivating
-examples have shown up in real applications. The effects usually involve a
-combination of many transformations and so give an idea of how the
-transformations interact with one another.
-
-\subsection{Ordering}
-
-There are several possible orderings for the transformations discussed in this
-chapter, and one can easily invent examples to show that no order can be optimal
-for all programs, but some orderings are generally preferable to others. This
-section describes the motivation for the current sequence of transformations.
-
-Consider the term \lstinline[style=inline]{zipWith f xs xs}. The fusion
-transformation rewrites this into \texttt{generate} style as per
-section~\ref{sec:elements_of_style}. Before simplification this produces the
-following term, rewritten slightly:
-%
-\begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)
-    a1 = a0
-    a2 = a1
-    a3 = a1
-in generate (intersect (shape a2) (shape a3))
-            (\x0 -> let x1 = a2!x0
-                        x2 = a3!x0
-                    in x1 + x2)
-\end{lstlisting}
-%
-There are a number of simplifications we would like to apply to this expression,
-including shrinking (\S\ref{sec:simplification}) and common subexpression
-elimination (\S\ref{sec:redundancy_elimination}). The additional array bindings
-are an artefact of the way the fusion transformation handles extended
-environment bindings \note{which Trevor is ashamed of and has promised to fix},
-and clearly all array variables refer to the same manifest data, \texttt{xs} in
-the expression expression. Applying shrinking to the array terms conceals this
-infelicity:
-%
-\begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)
-in generate (intersect (shape a0) (shape a0))
-            (\x0 -> let x1 = a0!x0
-                        x2 = a0!x0
-                    in  x1 + x2)
-\end{lstlisting}
-%
-Applying shrinking simplifies the binding structure making it apparent that the
-scalar terms are indeed referring to the same array. If we follow the same
-strategy of shrinking the scalar expressions:
-%
-\begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)
-in generate (intersect (shape a0) (shape a0))
-            (\x0 -> a0!x0 + a0!x0)
-\end{lstlisting}
-%
-This term is a completely valid interpretation of the source program that does
-not introduce any additional work, but we can do better. Applying shrinking
-inlines the two terms \texttt{x1} and \texttt{x2} because they are each only
-referenced once in the body, resulting in two accesses of the array to the same
-index. Since our straightforward implementation of common subexpression
-elimination is aimed at removing redundant \texttt{let}-bindings, we should
-always apply redundancy elimination before shrinking, resulting in a term that
-only accesses the underlying array once:
-%
-\begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)
-in generate (intersect (shape a0) (shape a0))
-            (\x0 -> let x1 = a0!x0
-                    in  x1 + x1)
-\end{lstlisting}
-
-\subsection{Repeated Evaluations}
-
-% \subsection{Error tests eliminated}
-
-\subsection{Confluence and Termination}
-
-The set of transformations can be seen as a set of term rewriting rules. We
-would like this set of transformations to be:
-%
-\begin{itemize}
-    \item Correct: The transformed code retains the same semantics as the
-        original code. This correctness is proved in
-        section~\derp.
-
-    \item Improving efficiency: The transformed code should require less time
-        and/or fewer resources to execute than the original. We return to this
-        topic in the analysis of benchmarks in chapter~\ref{ch:results}.
-\end{itemize}
-%
-In addition, it would be of significant practical advantage if the
-transformations were:
-%
-\begin{itemize}
-    \item Confluent: When more than one transformation is applicable to a given
-        term, applying the transformations in any ordering should yield the same
-        result. This is important to ensure that opportunities to apply
-        transformations are not lost, or worse code is generated, due to
-        the choice of applying one transformation before another.
-
-    \item Terminating: We reach a point when no transformation is applicable so
-        the simplification process stops. One must be careful that one
-        transformation [sequence] can not generate terms that can be transformed
-        back to the original; that no transformation undoes the work of another.
-\end{itemize}
-
-Do some work dis/proving these two things, then write about it here.
-
-
-\section{Compiling the \derp\ program}
-
-Step through compiling a particular program, the effect each optimisation has,
-needing to iterate simplifications etc. Probably need a few different example
-programs.
-
-\section{Conclusion}
-
-% \section{Fusion / Global optimisation}
-% \note{[insert catchy name]}
-% 
-% Inference rules for forcing\ldots
-
-% \inference[force 1: ]
-% {\Gamma |- \textsc{Done}\ \Gamma'\ a}
-% {\Gamma |> \Gamma' |- a}
-% 
-% \inference[force 2: ]
-% {\Gamma |- \textsc{Yield}\ \Gamma'\ sh\ f}
-% {\Gamma |> \Gamma' |- \mathrm{Generate}\ sh\ f}
-% 
-% \inference[force 3a: ]
-% {\Gamma |- \textsc{Step}\ \Gamma'\ sh\ ix\ f\ a & sh \equiv \mathrm{shape}\ a &
-% \mathrm{identity}\ f & \mathrm{identity}\ ix}
-% {\Gamma |> \Gamma' |- \mathrm{Avar}\ a}
-% 
-% \inference[force 3b: ]
-% {\Gamma |- \textsc{Step}\ \Gamma'\ sh\ ix\ f\ a & sh \equiv \mathrm{shape}\ a & \mathrm{identity}\ ix}
-% {\Gamma |> \Gamma' |- \mathrm{Map}\ f\ a}
-% 
-% \inference[force 3c: ]
-% {\Gamma |- \textsc{Step}\ \Gamma'\ sh\ ix\ f\ a & \mathrm{identity}\ f}
-% {\Gamma |> \Gamma' |- \mathrm{Backpermute}\ sh\ ix\ a}
-% 
-% \inference[force 3d: ]
-% {\Gamma |- \textsc{Step}\ \Gamma'\ sh\ ix\ f\ a}
-% {\Gamma |> \Gamma' |- \mathrm{Transform}\ sh\ ix\ f\ a}
-
-% \section{Simplification / Local optimisation}
 

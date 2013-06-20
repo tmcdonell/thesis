@@ -855,8 +855,39 @@ free to mess with us as one might at first fear.
 % line, in terms of the parameters above the line.??
 
 \subsection{Function composition}
-%TK
 
+The equivalent of unary function composition \texttt{(.)} on terms can be
+defined in a similar manner. A function \lstinline[style=inline]{(a -> b)} is
+equivalent to a \texttt{Term} of type \texttt{b} and free variable \texttt{a}.
+Similar to inlining, we replace an expression that uses the top variable with
+one that uses another, remembering to bind the result of the first expression so
+that it can be reused in the second without duplication.
+%
+\begin{lstlisting}[style=haskell]
+dot :: Term (env, b) c -> Term (env, a) b -> Term (env, a) c
+dot f g = Let g (rebuild split f)
+  where
+    split :: Idx (env, b) c -> Term ((env, a), b) c
+    split ZeroIdx      = Var ZeroIdx
+    split (SuccIdx ix) = Var (SuccIdx (SuccIdx ix))
+\end{lstlisting}
+%
+Note the type of \texttt{split}, where we needed to create space in the
+environment at the second index (\texttt{SuccIdx ZeroIdx}) for the free variable
+\texttt{a} to appear in the resultant \texttt{Term}, as the first index will be
+bound to the result of the first expression \texttt{g}.
+
+We lift this to function terms by unwrapping the lambda abstractions.
+Annoyingly, GHC's type checker can not determine that the function type
+prohibits any valid term except those with a single lambda, so we need a second
+catch-all case to suppress a compilation warning. In future we elide the
+impossible cases for brevity.
+%
+\begin{lstlisting}[style=haskell,firstnumber=last,caption={A simultaneous substitution to compose unary function terms}]
+compose :: Fun env (b -> c) -> Fun env (a -> b) -> Fun env (a -> c)
+compose (Lam (Body f)) (Lam (Body g)) = Lam (Body (f `dot` g))
+compose _              _              = error "compose: impossible case"
+\end{lstlisting}
 
 
 \section{Environment Manipulation}

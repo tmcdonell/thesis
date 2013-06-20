@@ -893,15 +893,14 @@ compose _              _              = error "compose: impossible case"
 \section{Environment Manipulation}
 \label{sec:environment_manipulation}
 
-As discovered in the previous section, as part of the fusion transformation of
-recasting terms we often need to lift array valued inputs to be
-\texttt{let}-bound at higher points to avoid work duplication, but at the same
-time we can not immediately add these bindings to the output term because they
-will interfere with further fusion steps. We need to collect these extra
-bindings separately from the main term, and only add them to the output once we
-encounter a node that forces the computation, such as a consumer. Furthermore,
-we must ensure we correctly track the types of the environments between the
-fused terms and the collected \texttt{let}-bindings.
+As part of the fusion transformation of recasting terms we often need to lift
+array valued inputs to be \texttt{let}-bound at higher points to avoid work
+duplication, but at the same time we can not immediately add these bindings to
+the output term because they will interfere with further fusion steps. We need
+to collect these extra bindings separately from the main term, and add them
+to the output term at some later point. Furthermore, we must ensure we correctly
+track the types of the environments between the fused terms and the collected
+\texttt{let}-bindings.
 
 The following is a heterogeneous snoc-list of array terms that witnesses how an
 array environment is extended by the application of these operations:
@@ -910,31 +909,28 @@ array environment is extended by the application of these operations:
     style=haskell,
     label={lst:Extend},
     caption={Extending an array environment}]
-data Extend aenv aenv' where
-    BaseEnv ::                                                                Extend aenv aenv
-    PushEnv :: Arrays a => Extend aenv aenv' -> PreOpenAcc OpenAcc aenv' a -> Extend aenv (aenv', a)
+data Extend acc aenv aenv' where
+  BaseEnv :: Extend acc aenv aenv
+  PushEnv :: Arrays a
+          => Extend acc aenv aenv' -> PreOpenAcc acc aenv' a -> Extend acc aenv (aenv', a)
 \end{lstlisting}
 %
 In the style of the \indext{de Bruijn} indices used for projecting environment
 variables (\S TK), \texttt{Extend} uses an inductive notion of tuples as
 heterogeneous \emph{snoc} lists. In contrast to environment indices, the base
-case does not refer to an empty environment, but instead the arbitrary
-environment to which we are extending. This witnesses how to connect the
-environment of the original term which we are currently deforesting to the new
-terms being output by the deforester. We will refer to \texttt{aenv} as the
-external environment type, and \texttt{aenv'} as the internal environment type.
-Binding these expressions to the term output by the deforester yields a
-completed term of the correct type.
+case does not refer to an empty environment, but instead the environment
+\texttt{aenv} which we are extending. This witnesses how to construct an
+extended environment \texttt{aenv'} by bringing new terms into scope, one at a
+time.
 %
 \begin{lstlisting}[style=haskell]
-bind :: Arrays a
-     => Extend aenv aenv'               -- collection of additional environment bindings
-     -> PreOpenAcc OpenAcc aenv' a      -- term output by the deforester
-     -> PreOpenAcc OpenAcc aenv  a
+bind :: (Kit acc, Arrays a)
+     => Extend acc aenv aenv'
+     -> PreOpenAcc acc aenv' a
+     -> PreOpenAcc acc aenv  a
 bind BaseEnv         = id
-bind (PushEnv env a) = bind env . Alet (OpenAcc a) . OpenAcc
+bind (PushEnv env a) = bind env . Alet (inject a) . inject
 \end{lstlisting}
-
 
 
 \section{Implementing Array Fusion}

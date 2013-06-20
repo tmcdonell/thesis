@@ -1,65 +1,7 @@
-%
-% Optimising data-parallel programs --> contribution!!?
-%
 
 \chapter{Optimisation}
 \epigraph{Relax. As usual, I will bore you with the details.}%
 {\textsc{---chris lee}}
-
-% \begin{itemize}
-%     \item parallel array fusion (AIM)
-%     \item existing fusion techniques
-%         \begin{itemize}
-%             \item 81: wadler deforestation
-%             \item 93: gill foldr/build
-%             \item 07: coutts stream fusion
-%             \item 08: keller repa delayed arrays
-%             \item brief mention of other techniques and how they are not
-%                 applicable; imperative loops, category-theory stuff
-%             \item limitations; why they are not applicable w.r.t. parallelism
-%         \end{itemize}
-% 
-%     \item manipulating richly typed terms
-%         \begin{itemize}
-%             \item basic outline
-%             \item preserve types vis-\`a-vis correctness
-%         \end{itemize}
-% 
-%     \item simultaneous substitution
-%     \item typed equality
-%         \begin{itemize}
-%             \item \url{http://stackoverflow.com/questions/13423961/how-to-derive-eq-for-a-gadt-with-a-non-kinded-phantom-type-parameter/13431026#13431026}
-%         \end{itemize}
-% 
-%     \item shrinking / dead code elimination
-% 
-%     \item simplifier
-%         \begin{itemize}
-%             \item ``opportunistic'' CSE
-%             \item loop recovery (mandelbrot)
-%             \item constant folding, branch pruning
-%             \item correctness of constant propagation, algebraic rearrangements
-%             \item various examples here of C vs. idiomatic C
-%         \end{itemize}
-% 
-%     \item FUSION
-%         \begin{itemize}
-%             \item reiterate design requirements, constraints
-%             \item explain basic idea
-%             \item environment manipulations
-%             \item enumerate/describe the special cases
-%                 \begin{itemize}
-%                     \item zipWith
-%                     \item slice, reshape (lost bounds checks)
-%                     \item combining / floating lets
-%                     \item consumers
-%                 \end{itemize}
-%             \item fusion rules as inferences
-%         \end{itemize}
-% 
-%     \item correctness of the transform
-% 
-% \end{itemize}
 
 The previous chapter discussed the architecture of the Accelerate language
 embedding and execution on CUDA hardware. Through a set of benchmarks, we
@@ -877,21 +819,30 @@ Overall, the crucial functionality of simultaneous substitution is to propagate
 a class of operations on variables closed under shifting, which is what
 \texttt{Syntactic} and \texttt{rebuild} offer.
 
-The question, then, is how to write the function \texttt{v} which we push
-through terms? This is the final piece of equipment that essentially takes our
-simultaneous substitution algorithm and specialises it to one-at-a-time
-substitution. Let's say we have a term with one free variable, and we want to
-replace that variable with a term. The following takes a replacement for the top
-variable and yields a simultaneous substitution that eliminates
-\texttt{ZeroIdx}:
+
+\subsection{Inlining}
+
+The final question, then, is how to write the function \texttt{v} which we push
+through terms, as the type \lstinline[style=inline]{forall t'} could be anything. After all,
+what is the point of having a simultaneous substitution algorithm if we can't
+specialise it to one-at-a-time substitution.
+
+The following function takes a replacement for the top variable and returns a
+simultaneous substitution which eliminates \texttt{ZeroIdx}.
 %
-\begin{lstlisting}[style=haskell,caption={A simultaneous substitution to inline terms}]
+\begin{lstlisting}[style=haskell]
+subTop :: Term env s -> Idx (env, s) t -> Term env t
+subTop s ZeroIdx      = s
+subTop _ (SuccIdx ix) = Var ix
+\end{lstlisting}
+%
+If we have a term with one free variable, we can use this to replace that
+variable with a term. That is, inline a term into all use sites of the free
+variable.
+%
+\begin{lstlisting}[style=haskell,firstnumber=last,caption={A simultaneous substitution to inline terms}]
 inline :: Term (env, s) t -> Term env s -> Term env t
 inline body bnd = rebuild (subTop bnd) body
-  where
-    subTop :: Term env s -> Idx (env, s) t -> Term env t
-    subTop s ZeroIdx      = s
-    subTop _ (SuccIdx ix) = Var ix
 \end{lstlisting}
 %
 The demonic $\forall$ --- which is to say that the quantifier is in a position
@@ -903,10 +854,7 @@ free to mess with us as one might at first fear.
 % Typing rules; each rule types the general usage of a symbol, below the
 % line, in terms of the parameters above the line.??
 
-\subsection{Example: Inlining}
-%TK
-
-\subsection{Example: Function composition}
+\subsection{Function composition}
 %TK
 
 

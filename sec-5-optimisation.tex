@@ -212,6 +212,7 @@ interpretation has been lost.
 
 
 \subsection{Related Work}
+\label{sec:fusion_related_work}
 
 The desire to program in a functional style while still achieving the
 performance level of an imperative language has been around for as long as
@@ -566,10 +567,28 @@ amounts to a partial proof of correctness checked by the type checker.
 
 \subsubsection{The Main Idea}
 
+All collective operations in Accelerate are array-to-array transformations.
+Reductions, such as \texttt{fold}, which reduce an array to a single element,
+yield a singleton array rather than a scalar expression. We partition array
+operations into two categories:
+
+\begin{enumerate}
+    \item Operations where each element of the result array depends on at most
+        one element of each input array. Multiple elements of the output array
+        may depend on a single input array element, but all output array
+        elements can be computed independently. We refer to these operations as
+        \indexe{producers}.
+
+    \item Operations where each element of the result array depends on multiple
+        elements of the input array. We call these operations
+        \indexe{consumers}, in spite of the fact that, as with all collective
+        operations in Accelerate, they also produce an array.
+\end{enumerate}
+
 \begin{lstlisting}[
     style=haskell,
     numbers=none,
-    float=tp,
+    float=t,
     label={lst:operations},
     caption={[Core Accelerate array operations] Summary of Accelerate's core
         collective array operations, omitting \texttt{Shape} and \texttt{Elt}
@@ -604,13 +623,71 @@ stencil     :: Stencil sh a stencil => (stencil -> Exp b) -> Boundary a       %\
             -> Acc (Array sh a) -> Acc (Array sh b)                           %\rm \ldots neighbourhood context%
 \end{lstlisting}
 
-% \begin{figure}[htbp]
-%     \begin{center}
-%         \psfig{figure=<+eps file+>}
-%     \end{center}
-%     \caption{<+caption text+>}
-%     \label{fig:<+label+>}
-% \end{figure}<++>
+\autoref{lst:operations} summarises the collective array operations that we
+support. In a parallel context, producers are much more pleasant to deal with
+because independent element-wise operations have an obvious mapping to massively
+parallel processors such as GPUs\index{GPU}. Consumers are a different story, as
+we need to know exactly how the elements depend on each other in order to
+implement them efficiently in parallel. For example, a parallel fold (with
+associative operator) can be implemented efficiently in parallel as a tree
+reduction, but a parallel scan requires two distinct phases
+\cite{Chatterjee:1990vj,Sengupta:2007tc}. Unfortunately, this is the sort of
+information that is obfuscated by most fusion techniques
+(\S\ref{sec:fusion_related_work}). To support the different properties of
+producers and consumers, the fusion transform is split into two distinct phases:
+%
+\begin{itemize}
+    \item \emph{Producer/producer:} fuse sequences of producers into a single
+        producer. This is implemented as a source-to-source transformation on
+        the \index{abstract syntax tree}AST.
+
+    \item \emph{Producer/consumer:} fuse producers followed by a consumer into
+        the consumer. This happens during code generation, where we specialise
+        the consumer skeleton by directly embedding the producer code for
+        generating each element.
+\end{itemize}
+
+\begin{figure}[htb]
+    \flushright \small(Before fusion)\qquad\\
+    \centering  \includegraphics[scale=0.25]{images/sec-5/fusion1.pdf}
+    \flushright \small(After producer/producer fusion)\qquad\\
+    \centering  \includegraphics[scale=0.25]{images/sec-5/fusion2.pdf}
+    \flushright \small(After producer/consumer fusion)\qquad\\
+    \centering  \includegraphics[scale=0.25]{images/sec-5/fusion3.pdf}
+    \caption{Producer/producer and Producer/consumer fusion in Accelerate.}
+    \label{fig:fusion}
+\end{figure}
+
+\autoref{fig:fusion} shows how our fusion technique affects the
+AST\index{abstract syntax tree}: blue boxes labelled $p_1$ to $p_7$ represent
+producers, where $p_5$ is a producer like \texttt{zipWith} that takes two arrays
+as input. The consumers are labelled $c_1$ and $c_2$. In the first phase all
+adjacent producers are fused, with the exception of $p_1$ whose result is used
+by both $c_1$ and $p_2$. In the second phase, the fused producers are embedded
+into consumers where possible.
+
+Throughout the transformation $p_1$ is left as is, as its result is used by both
+$c_1$ and $p_2$. It would be straightforward to change the implementation such
+that the work of $p_1$ is duplicated so that it can be used into both $p_2$ and
+$c_1$. Despite reducing memory traffic, this is not always advantageous, so the
+current implementation is conservative and never duplicates work. Since
+Accelerate is a restricted, deeply embedded language, we can compute accurate
+cost estimates and make an informed decision, but this is left for future work.
+Moreover, this is an instance of a fundamental limitation with
+\index{fusion!short-cut}short-cut fusion techniques such as
+\index{fusion!foldr/build}\texttt{foldr/build} and \index{fusion!stream}stream
+fusion. Since short-cut fusion is a local transformation that depends on
+inlining, it is applicable only to fusing operations which have a single use
+site. To implement this type of fusion efficiently would require fundamental
+changes to the algorithm.
+%
+Producer/consumer fusion of $c_1$ into $p_4$, or $c_2$ into $p_6$, would also
+require substantial changes to the fusion implementation.
+
+Before discussing how to implement array fusion in Accelerate
+(\S\ref{sec:implementing_array_fusion}), we take a brief detour to explain the
+machinery that will be required in order to be able to manipulate terms and thus
+implement the transformation.
 
 
 \section{Typed Equality}

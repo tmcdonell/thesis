@@ -924,16 +924,51 @@ extended environment \texttt{aenv'} by bringing new terms into scope, one at a
 time.
 %
 \begin{lstlisting}[style=haskell]
-bind :: (Kit acc, Arrays a)
-     => Extend acc aenv aenv'
-     -> PreOpenAcc acc aenv' a
-     -> PreOpenAcc acc aenv  a
+bind :: (Kit acc, Arrays a) => Extend acc aenv aenv' -> PreOpenAcc acc aenv' a -> PreOpenAcc acc aenv a
 bind BaseEnv         = id
 bind (PushEnv env a) = bind env . Alet (inject a) . inject
 \end{lstlisting}
 
 
+\subsection{Sinking}
+
+We define \emph{sinking} as the operation of shifting a term from one (array)
+environment into another, where new things have come into scope according to
+some witness, and no old things have disappeared.
+%
+\begin{lstlisting}[style=haskell,caption={Sinking terms to a larger environment}]
+type env :> env' = forall t'. Idx env t' -> Idx env' t'
+
+class Sink f where
+  weaken :: env :> env' -> f env t -> f env' t
+
+instance Sink Idx
+instance Sink Term
+\end{lstlisting}
+%
+This generalises \texttt{weaken} from \autoref{sec:substitution} to increase the
+environment of an object \texttt{f} based on some function on indices rather
+than shifting by a single \indext{de Bruijn} index. Thus we only need to traverse
+a term once no matter how many positions the variable indices shift by. Using
+this, we can weaken terms based on the witness provided by \texttt{Extend}.
+%
+\begin{lstlisting}[style=haskell,firstnumber=last]
+sink :: Sink f => Extend acc env env' -> f env t -> f env' t
+sink env = weaken (k env)
+  where
+    k :: Extend acc env env' -> Idx env t -> Idx env' t
+    k BaseEnv       = id
+    k (PushEnv e _) = SuccIdx . k e
+
+sink1 :: Sink f => Extend acc env env' -> f (env, s) t -> f (env', s) t
+sink1 = ...
+\end{lstlisting}
+
+
 \section{Implementing Array Fusion}
+\label{sec:implementing_array_fusion}
+
+TK
 
 \section{Simplification}
 \label{sec:simplification}

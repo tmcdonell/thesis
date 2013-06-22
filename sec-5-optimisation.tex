@@ -78,7 +78,7 @@ type information. While developed independently
 \cite{McDonell:2013wi,Chakravarty:2009uo}, this conversion is similar to the
 \emph{unembedding} of \citet{Atkey:2009dj}. Unembedding and sharing recovery are
 necessarily intertwined. Sharing recovery must be performed on the source
-representation, otherwise sharing will have already been lost, but we cannot
+representation, otherwise sharing will have already been lost, but we can not
 perform sharing recovery on higher-order abstract syntax\index{higher-order
 abstract syntax} as we need to traverse below the lambda abstractions. Hence,
 both operations go hand in hand. In brief the method proceeds in three stages:
@@ -577,12 +577,12 @@ operations into two categories:
         one element of each input array. Multiple elements of the output array
         may depend on a single input array element, but all output array
         elements can be computed independently. We refer to these operations as
-        \indexe{producers}.
+        \index{producer}producers.
 
     \item Operations where each element of the result array depends on multiple
         elements of the input array. We call these operations
-        \indexe{consumers}, in spite of the fact that, as with all collective
-        operations in Accelerate, they also produce an array.
+        \index{consumer}\emph{consumers}, in spite of the fact that, as with all
+        collective operations in Accelerate, they also produce an array.
 \end{enumerate}
 
 \begin{lstlisting}[
@@ -623,7 +623,7 @@ stencil     :: Stencil sh a stencil => (stencil -> Exp b) -> Boundary a       %\
             -> Acc (Array sh a) -> Acc (Array sh b)                           %\rm \ldots neighbourhood context%
 \end{lstlisting}
 
-\autoref{lst:operations} summarises the collective array operations that we
+Listing~\ref{lst:operations} summarises the collective array operations that we
 support. In a parallel context, producers are much more pleasant to deal with
 because independent element-wise operations have an obvious mapping to massively
 parallel processors such as GPUs\index{GPU}. Consumers are a different story, as
@@ -654,11 +654,11 @@ producers and consumers, the fusion transform is split into two distinct phases:
     \centering  \includegraphics[scale=0.25]{images/sec-5/fusion2.pdf}
     \flushright \small(After producer/consumer fusion)\qquad\\
     \centering  \includegraphics[scale=0.25]{images/sec-5/fusion3.pdf}
-    \caption{Producer/producer and Producer/consumer fusion in Accelerate.}
+    \caption[Fusion in Accelerate]{Producer/producer and Producer/consumer fusion in Accelerate.}
     \label{fig:fusion}
 \end{figure}
 
-\autoref{fig:fusion} shows how our fusion technique affects the
+Figure~\ref{fig:fusion} shows how our fusion technique affects the
 AST\index{abstract syntax tree}: blue boxes labelled $p_1$ to $p_7$ represent
 producers, where $p_5$ is a producer like \texttt{zipWith} that takes two arrays
 as input. The consumers are labelled $c_1$ and $c_2$. In the first phase all
@@ -1023,11 +1023,12 @@ instance Sink Idx
 instance Sink Term
 \end{lstlisting}
 %
-This generalises \texttt{weaken} from \autoref{sec:substitution} to increase the
-environment of an object \texttt{f} based on some function on indices rather
-than shifting by a single \indext{de Bruijn} index. Thus we only need to traverse
-a term once no matter how many positions the variable indices shift by. Using
-this, we can weaken terms based on the witness provided by \texttt{Extend}.
+This generalises \texttt{weaken} from section~\ref{sec:substitution} to increase
+the environment of an object \texttt{f} based on some function on indices rather
+than shifting by a single \indext{de Bruijn} index. Thus we only need to
+traverse a term once no matter how many positions the variable indices shift by.
+Using this, we can weaken terms based on the witness provided by
+\texttt{Extend}.
 %
 \begin{lstlisting}[style=haskell,firstnumber=last]
 sink :: Sink f => Extend acc env env' -> f env t -> f env' t
@@ -1045,7 +1046,141 @@ sink1 = ...
 \section{Implementing Array Fusion}
 \label{sec:implementing_array_fusion}
 
-TK
+Section~\ref{sec:fusion} outlined the basic approach to fusion. To reiterate, we
+partition array operations into two categories as per
+Listing~\ref{lst:operations}:
+%
+\begin{enumerate}
+    \item \index{producer}\emph{Producer} operations consist of independent
+        element-wise operations which have an obvious parallel implementation.
+%        Successive producer operations are fused together.
+
+    \item \index{consumer}\emph{Consumer} operations manipulate multiple
+        elements of the input or output array and so are less straightforward.
+        Efficient parallel implementation needs to know exactly how elements
+        depend on each other.
+\end{enumerate}
+%
+As we saw in Figure~\ref{fig:fusion}, whenever possible successive producer
+operations are fused together ($p_2$, $p_3$, $p_4$ and $p_5$), and producers are
+fused into consumers ($p_{ 2,3,4,5 }$ into $ c_2$). We do not fuse the results
+of consumers into subsequent producers ($c_2$ is not fused into $p_{ 6,7 }$).
+% This has the happy consequence of maintaining trickiest parts of the parallel
+% interpretation of the program.
+
+We require a representation that will facilitate embedding of (fused) producer
+terms into consumers. We do not wish to manipulate source terms directly, as
+this would require a number of rewrite rules quadratic in the number of
+operations that are to be fused. This was the problem with Wadler's original
+deforestation algorithm. The representation must also be sufficiently expressive
+to represent all operations we want to fuse, which was a limitation of
+\index{fusion!foldr/build}\texttt{foldr/build} fusion.
+
+
+\subsection{Producer/Producer Fusion}
+
+The basic idea behind the representation of producer arrays in Accelerate is
+well known: simply represent an array by its shape and a function mapping array
+indices to their corresponding values. This method is used successively to
+optimise purely functional array programs in \index{fusion!delayed
+arrays}Repa~\cite{Keller:2010er}, and has also been used by
+others~\cite{Claessen:2012hl}.
+
+The use of delayed arrays was originally motived by the desire to avoid
+superfluous copying of array elements during index space transformations such
+as \texttt{backpermute} (see Listing~\ref{lst:operations}). Another major
+benefit of delayed arrays [in Repa] is that it offers by-default automatic
+fusion. Moreover, this fusion does not require sophisticated compiler
+transformations or for the two fusible terms to be statically juxtaposed; fusion
+is a property of the data representation.
+
+Automatic fusion sounds too good to be true, and indeed it is. There are at
+least two reasons why it is not always beneficial to represent all array terms
+uniformly as functions. One issue is \emph{sharing}. Consider the following:
+%
+\begin{lstlisting}[style=haskell]
+let b = map f a
+in  mmMult b b
+\end{lstlisting}
+%
+Every access to an element \texttt{b} will apply the (arbitrarily expensive)
+function \texttt{f} to the corresponding element of \texttt{a}. It follows that
+these arbitrarily expensive computations will be done \emph{at least twice},
+once for each argument of \texttt{mmMult}, quite contrary to the programmer's
+intent. Indeed, if \texttt{mmMult} consumes its elements in a non-linear manner,
+accessing elements more than once, the computation of \texttt{f} will be
+performed every time. We must be able to represent some terms as manifest arrays
+so that a delayed-by-default representation can not lead to an arbitrary loss of
+sharing. This is a well known problem with Repa.
+
+The other consideration is \emph{efficiency}. Since we are targeting a massively
+parallel architecture designed for performance, it is better to use more
+specific operations whenever possible. An opaque indexing function is too
+general, conveying no information about the pattern in which the underlying
+array is accessed, and hence no opportunities for optimisation.
+
+The following describes the ways in which the fusion transformation represents
+intermediate arrays. The fusion process operates by recasting producer array
+computations in terms of a set of scalar functions used to construct an element
+at each index, % encoded by this data structure,
+and fusing successive producers by combining these scalar functions. It is
+defined as:
+%
+\begin{lstlisting}[style=haskell
+    ,caption={Representation of delayed arrays in Accelerate}]
+data Cunctation acc aenv a where
+  Done  :: Arrays a
+        => Idx            aenv a                -- manifest array
+        -> Cunctation acc aenv a
+
+  Yield :: (Shape sh, Elt e)
+        => PreExp     acc aenv sh               -- output shape
+        -> PreFun     acc aenv (sh -> e)        -- compute an element at each index
+        -> Cunctation acc aenv (Array sh e)
+
+  Step  :: (Shape sh, Shape sh', Elt a, Elt b)
+        => PreExp     acc aenv sh'              -- output shape
+        -> PreFun     acc aenv (sh' -> sh)      -- backwards permutation into input array
+        -> PreFun     acc aenv (a   -> b)       -- function to apply to input value
+        -> Idx            aenv (Array sh  a)    -- manifest input array
+        -> Cunctation acc aenv (Array sh' b)
+\end{lstlisting}
+%
+The representation\footnote{
+cunc$\cdot$ta$\cdot$tion
+\textcolor{gray}{|
+k\textipa{@}NGk\textquotesingle t\={a}SH\textipa{@}n
+\enspace\textipa{k@Nk}\textquotesingle \textipa{te\;IS@n}
+|} (n) the action or an instance of delaying; tardy action.}
+%
+of delayed arrays is parameterised by the recursive closure of array
+computations \texttt{acc}, the array environment \texttt{aenv}, and has three
+constructors:
+%
+\begin{itemize}
+\item \texttt{Done} injects a manifest array into the type.
+    %represented as a reference to a term in the array environment.
+
+\item \texttt{Yield} defines a new array in terms of its shape and a function
+    that maps indices to elements.
+
+\item \texttt{Step} encodes a special case of \texttt{Yield}, that defines a new
+    array by applying an index and value transformation to an argument array.
+
+\end{itemize}
+
+Note that the argument arrays to \texttt{Done} and \texttt{Step} are not
+expressed as terms in \texttt{acc}, the type of collective array operations. By
+instead requiring a \indext{de Bruijn} index \texttt{Idx} into the array
+environment, we ensure that the argument array is manifest. Thus the definition
+of \texttt{Cunctation} is non-recursive in the type of array computations. This
+allows the delayed array to be (later) embedded within producer terms with the
+guarantee that an embedded scalar computation will not invoke further parallel
+computations.%
+\footnote{While scalar expression terms are mutually recursive in \texttt{acc},
+we are guaranteed that these terms will consist only of free array variables
+(\texttt{Idx}).}
+
 
 \section{Simplification}
 \label{sec:simplification}

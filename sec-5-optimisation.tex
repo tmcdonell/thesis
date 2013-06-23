@@ -932,6 +932,7 @@ free to mess with us as one might at first fear.
 % line, in terms of the parameters above the line.??
 
 \subsection{Function composition}
+\label{sec:function_composition}
 
 The equivalent of unary function composition \texttt{(.)} on terms can be
 defined in a similar manner. A function \lstinline[style=inline]{(a -> b)} is
@@ -1008,6 +1009,7 @@ bind (PushEnv env a) = bind env . Alet (inject a) . inject
 
 
 \subsection{Sinking}
+\label{sec:sinking}
 
 We define \emph{sinking} as the operation of shifting a term from one (array)
 environment into another, where new things have come into scope according to
@@ -1020,7 +1022,9 @@ class Sink f where
   weaken :: env :> env' -> f env t -> f env' t
 
 instance Sink Idx
-instance Sink Term
+instance Sink (PreOpenExp acc env)
+instance Sink (PreOpenAcc acc)
+  ...
 \end{lstlisting}
 %
 This generalises \texttt{weaken} from section~\ref{sec:substitution} to increase
@@ -1076,8 +1080,7 @@ deforestation algorithm. The representation must also be sufficiently expressive
 to represent all operations we want to fuse, which was a limitation of
 \index{fusion!foldr/build}\texttt{foldr/build} fusion.
 
-
-\subsection{Producer/Producer Fusion}
+\subsection{Representing Producers}
 
 The basic idea behind the representation of producer arrays in Accelerate is
 well known: simply represent an array by its shape and a function mapping array
@@ -1127,7 +1130,7 @@ and fusing successive producers by combining these scalar functions. It is
 defined as:
 %
 \begin{lstlisting}[style=haskell
-    ,caption={Representation of delayed arrays in Accelerate}]
+    ,caption={Representation of fusible producer arrays}]
 data Cunctation acc aenv a where
   Done  :: Arrays a
         => Idx            aenv a                -- manifest array
@@ -1153,9 +1156,8 @@ k\textipa{@}NGk\textquotesingle t\={a}SH\textipa{@}n
 \enspace\textipa{k@Nk}\textquotesingle \textipa{te\;IS@n}
 |} (n) the action or an instance of delaying; tardy action.}
 %
-of delayed arrays is parameterised by the recursive closure of array
-computations \texttt{acc}, the array environment \texttt{aenv}, and has three
-constructors:
+is parameterised by the recursive closure of array computations \texttt{acc},
+the array environment \texttt{aenv}, and has three constructors:
 %
 \begin{itemize}
 \item \texttt{Done} injects a manifest array into the type.
@@ -1174,12 +1176,84 @@ expressed as terms in \texttt{acc}, the type of collective array operations. By
 instead requiring a \indext{de Bruijn} index \texttt{Idx} into the array
 environment, we ensure that the argument array is manifest. Thus the definition
 of \texttt{Cunctation} is non-recursive in the type of array computations. This
-allows the delayed array to be (later) embedded within producer terms with the
+allows the representation to be (later) embedded within producer terms with the
 guarantee that an embedded scalar computation will not invoke further parallel
 computations.%
 \footnote{While scalar expression terms are mutually recursive in \texttt{acc},
 we are guaranteed that these terms will consist only of free array variables
 (\texttt{Idx}).}
+
+In order to bring additional array terms into scope, which may be required for
+\texttt{Done} and \texttt{Step}, we combine this representation of producer
+arrays with the method of section~\ref{sec:environment_manipulation} for
+collecting supplementary environment bindings. This completes our data structure
+for combining producer terms in Accelerate:
+%
+\begin{lstlisting}[style=haskell,
+    caption={Representation of fused producer arrays in Accelerate}]
+data Alloy acc aenv a where
+  Alloy :: Extend     acc aenv aenv'            -- additional bindings to bring into scope
+        -> Cunctation acc      aenv' a          -- representation of the (fused) producer terms
+        -> Alloy      acc aenv       a
+\end{lstlisting}
+
+Note the types of the array environments. The \texttt{Alloy} type is expressed
+in relation to the type \texttt{aenv}, which represents all
+\texttt{let}-bindings currently in scope at this point of the AST\index{abstract
+syntax tree} that we are currently fusing. The data constructor contains an
+existentially typed \texttt{aenv'}, witnessed by the first argument,
+\texttt{Extend}, which contains any supplementary array terms collected during
+the fusion process. The actual array representation in the second argument is
+expressed in terms of this extended environment, so has access to any terms from
+the AST (\texttt{aenv}) as well as those additional bindings introduced by
+\texttt{Extend}.
+
+Why do we separate the auxiliary bindings from the representation of fused
+producers? The constructors of \texttt{Cunctation} could carry this information,
+and then we would not require this additional data structure. For example, the
+following is a valid alternative definition for the \texttt{Yield} constructor:
+%
+\begin{lstlisting}[style=haskell]
+  Yield' :: (Shape sh, Elt e)                   -- Alternative definition (bad)
+         => Extend     acc aenv aenv'           -- NEW: supplementary environment bindings
+         -> PreExp     acc      aenv' sh        -- CHANGED: terms now defined w.r.t. \texttt{aenv'}
+         -> PreFun     acc      aenv' (sh -> e)
+         -> Cunctation acc aenv       (Array sh e)
+\end{lstlisting}
+
+To create a real AST\index{abstract syntax tree} node from the \texttt{Alloy}
+representation, we need both the environment bindings as well as the array
+description. However, analysis of how to fuse terms requires only the array
+description. If the additional bindings are bundled as part of the array
+representation, as in \texttt{Yield'}, the existentially quantified environment
+type is only available after we pattern match on the constructor.
+This is problematic because to inspect terms and do things like function
+composition (\S\ref{sec:function_composition}) the types of the environments of
+the two terms must be the same, so after we pattern match on the constructor we
+must \texttt{sink} (\S\ref{sec:sinking}) the second term into \texttt{aenv'}.
+Even worse, for terms in the delayed state the only way to do this sinking is to
+first convert them into a real AST node and then back into the delayed state. If
+for some reason we can not fuse into this representation --- for example we do
+not meet the requirements for the more restrictive \texttt{Step} --- then this
+additional work is wasted.
+
+Why can we not analyse terms with respect to the exposed environment type
+\texttt{aenv}, ignoring for the moment the existential? We have no way to
+concatenate the extended environments (including after the existential types are
+exposed):
+%
+\begin{lstlisting}[style=haskell]
+join :: Extend env env1 -> Extend env env2 -> Extend env ???
+\end{lstlisting}
+
+Because of the limited scope in which this existential type is available, we
+ultimately perform this process of converting terms and sinking into a suitable
+type many times. If the extended environments are placed on the constructors of
+the delayed representations, the complexity of the fusion algorithm for an AST
+of $n$ nodes scales as $O(r^n)$, where $r$ is the number of different rules we
+have for combining delayed terms. While the semantics of the algorithm remain
+the same, for performance reasons this separation is critical.
+
 
 
 \section{Simplification}

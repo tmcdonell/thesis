@@ -692,6 +692,7 @@ implement the transformation.
 
 \section{Typed Equality}
 \label{sec:equality}
+\marginnote{tk: into implementation chapter?}
 
 The Accelerate core language is richly typed, maintaining full type information
 of the embedded language in the term tree. In order to apply transformations to
@@ -823,6 +824,7 @@ commutes f x = case f of
 
 \section{Simultaneous Substitution}
 \label{sec:substitution}
+\marginnote{tk: into implementation chapter?}
 
 In order to do things like renaming and substitution we require a value-level
 substitution algorithm for the richly typed terms. The implementation follows
@@ -970,6 +972,7 @@ compose _              _              = error "compose: impossible case"
 
 \section{Environment Manipulation}
 \label{sec:environment_manipulation}
+\marginnote{tk: into implementation chapter?}
 
 As part of the fusion transformation of recasting terms we often need to lift
 array valued inputs to be \texttt{let}-bound at higher points to avoid work
@@ -1049,6 +1052,7 @@ sink1 = ...
 
 \section{Implementing Array Fusion}
 \label{sec:implementing_array_fusion}
+\marginnote{tk: describe Kit somewhere}
 
 Section~\ref{sec:fusion} outlined the basic approach to fusion. To reiterate, we
 partition array operations into two categories as per
@@ -1081,6 +1085,7 @@ to represent all operations we want to fuse, which was a limitation of
 \index{fusion!foldr/build}\texttt{foldr/build} fusion.
 
 \subsection{Representing Producers}
+\label{sec:representing_producers}
 
 The basic idea behind the representation of producer arrays in Accelerate is
 well known: simply represent an array by its shape and a function mapping array
@@ -1089,17 +1094,18 @@ optimise purely functional array programs in \index{fusion!delayed
 arrays}Repa~\cite{Keller:2010er}, and has also been used by
 others~\cite{Claessen:2012hl}.
 
-The use of delayed arrays was originally motived by the desire to avoid
-superfluous copying of array elements during index space transformations such
-as \texttt{backpermute} (see Listing~\ref{lst:operations}). Another major
-benefit of delayed arrays [in Repa] is that it offers by-default automatic
-fusion. Moreover, this fusion does not require sophisticated compiler
-transformations or for the two fusible terms to be statically juxtaposed; fusion
-is a property of the data representation.
+The use of delayed arrays [in Repa] was originally motived by the desire to
+avoid superfluous copying of array elements during index space transformations
+such as \texttt{backpermute} (see Listing~\ref{lst:operations}). Another major
+benefit of delayed arrays is that it offers by-default automatic fusion.
+Moreover, this fusion does not require sophisticated compiler transformations or
+for the two fusible terms to be statically juxtaposed; fusion is a property of
+the data representation.
 
 Automatic fusion sounds too good to be true, and indeed it is. There are at
 least two reasons why it is not always beneficial to represent all array terms
-uniformly as functions. One issue is \emph{sharing}. Consider the following:
+uniformly as functions. The first issue is \emph{sharing}. Consider the
+following:
 %
 \begin{lstlisting}[style=haskell]
 let b = map f a
@@ -1133,7 +1139,7 @@ defined as:
     ,caption={Representation of fusible producer arrays}]
 data Cunctation acc aenv a where
   Done  :: Arrays a
-        => Idx            aenv a                -- manifest array
+        => Idx            aenv a                -- manifest array(s)
         -> Cunctation acc aenv a
 
   Yield :: (Shape sh, Elt e)
@@ -1176,12 +1182,17 @@ expressed as terms in \texttt{acc}, the type of collective array operations. By
 instead requiring a \indext{de Bruijn} index \texttt{Idx} into the array
 environment, we ensure that the argument array is manifest. Thus the definition
 of \texttt{Cunctation} is non-recursive in the type of array computations. This
-allows the representation to be (later) embedded within producer terms with the
-guarantee that an embedded scalar computation will not invoke further parallel
-computations.%
+allows the representation to be (later) embedded within producer terms
+(\ref{sec:producer_consumer_fusion}) with the guarantee that an embedded scalar
+computation will not invoke further parallel computations.%
 \footnote{While scalar expression terms are mutually recursive in \texttt{acc},
 we are guaranteed that these terms will consist only of free array variables
 (\texttt{Idx}).}
+We require both \texttt{Done} and \texttt{Step} nodes because the return type of
+\texttt{Done} can be any instance of \texttt{Arrays}, whereas \texttt{Step} is
+restricted to being a single array. Thus, \texttt{Done} is required to support
+operations such as array tupling, and can not be represent as \texttt{Step} with
+identity transformation functions.
 
 In order to bring additional array terms into scope, which may be required for
 \texttt{Done} and \texttt{Step}, we combine this representation of producer
@@ -1191,13 +1202,13 @@ for combining producer terms in Accelerate:
 %
 \begin{lstlisting}[style=haskell,
     caption={Representation of fused producer arrays in Accelerate}]
-data Alloy acc aenv a where
-  Alloy :: Extend     acc aenv aenv'            -- additional bindings to bring into scope
-        -> Cunctation acc      aenv' a          -- representation of the (fused) producer terms
-        -> Alloy      acc aenv       a
+data Embed acc aenv a where
+  Embed :: Extend     acc aenv aenv'            -- additional bindings to bring into scope, to evaluate the\ldots
+        -> Cunctation acc      aenv' a          -- \ldots representation of (fused) producer terms
+        -> Embed      acc aenv       a
 \end{lstlisting}
 
-Note the types of the array environments. The \texttt{Alloy} type is expressed
+Note the types of the array environments. The \texttt{Embed} type is expressed
 in relation to the type \texttt{aenv}, which represents all
 \texttt{let}-bindings currently in scope at this point of the AST\index{abstract
 syntax tree} that we are currently fusing. The data constructor contains an
@@ -1221,7 +1232,7 @@ following is a valid alternative definition for the \texttt{Yield} constructor:
          -> Cunctation acc aenv       (Array sh e)
 \end{lstlisting}
 
-To create a real AST\index{abstract syntax tree} node from the \texttt{Alloy}
+To create a real AST\index{abstract syntax tree} node from the \texttt{Embed}
 representation, we need both the environment bindings as well as the array
 description. However, analysis of how to fuse terms requires only the array
 description. If the additional bindings are bundled as part of the array
@@ -1238,12 +1249,12 @@ not meet the requirements for the more restrictive \texttt{Step} --- then this
 additional work is wasted.
 
 Why can we not analyse terms with respect to the exposed environment type
-\texttt{aenv}, ignoring for the moment the existential? We have no way to
-concatenate the extended environments (including after the existential types are
-exposed):
+\texttt{aenv}, ignoring for the moment the existential? At some point we will
+need to combine the extended environments, and we have no way to do this even if
+the existential types are exposed.
 %
 \begin{lstlisting}[style=haskell]
-join :: Extend env env1 -> Extend env env2 -> Extend env ???
+cat :: Extend env env1 -> Extend env env2 -> Extend env ???
 \end{lstlisting}
 
 Because of the limited scope in which this existential type is available, we
@@ -1251,10 +1262,132 @@ ultimately perform this process of converting terms and sinking into a suitable
 type many times. If the extended environments are placed on the constructors of
 the delayed representations, the complexity of the fusion algorithm for an AST
 of $n$ nodes scales as $O(r^n)$, where $r$ is the number of different rules we
-have for combining delayed terms. While the semantics of the algorithm remain
-the same, for performance reasons this separation is critical.
+have for combining delayed terms. While the semantics of the algorithm
+ultimately remain the same, for performance reasons this separation is critical.
 
 
+\subsection{Producer/Producer Fusion}
+\label{sec:producer_producer_fusion}
+% TK: rules for each of the smart constructors? kinda obvious once the
+% representation is established
+
+Producer/producer fusion is achieved by converting terms into the array
+representation discussed in the previous section
+(\S\ref{sec:representing_producers}), and merging sequences of producers into a
+single operations. Smart constructors for each producer term manage the
+integration with successive producers. For example, the following is the fused
+version of \texttt{map}:
+%
+\begin{lstlisting}[style=haskell,
+    caption={Fused definition of the \texttt{map} operation}]
+mapD :: (Kit acc, Elt b)
+     => PreFun     acc aenv (a -> b)
+     -> Cunctation acc aenv (Array sh a)
+     -> Cunctation acc aenv (Array sh b)
+mapD f (step  -> Just (Step sh ix g v)) = Step sh ix (f `compose` g) v
+mapD f (yield -> Yield sh g)            = Yield sh (f `compose` g)
+\end{lstlisting}
+
+We use two helper functions, \texttt{step} and \texttt{yield}, to expose the
+only two interesting cases and then compose (\S\ref{sec:function_composition})
+the input function \texttt{f} into the appropriate place in the constructor.
+Index transformation functions such as \texttt{backpermute} proceed in the same
+manner.
+
+These helper functions operate by converting the input \texttt{Cunctation} into
+the constructor with the same name. A producer can always be expressed as a
+function from indices to elements in the style of \texttt{Yield}, but this is
+not the case for the more restrictive \texttt{Step}. For the \texttt{Done} case
+in both instances, GHC can not infer that the result type is a single
+\texttt{Array}, so we use the \texttt{accType} function to reify the
+\texttt{Arrays} class representation.
+%
+\begin{lstlisting}[style=haskell]
+yield :: Kit acc => Cunctation acc aenv (Array sh e) -> Cunctation acc aenv (Array sh e)
+yield cc = case cc of
+  Yield{}                              -> cc
+  Step sh p f v                        -> Yield sh (f `compose` indexArray v `compose` p)
+  Done v | ArraysRarray <- accType' cc -> Yield (arrayShape v) (indexArray v)
+
+step :: Kit acc => Cunctation acc aenv (Array sh e) -> Maybe (Cunctation acc aenv (Array sh e))
+step cc = case cc of
+  Yield{}                              -> Nothing
+  Step{}                               -> Just cc
+  Done v | ArraysRarray <- accType' cc -> Just $ Step (arrayShape v) identity identity v
+\end{lstlisting}
+
+The only interesting case is that of \texttt{zipWith}, which is the only
+producer that consumes multiple arrays (see Listing~\ref{lst:operations}). In
+contrast to, for example, \texttt{foldr/build}\index{fusion!foldr/build}, we
+fuse in both of the input arguments.
+%
+\begin{lstlisting}[style=haskell]
+zipWithD :: (Kit acc, Shape sh, Elt a, Elt b, Elt c)
+         => PreFun     acc aenv (a -> b -> c)
+         -> Cunctation acc aenv (Array sh a)
+         -> Cunctation acc aenv (Array sh b)
+         -> Cunctation acc aenv (Array sh c)
+zipWithD f cc1 cc0
+\end{lstlisting}
+%
+Because it is advantageous to express operations in the most specific way
+possible, \texttt{zipWith} considers the special case of when the two input
+arrays happen to derive from the same manifest data:
+%
+\begin{lstlisting}[style=haskell,firstnumber=last]
+  | Just (Step sh1 p1 f1 v1)    <- step cc1
+  , Just (Step sh0 p0 f0 v0)    <- step cc0
+  , Just REFL                   <- match v1 v0
+  , Just REFL                   <- match p1 p0
+  = Step (sh1 `Intersect` sh0) p0 (combine f f1 f0) v0
+\end{lstlisting}
+%
+In general, we simply convert both inputs into functions from indices to
+elements and combine:
+%
+\begin{lstlisting}[style=haskell,firstnumber=last]
+  | Yield sh1 f1                <- yield cc1
+  , Yield sh0 f0                <- yield cc0
+  = Yield (sh1 `Intersect` sh0) (combine f f1 f0)
+\end{lstlisting}
+%
+The function \texttt{combine} completes the task of drawing an element from each
+of the input arrays and combining them with the binary function \texttt{f},
+being sure to \texttt{let}-bind the intermediate results along the way.
+%
+\begin{lstlisting}[style=haskell,firstnumber=last,escapeinside={(*}{*)}]
+  where
+    combine :: forall acc aenv a b c e. (Elt a, Elt b, Elt c)
+            => PreFun acc aenv (a -> b -> c)
+            -> PreFun acc aenv (e -> a)
+            -> PreFun acc aenv (e -> b)
+            -> PreFun acc aenv (e -> c)
+    combine c ixa ixb
+      | Lam (Lam (Body c'))     <- weakenFE SuccIdx c   :: PreOpenFun acc ((),e) aenv (a -> b -> c) (*\label{lst:zipwith_combine_weaken}*)
+      , Lam (Body ixa')         <- ixa
+      , Lam (Body ixb')         <- ixb
+      = Lam $ Body $ Let ixa' $ Let (weakenE SuccIdx ixb') c'
+\end{lstlisting}
+%
+Note that line~\ref{lst:zipwith_combine_weaken} requires a type signature,
+otherwise the type variable \texttt{e} introduced by the weakening step will
+escape and can not be unified correctly. This new parameter \texttt{e}
+represents in the first case of \texttt{Step} the array element type, and in the
+second instance via \texttt{Yield} the array index type.
+
+
+\subsection{Embedding Producers}
+\label{sec:embedding_producers}
+
+% TK: the rules / smart constructors for converting producers into the internal
+% form and combining successive producers (first phase of fusion)
+via bottom-up tree contraction of the
+AST\index{abstract syntax tree}. Terms are converted
+
+\subsection{Producer/Consumer Fusion}
+\label{sec:producer_consumer_fusion}
+% TK: The Delayed type and embedding producers into consumers (second phase of
+% fusion)
 
 \section{Simplification}
 \label{sec:simplification}
@@ -1599,6 +1732,8 @@ transformations interact with one another.
 
 \subsection{Ordering}
 
+\note{TK: review}
+
 There are several possible orderings for the transformations discussed in this
 chapter, and one can easily invent examples to show that no order can be optimal
 for all programs, but some orderings are generally preferable to others. This
@@ -1606,8 +1741,8 @@ section describes the motivation for the current sequence of transformations.
 
 Consider the term \lstinline[style=inline]{zipWith f xs xs}. The fusion
 transformation rewrites this into \texttt{generate} style as per
-section~\ref{sec:elements_of_style}. Before simplification this produces the
-following term, rewritten slightly:
+section~\ref{sec:producer_producer_fusion}. Before simplification this produces
+the following term, rewritten slightly: \note{TK: no, it doesn't anymore}
 %
 \begin{lstlisting}[style=haskell]
 let a0 = use (Array ...)
@@ -1664,8 +1799,10 @@ in generate (intersect (shape a0) (shape a0))
 \end{lstlisting}
 
 \subsection{Repeated Evaluations}
+\note{TK: we only do this for scalar simplifications}
 
-% \subsection{Error tests eliminated}
+\subsection{Error tests eliminated}
+\note{TK: for example: reshape, indexing}
 
 \subsection{Confluence and Termination}
 
@@ -1698,14 +1835,14 @@ transformations were:
         back to the original; that no transformation undoes the work of another.
 \end{itemize}
 
-TK: Do some work dis/proving these two things, then write about it here.
+\note{TK: Do some work dis/proving these two things, then write about it here.}
 
 
 \section{Compiling the TK program}
 
-TK: Step through compiling a particular program, the effect each optimisation has,
-needing to iterate simplifications etc. Probably need a few different example
-programs.
+\note{TK: Step through compiling a particular program, the effect each
+optimisation has, needing to iterate simplifications etc. Probably need a few
+different example programs.}
 
 
 \section{Conclusion}

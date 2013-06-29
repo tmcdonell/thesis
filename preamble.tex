@@ -1,11 +1,8 @@
-%
-% preamble.tex
-%
 
-%
-% Document class definition
-%
 \documentclass[11pt,a4paper,twoside]{book}
+
+% Imports
+% ------------------------------------------------------------------------------
 
 \usepackage[T1]{fontenc}
 \usepackage{ifpdf}
@@ -55,35 +52,38 @@
 \onehalfspacing
 %\doublespacing
 
+
 % Use symbols instead of numbers for footnote marks
-%
+% ------------------------------------------------------------------------------
+
 %\renewcommand{\thefootnote}{$\fnsymbol{footnote}$}
 
-%
+
 % Bibliography
-%
+% ------------------------------------------------------------------------------
+
 %\bibliographystyle{apsrev}             % citation order style
 %\bibliographystyle{apsrmp}             % author/year style
 \bibliographystyle{abbrvnat}
 \providecommand{\bibfont}{\small}
 
-%
-% caption
-%
+
+% Figures and captions
+% ------------------------------------------------------------------------------
+
 \captionsetup{margin=\parindent/2,font=small,labelfont=bf}
 % \captionsetup[subfloat]{margin=0pt,labelfont=default}
 
+% Reduced bias to floats on their own page
 %
-% DRAFT watermark
-%
-%\usepackage{eso-pic}
-%\AddToShipoutPicture{\resizebox{0.9\pdfpagewidth}{0.9\pdfpageheight}% 
-%{\rotatebox{60}{\color[gray]{0.9}\hspace*{5mm}\textsc{Draft}}}} 
+% \renewcommand{\topfraction}{0.85}
+% \renewcommand{\textfraction}{0.1}
+% \renewcommand{\floatpagefraction}{0.75}
 
 
-%
 % Fancy header style
-%
+% ------------------------------------------------------------------------------
+
 \newcommand{\sectionname}{Section}
 \pagestyle{fancy}
 \fancyhf{}
@@ -99,41 +99,39 @@
 \newcommand{\doccolor}{Bittersweet}
 \newcommand{\docminorcolor}{Gray}
 
-%
-% Reduced bias to floats on their own page
-%
-% \renewcommand{\topfraction}{0.85}
-% \renewcommand{\textfraction}{0.1}
-% \renewcommand{\floatpagefraction}{0.75}
 
-%
 % Extra depth in numbered sections
-%
+% ------------------------------------------------------------------------------
+
 \setcounter{secnumdepth}{3}
 %\setcounter{tocdepth}{3}
 %\setcounter{lofdepth}{2}
 
-%
+
 % Index
-%
+% ------------------------------------------------------------------------------
+
 \makeindex
 \providecommand{\indexe}[1]{\index{#1}\emph{#1}}
 \providecommand{\indext}[1]{\index{#1}#1}
 
-%
-% Cite
-%
+
+% Citations
+% ------------------------------------------------------------------------------
+
 \let\oldcite\cite
 \renewcommand{\cite}{\nolinebreak\oldcite}
 
-%
+
+% Keys and margin notes
+% ------------------------------------------------------------------------------
+
 % Showkeys
 % texmf-dist/tex/latex/graphics/dvipsnam.def
 %
 % \definecolor{refkey}{cmyk}{0.0,0.89,0.94,0.28}        % BrickRed
 % \definecolor{labelkey}{cmyk}{0.0,0.89,0.94,0.28}
 
-%
 % notes, margin notes, etc. delete for final mode
 %
 %\let\oldmarginnote\marginnote
@@ -143,9 +141,10 @@
 \newcommand{\derp}{\textcolor{BrickRed}{derp}}
 \newcommand{\note}[1]{\textcolor{BrickRed}{#1}}
 
-%
+
 % Code listings
-%
+% ------------------------------------------------------------------------------
+
 \lstset{
     frame=single,
     rulecolor={\color[gray]{0.7}},
@@ -210,15 +209,23 @@
     basicstyle=\small\ttfamily
 }
 
+
+% Shorthand for inline code fragments
 %
-% Epigraph
+\newcommand{\code}[1]{\lstinline[style=inline]{#1}}
+
+
+% Chapter page style
+% ------------------------------------------------------------------------------
+
+% Epigraphs
 %
 \renewcommand{\textflush}{flushright}
 \setlength{\epigraphwidth}{0.85\textwidth}
 \setlength{\epigraphrule}{0pt}
 \setlength{\afterepigraphskip}{1.5\baselineskip}
 
-%
+
 % Titlesec
 %
 \titleformat{\chapter}[display]%

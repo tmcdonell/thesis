@@ -102,17 +102,17 @@ expression, so the complexity of sharing observation is proportional to the
 number of nodes in the tree \emph{with} sharing.
 
 As the stable name of an expression is an intensional property, it can only be
-determined in Haskell's \lstinline{IO} monad, and strictly speaking because of
-this it is not deterministic. The stable name API does not guarantee
-completeness: for two stable names \lstinline{sn1} and \lstinline{sn2}, if
-\lstinline{sn1 == sn2} then the two stable names were created from the same heap
-object. However, the reverse is not necessarily true; if the two stable names
-are not equal the objects they come from may still be equal. Put another way,
-equality on stable names may return a false negative, which means that we fail
-to discover some sharing, but can never return a false positive since stable
-names from different heap objects are not considered equal. Luckily, sharing
-does not affect the denotational meaning of the program, and hence a lack of
-sharing does not compromise denotational correctness.
+determined in Haskell's \code{IO} monad, and strictly speaking because of this
+it is not deterministic. The stable name API does not guarantee completeness:
+for two stable names \code{sn1} and \code{sn2}, if \code{sn1 == sn2} then the
+two stable names were created from the same heap object. However, the reverse is
+not necessarily true; if the two stable names are not equal the objects they
+come from may still be equal. Put another way, equality on stable names may
+return a false negative, which means that we fail to discover some sharing, but
+can never return a false positive since stable names from different heap objects
+are not considered equal. Luckily, sharing does not affect the denotational
+meaning of the program, and hence a lack of sharing does not compromise
+denotational correctness.
 
 
 \paragraph{Phase 2: Float shared terms:}
@@ -123,15 +123,14 @@ every shared subterm, the meet of all the shared subterm occurrences --- the
 lowest AST node at which the binding for the subterm can be placed. This is why
 the occurrence map generated in the previous phase can not be simplified to
 a set of occurring names: we need the actual occurrence count to determine where
-shared subterms should be \texttt{let}-bound.
+shared subterms should be let-bound.
 
 
 \paragraph{Phase 3: Binder introduction:}
 
-Finally, each floated subterm gets \texttt{let}-bound right above the node it
-floated to. At the same time, we convert the AST into nameless \indext{de
-Bruijn} form by introducing de Bruijn indices at the same time as introducing
-the \texttt{let}s.\\
+Finally, each floated subterm gets let-bound right above the node it floated to.
+At the same time, we convert the AST into nameless \indext{de Bruijn} form by
+introducing de Bruijn indices at the same time as introducing the lets.\\
 
 
 \subsection{Common Subexpression Elimination}
@@ -147,11 +146,11 @@ elimination, where we look for expressions of the form:
 %\bf$\langle$ common subexpression elimination $\rangle$% let x = e1 in [x/e1]e2
 \end{lstlisting}
 %
-and replace all occurrences of \texttt{e1} in \texttt{e2} with \texttt{x}. This
-might not completely eliminate redundant expressions from the program, as it will
-not eliminate any common subterms not already defined in the source program. It
-will however catch some cases, in particular those that tend to be introduced
-during the array fusion optimisation.
+and replace all occurrences of \code{e1} in \code{e2} with \code{x}. This might
+not completely eliminate redundant expressions from the program, as it will not
+eliminate any common subterms not already defined in the source program. It will
+however catch some cases, in particular those that tend to be introduced during
+the array fusion optimisation.
 %\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
 
 While it may seem that common subexpression elimination is always worthwhile, as
@@ -224,19 +223,19 @@ influences this work.
 \subsubsection{Deforestation}
 
 % blugh blurgh
-Inspired by earlier work in \texttt{fold/unfold} methods (for example
+Inspired by earlier work in \code{fold/unfold} methods (for example
 \citet{Burstall:1977kl}), Philip Wadler set out to develop a technique that
 would \emph{automatically} remove intermediate structures from functional
 programs, a technique he (later) dubbed \indexe{deforestation}
 \cite{Wadler:1981hy,Wadler:1990ix}.
 
 The method identifies a core set of list operators that can be used to express a
-large class of computations: \texttt{map}, \texttt{reduce} and
-\texttt{generate} (the latter being similar in spirit to \texttt{foldr} and
-\texttt{unfoldr} respectively), together with a collection of rewrite rules that
-apply to combinations of these operators. These rules identify specific patterns
-of list operators that create then consume intermediate lists, then merges these
-operations to avoid the intermediary.
+large class of computations: \code{map}, \code{reduce} and \code{generate} (the
+latter being similar in spirit to \code{foldr} and \code{unfoldr} respectively),
+together with a collection of rewrite rules that apply to combinations of these
+operators. These rules identify specific patterns of list operators that create
+then consume intermediate lists, then merges these operations to avoid the
+intermediary.
 
 \paragraph{Advantages}
 \begin{itemize}
@@ -273,20 +272,20 @@ fusion}~\cite{Gill:1996tf,Gill:1993de}.
 % This techniques performs a range of optimisations as broad as previous
 % approaches the listless transformer \cite{Wadler:1984ia,Wadler:2005iw} while
 % addressing their drawbacks.
-Like the deforestation algorithm, \texttt{foldr/build} fusion is a rule-based
+Like the deforestation algorithm, \code{foldr/build} fusion is a rule-based
 source-to-source transformation. In fact, it is based on a single rule:
 %
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \texttt{foldr/build} transformation}]
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \code{foldr/build} transformation}]
 %\bf$\langle$ foldr/build fusion $\rangle$% forall g k z. foldr k z (build g) $\mapsto$ g k z
 
 build :: (forall b. (a -> b -> b) -> b -> b) -> [a]
 foldr :: (a -> b -> b) -> b -> [a] -> b
 \end{lstlisting}
 
-The idea is to think of \texttt{build} as a function that constructs a list, and
-\texttt{foldr} as a list consumer. Because of this uniform treatment of lists as
+The idea is to think of \code{build} as a function that constructs a list, and
+\code{foldr} as a list consumer. Because of this uniform treatment of lists as
 \emph{complete objects}, rather than being composed of many individual
-constructor cells, we can have a single \texttt{foldr/build} rule analogous to
+constructor cells, we can have a single \code{foldr/build} rule analogous to
 standard case reduction rules, but instead of removing a single constructor
 removes the \emph{entire data structure}. This method became the first
 non-trivial deforestation system to be included as an active part of a
@@ -296,14 +295,14 @@ production quality functional language compiler.
 \begin{itemize}
     \item Simple, automatic, source-to-source transformation.
 
-%    \item No limitation on inputs: \texttt{foldr/build} fusion operates over the
+%    \item No limitation on inputs: \code{foldr/build} fusion operates over the
 %        entire Haskell language. When a list is produced without using
-%        \texttt{build} or consumed without using \texttt{foldr}, the
+%        \code{build} or consumed without using \code{foldr}, the
 %        deforestation scheme is not hampered and simply leaves the list intact.
 
     \item Single rule: unlike the original deforestation algorithm, a single
         rule suffices. When new list operations are added, so long as they can
-        be expressed in terms of \texttt{foldr} and \texttt{build}, the
+        be expressed in terms of \code{foldr} and \code{build}, the
         transformation will apply; there is no need to consider all combinations
         with the existing operations.
 \end{itemize}
@@ -311,11 +310,11 @@ production quality functional language compiler.
 \paragraph{Disadvantages}
 \begin{itemize}
     \item The transformation can not handle functions that use accumulators,
-        such as \texttt{foldl}, or consume multiple inputs, such as
-        \texttt{zip}.
+        such as \code{foldl}, or consume multiple inputs, such as
+        \code{zip}.
 
-    \item Operations that do not produce lists using \texttt{build} or consume
-        them using \texttt{foldr} will not have the intermediate list
+    \item Operations that do not produce lists using \code{build} or consume
+        them using \code{foldr} will not have the intermediate list
         eliminated.
 \end{itemize}
 
@@ -324,13 +323,13 @@ production quality functional language compiler.
 
 Following Gill's work, a whole cottage industry of new deforestation approaches
 appeared with the goal of covering the cases left out by
-\texttt{foldr/build}\index{fusion!foldr/build}. Most of that work was
+\code{foldr/build}\index{fusion!foldr/build}. Most of that work was
 theoretical, a lot of it was based on category theory, and almost none of it had
 any impact in practice. Unlike those systems of the prior two decades,
 \emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007kp} succeeded in this
 goal and at the same time stayed simple and useful in practice.
 
-Stream fusion has a similar structure to \texttt{foldr/build}: a single rule
+Stream fusion has a similar structure to \code{foldr/build}: a single rule
 eliminates matching pairs of constructor and destructor, and operations need to
 be expressed in terms of these constructors:
 %
@@ -348,18 +347,18 @@ data Step a s = Done
 
 Streams have some abstract state and a \emph{stepper} function that advances the
 stream from one state to the next, possibly yielding a new value. The
-\texttt{stream} constructor \texttt{Yield}s values from its input until it runs
-out, and the \texttt{unstream} destructor build a list by consuming its input
-stream until encountering \texttt{Done}, discarding \texttt{Skip}s along the
-way. The \texttt{Stream} constructors are chosen so as to keep the definition of
-each element as a non-recursive function. When \texttt{Stream}s are fused by
+\code{stream} constructor \code{Yield}s values from its input until it runs
+out, and the \code{unstream} destructor build a list by consuming its input
+stream until encountering \code{Done}, discarding \code{Skip}s along the
+way. The \code{Stream} constructors are chosen so as to keep the definition of
+each element as a non-recursive function. When \code{Stream}s are fused by
 applying the rule, this enables the compiler to aggressively apply standard
 optimisation techniques.
 
 \paragraph{Advantages}
 \begin{itemize}
     \item Preserves the nice properties of
-        \texttt{foldr/build}\index{fusion!foldr/build} fusion.
+        \code{foldr/build}\index{fusion!foldr/build} fusion.
     \item Adds supports operations with accumulators and multiple inputs.
 \end{itemize}
 
@@ -372,7 +371,7 @@ optimisation techniques.
 
 
 \subsubsection{Data Parallel Haskell}
-\texttt{split/join}\index{fusion!split/join} fusion from
+\code{split/join}\index{fusion!split/join} fusion from
 DPH.\index{data-parallel Haskell}\index{DPH|see{data-parallel Haskell}}
 \citet{Chakravarty:2007tc,Jones:2008uu}.
 
@@ -393,7 +392,7 @@ data Array sh e = Manifest sh (Vector e)    -- unboxed data
 \end{lstlisting}
 
 The key principle of the design is to avoid generating an explicit
-(\texttt{Manifest}) representation of intermediate arrays that can instead be
+(\code{Manifest}) representation of intermediate arrays that can instead be
 represented as a transformation function from array indices to values.
 
 % Repa retains the functional programming style by exposing an interface of
@@ -423,12 +422,11 @@ represented as a transformation function from array indices to values.
 \subsubsection{Conclusion}
 
 The most practically successful fusion systems ---
-\texttt{foldr/build}\index{fusion!foldr/build} fusion,
-stream\index{fusion!stream} fusion and delayed arrays\index{fusion!delayed
-arrays} --- are \emph{short-cut fusion}\index{fusion!short-cut} methods that
-rely on local program transformations. These methods are implemented as simple
-but specific rewrite rules combined with general purpose program
-transformations.
+\code{foldr/build}\index{fusion!foldr/build} fusion, stream\index{fusion!stream}
+fusion and delayed arrays\index{fusion!delayed arrays} --- are \emph{short-cut
+fusion}\index{fusion!short-cut} methods that rely on local program
+transformations. These methods are implemented as simple but specific rewrite
+rules combined with general purpose program transformations.
 
 In contrast, \emph{loop fusion}\index{fusion!loop} methods used in imperative
 languages merge multiple loop nests, typically using dependency
@@ -452,7 +450,7 @@ more global reasoning than short-cut fusion.
 % 
 %     \item Fuse everything: The transformation should cover all Accelerate
 %         operations, and not be limited to common special cases such as
-%         \texttt{map/map} and \texttt{map/fold}.
+%         \code{map/map} and \code{map/fold}.
 % 
 %     \item Source-to-source: The fusion transformation should take valid source
 %         (or core) programs and return valid programs in the same representation.
@@ -522,14 +520,14 @@ code.
 \paragraph{Sharing:} \index{fusion!short-cut}Short-cut fusion transforms rely on
 inlining to move producer and consumer expressions next to each other, which
 allows adjacent constructor/destructor pairs to be detected and eliminated. When
-\texttt{let}-bound variables are used multiple times in the body of an
-expression, unrestrained inlining can lead to duplication of work. Compilers
-such as GHC handle this situation by inlining the definitions of
-\texttt{let}-bound variables that have a single use site, or by relying on some
-heuristic about the size of the resulting code to decide what to
-inline~\cite{PeytonJones:2003gb}. In typical Accelerate programs, each array is
-used at least twice: once to access the shape information and once to access the
-array data, so we must handle at least this case specially.
+let-bound variables are used multiple times in the body of an expression,
+unrestrained inlining can lead to duplication of work. Compilers such as GHC
+handle this situation by inlining the definitions of let-bound variables that
+have a single use site, or by relying on some heuristic about the size of the
+resulting code to decide what to inline~\cite{PeytonJones:2003gb}. In typical
+Accelerate programs, each array is used at least twice: once to access the shape
+information and once to access the array data, so we must handle at least this
+case specially.
 
 \paragraph{Fusion at runtime:} As the Accelerate language is embedded in
 Haskell, compilation of the Accelerate program happens at Haskell
@@ -708,8 +706,8 @@ are existentially typed:
 Exp s == Exp t = ??
 \end{lstlisting}
 %
-There is no reason that \texttt{s} and \texttt{t} should be expressions of the
-same type. In some instances we might not care, and as such can define standard
+There is no reason that \code{s} and \code{t} should be expressions of the same
+type. In some instances we might not care, and as such can define standard
 heterogeneous equality:
 %
 \begin{lstlisting}[style=haskell]
@@ -725,8 +723,8 @@ that the environment type, re size, of free scalar and array variables are the
 same so that we can test equality of \indext{de Bruijn} indices.
 
 However, we often \emph{do} care about the specific types of our existentially
-quantified terms. Consider the case of defining equality for \texttt{Let}
-bindings. Recall:
+quantified terms. Consider the case of defining equality for let-bindings.
+Recall:
 %
 \begin{lstlisting}[style=haskell]
 data PreOpenExp acc env aenv t where
@@ -738,14 +736,14 @@ data PreOpenExp acc env aenv t where
         -> PreOpenExp acc env          aenv body_t
 \end{lstlisting}
 %
-To apply \texttt{heq} to the body expression, we need to know something about
+To apply \code{heq} to the body expression, we need to know something about
 the type of the bound terms to ensure that the scalar environments are the same,
-namely \lstinline[mathescape]{a $\sim$ bnd_t $\sim$ b}.\footnote{Alternatively
-we can use \texttt{Data.Typeable.gcast} to provide a type-safe cast, but this
-quickly becomes unwieldy and is a little unsatisfactory.} To do this we must
-equip terms with a runtime witness to the existentially quantified type. Our
-reified dictionaries will allow us to do exactly this, so we can define
-heterogeneous equality for reified dictionaries:
+namely \lstinline[style=inline,mathescape]{a $\sim$ bnd_t $\sim$ b}.%
+\footnote{Alternatively we can use \code{Data.Typeable.gcast} to provide a
+type-safe cast, but this quickly becomes unwieldy and is a little
+unsatisfactory.} To do this we must equip terms with a runtime witness to the
+existentially quantified type. Our reified dictionaries will allow us to do
+exactly this, so we can define heterogeneous equality for reified dictionaries:
 %
 \begin{lstlisting}[style=haskell]
 heqIntegralType :: IntegralType s -> IntegralType t -> Bool
@@ -756,10 +754,10 @@ heqIntegralType _            _            = False
 \end{lstlisting}
 %
 However, doing this is perfectly useless as it only gives us a value of type
-\texttt{Bool}, with no idea what that value means or to what its truth might
+\code{Bool}, with no idea what that value means or to what its truth might
 entitle us. The type checker does not gain any useful knowledge about the types
-the dictionaries \texttt{a} and \texttt{b} witness simply by knowing that
-\lstinline{heqIntegralType a b = True}. A boolean is a bit uninformative.
+the dictionaries \code{a} and \code{b} witness simply by knowing that
+\code{heqIntegralType a b = True}. A boolean is a bit uninformative.
 
 Instead, we can write essentially the same test, but in the positive case
 deliver some \emph{evidence} that the types are equal:
@@ -775,8 +773,8 @@ matchIntegralType (TypeWord _) (TypeWord _) = Just REFL
 matchIntegralType _            _            = Nothing
 \end{lstlisting}
 %
-Matching on \lstinline{Just REFL} will inject the knowledge into the type
-checker that the types \texttt{s} and \texttt{t} are the same. Now with our
+Matching on \code{Just REFL} will inject the knowledge into the type
+checker that the types \code{s} and \code{t} are the same. Now with our
 evidence-producing heterogeneous equality test for reified dictionary families,
 we can compare two terms and gain type-level knowledge when they witness the
 same value-level types. These witnesses for existentially quantified types then
@@ -843,7 +841,7 @@ v :: forall t'. Idx env t' -> f env' t'
 Where the operation differs is in the image of variables: renaming maps
 variables to variables and substitution maps variables to terms. We then lift
 this to an operation which traverses terms, with appropriate lifting to push
-under a lambda, and rebuilding the term after applying \texttt{v} to the
+under a lambda, and rebuilding the term after applying \code{v} to the
 variables:
 %
 \begin{lstlisting}[style=haskell]
@@ -853,15 +851,14 @@ rebuild :: Syntactic f
         -> Term env' t
 \end{lstlisting}
 
-The \texttt{Syntactic} class\footnote{Since Accelerate is a stratified language
+The \code{Syntactic} class\footnote{Since Accelerate is a stratified language
 there are separate implementations of this toolkit on syntactic elements for the
 scalar and collective operations, but the details are identical. The discussion
-uses the generic \texttt{Term} to mean either of these operations.} tells us
-everything we need to know about \texttt{f} --- our notion of ``stuff'' --- in
+uses the generic \code{Term} to mean either of these operations.} tells us
+everything we need to know about \code{f} --- our notion of ``stuff'' --- in
 order to rebuild terms: a mapping in from variables, a mapping out to terms, and
-a weakening map which extends the context. Renaming will instantiate \texttt{f}
-with \texttt{Idx}, whereas for substitutions we may choose \texttt{Term}
-instead.
+a weakening map which extends the context. Renaming will instantiate \code{f}
+with \code{Idx}, whereas for substitutions we may choose \code{Term} instead.
 %
 \begin{lstlisting}[style=haskell]
 class Syntactic f where
@@ -883,8 +880,8 @@ vanished. When we use a named representation (or HOAS\index{higher-order
 abstract syntax}\index{HOAS|see{higher-order abstract syntax}}) we get weakening
 for free, but in the de Bruijn\index{de Bruijn} representation weakening takes
 work: we need to shift all the variable references to make room for new
-bindings. To do this we need to explain how to shift the \texttt{v} operation
-into an extended environment; saying what to do with the new variable and how to
+bindings. To do this we need to explain how to shift the \code{v} operation into
+an extended environment; saying what to do with the new variable and how to
 account for it on the output side.
 %
 \begin{lstlisting}[style=haskell]
@@ -896,18 +893,19 @@ shift :: Syntactic f
 %
 Overall, the crucial functionality of simultaneous substitution is to propagate
 a class of operations on variables closed under shifting, which is what
-\texttt{Syntactic} and \texttt{rebuild} offer.
+\code{Syntactic} and \code{rebuild} offer.
 
 
 \subsection{Inlining}
+\label{sec:inlining}
 
-The final question, then, is how to write the function \texttt{v} which we push
-through terms, as the type \lstinline[style=inline]{forall t'} could be anything. After all,
-what is the point of having a simultaneous substitution algorithm if we can't
+The final question, then, is how to write the function \code{v} which we push
+through terms, as the type \code{forall t'} could be anything. After all, what
+is the point of having a simultaneous substitution algorithm if we can't
 specialise it to one-at-a-time substitution.
 
 The following function takes a replacement for the top variable and returns a
-simultaneous substitution which eliminates \texttt{ZeroIdx}.
+simultaneous substitution which eliminates \code{ZeroIdx}.
 %
 \begin{lstlisting}[style=haskell]
 subTop :: Term env s -> Idx (env, s) t -> Term env t
@@ -925,7 +923,7 @@ inline body bnd = rebuild (subTop bnd) body
 \end{lstlisting}
 %
 The demonic $\forall$ --- which is to say that the quantifier is in a position
-which gives us obligation, not opportunity --- of the operator \texttt{v} forces
+which gives us obligation, not opportunity --- of the operator \code{v} forces
 us to respect type: when pattern matching detects the variable we care about,
 happily we discover that it has the type we must respect. The demon is not so
 free to mess with us as one might at first fear.
@@ -936,12 +934,12 @@ free to mess with us as one might at first fear.
 \subsection{Function composition}
 \label{sec:function_composition}
 
-The equivalent of unary function composition \texttt{(.)} on terms can be
-defined in a similar manner. A function \lstinline[style=inline]{(a -> b)} is
-equivalent to a \texttt{Term} of type \texttt{b} and free variable \texttt{a}.
-Similar to inlining, we replace an expression that uses the top variable with
-one that uses another, remembering to bind the result of the first expression so
-that it can be reused in the second without duplication.
+The equivalent of unary function composition \code{(.)} on terms can be
+defined in a similar manner. A function \code{(a -> b)} is equivalent to a
+\code{Term} of type \code{b} and free variable \code{a}. Similar to inlining, we
+replace an expression that uses the top variable with one that uses another,
+remembering to bind the result of the first expression so that it can be reused
+in the second without duplication.
 %
 \begin{lstlisting}[style=haskell]
 dot :: Term (env, b) c -> Term (env, a) b -> Term (env, a) c
@@ -952,10 +950,10 @@ dot f g = Let g (rebuild split f)
     split (SuccIdx ix) = Var (SuccIdx (SuccIdx ix))
 \end{lstlisting}
 %
-Note the type of \texttt{split}, where we needed to create space in the
-environment at the second index (\texttt{SuccIdx ZeroIdx}) for the free variable
-\texttt{a} to appear in the resultant \texttt{Term}, as the first index will be
-bound to the result of the first expression \texttt{g}.
+Note the type of \code{split}, where we needed to create space in the
+environment at the second index (\code{SuccIdx ZeroIdx}) for the free variable
+\code{a} to appear in the resultant \code{Term}, as the first index will be
+bound to the result of the first expression \code{g}.
 
 We lift this to function terms by unwrapping the lambda abstractions.
 Annoyingly, GHC's type checker can not determine that the function type
@@ -975,13 +973,13 @@ compose _              _              = error "compose: impossible case"
 \marginnote{tk: into implementation chapter?}
 
 As part of the fusion transformation of recasting terms we often need to lift
-array valued inputs to be \texttt{let}-bound at higher points to avoid work
-duplication, but at the same time we can not immediately add these bindings to
-the output term because they will interfere with further fusion steps. We need
-to collect these extra bindings separately from the main term, and add them
-to the output term at some later point. Furthermore, we must ensure we correctly
-track the types of the environments between the fused terms and the collected
-\texttt{let}-bindings.
+array valued inputs to be let-bound at higher points to avoid work duplication,
+but at the same time we can not immediately add these bindings to the output
+term because they will interfere with further fusion steps. We need to collect
+these extra bindings separately from the main term, and add them to the output
+term at some later point. Furthermore, we must ensure we correctly track the
+types of the environments between the fused terms and the collected
+let-bindings.
 
 The following is a heterogeneous snoc-list of array terms that witnesses how an
 array environment is extended by the application of these operations:
@@ -997,12 +995,11 @@ data Extend acc aenv aenv' where
 \end{lstlisting}
 %
 In the style of the \indext{de Bruijn} indices used for projecting environment
-variables (\S TK), \texttt{Extend} uses an inductive notion of tuples as
+variables (\S TK), \code{Extend} uses an inductive notion of tuples as
 heterogeneous \emph{snoc} lists. In contrast to environment indices, the base
 case does not refer to an empty environment, but instead the environment
-\texttt{aenv} which we are extending. This witnesses how to construct an
-extended environment \texttt{aenv'} by bringing new terms into scope, one at a
-time.
+\code{aenv} which we are extending. This witnesses how to construct an extended
+environment \code{aenv'} by bringing new terms into scope, one at a time.
 %
 \begin{lstlisting}[style=haskell]
 bind :: (Kit acc, Arrays a) => Extend acc aenv aenv' -> PreOpenAcc acc aenv' a -> PreOpenAcc acc aenv a
@@ -1030,12 +1027,12 @@ instance Sink (PreOpenAcc acc)
   ...
 \end{lstlisting}
 %
-This generalises \texttt{weaken} from section~\ref{sec:substitution} to increase
-the environment of an object \texttt{f} based on some function on indices rather
+This generalises \code{weaken} from section~\ref{sec:substitution} to increase
+the environment of an object \code{f} based on some function on indices rather
 than shifting by a single \indext{de Bruijn} index. Thus we only need to
 traverse a term once no matter how many positions the variable indices shift by.
 Using this, we can weaken terms based on the witness provided by
-\texttt{Extend}.
+\code{Extend}.
 %
 \begin{lstlisting}[style=haskell,firstnumber=last]
 sink :: Sink f => Extend acc env env' -> f env t -> f env' t
@@ -1082,7 +1079,7 @@ this would require a number of rewrite rules quadratic in the number of
 operations that are to be fused. This was the problem with Wadler's original
 deforestation algorithm. The representation must also be sufficiently expressive
 to represent all operations we want to fuse, which was a limitation of
-\index{fusion!foldr/build}\texttt{foldr/build} fusion.
+\index{fusion!foldr/build}\code{foldr/build} fusion.
 
 \subsection{Representing Producers}
 \label{sec:representing_producers}
@@ -1096,7 +1093,7 @@ others~\cite{Claessen:2012hl}.
 
 The use of delayed arrays [in Repa] was originally motived by the desire to
 avoid superfluous copying of array elements during index space transformations
-such as \texttt{backpermute} (see Listing~\ref{lst:operations}). Another major
+such as \code{backpermute} (see Listing~\ref{lst:operations}). Another major
 benefit of delayed arrays is that it offers by-default automatic fusion.
 Moreover, this fusion does not require sophisticated compiler transformations or
 for the two fusible terms to be statically juxtaposed; fusion is a property of
@@ -1112,15 +1109,15 @@ let b = map f a
 in  mmMult b b
 \end{lstlisting}
 %
-Every access to an element \texttt{b} will apply the (arbitrarily expensive)
-function \texttt{f} to the corresponding element of \texttt{a}. It follows that
+Every access to an element \code{b} will apply the (arbitrarily expensive)
+function \code{f} to the corresponding element of \code{a}. It follows that
 these arbitrarily expensive computations will be done \emph{at least twice},
-once for each argument of \texttt{mmMult}, quite contrary to the programmer's
-intent. Indeed, if \texttt{mmMult} consumes its elements in a non-linear manner,
-accessing elements more than once, the computation of \texttt{f} will be
-performed every time. We must be able to represent some terms as manifest arrays
-so that a delayed-by-default representation can not lead to an arbitrary loss of
-sharing. This is a well known problem with Repa.
+once for each argument of \code{mmMult}, quite contrary to the programmer's
+intent. Indeed, if \code{mmMult} consumes its elements in a non-linear manner,
+accessing elements more than once, the computation of \code{f} will be performed
+every time. We must be able to represent some terms as manifest arrays so that a
+delayed-by-default representation can not lead to an arbitrary loss of sharing.
+This is a well known problem with Repa.
 
 The other consideration is \emph{efficiency}. Since we are targeting a massively
 parallel architecture designed for performance, it is better to use more
@@ -1162,40 +1159,39 @@ k\textipa{@}NGk\textquotesingle t\={a}SH\textipa{@}n
 \enspace\textipa{k@Nk}\textquotesingle \textipa{te\;IS@n}
 |} (n) the action or an instance of delaying; tardy action.}
 %
-is parameterised by the recursive closure of array computations \texttt{acc},
-the array environment \texttt{aenv}, and has three constructors:
+is parameterised by the recursive closure of array computations \code{acc}, the
+array environment \code{aenv}, and has three constructors:
 %
 \begin{itemize}
-\item \texttt{Done} injects a manifest array into the type.
+\item \code{Done} injects a manifest array into the type.
     %represented as a reference to a term in the array environment.
 
-\item \texttt{Yield} defines a new array in terms of its shape and a function
+\item \code{Yield} defines a new array in terms of its shape and a function
     that maps indices to elements.
 
-\item \texttt{Step} encodes a special case of \texttt{Yield}, that defines a new
+\item \code{Step} encodes a special case of \code{Yield}, that defines a new
     array by applying an index and value transformation to an argument array.
 
 \end{itemize}
 
-Note that the argument arrays to \texttt{Done} and \texttt{Step} are not
-expressed as terms in \texttt{acc}, the type of collective array operations. By
-instead requiring a \indext{de Bruijn} index \texttt{Idx} into the array
-environment, we ensure that the argument array is manifest. Thus the definition
-of \texttt{Cunctation} is non-recursive in the type of array computations. This
+Note that the argument arrays to \code{Done} and \code{Step} are not expressed
+as terms in \code{acc}, the type of collective array operations. By instead
+requiring a \indext{de Bruijn} index \code{Idx} into the array environment, we
+ensure that the argument array is manifest. Thus the definition of
+\code{Cunctation} is non-recursive in the type of array computations. This
 allows the representation to be (later) embedded within producer terms
 (\ref{sec:producer_consumer_fusion}) with the guarantee that an embedded scalar
 computation will not invoke further parallel computations.%
-\footnote{While scalar expression terms are mutually recursive in \texttt{acc},
-we are guaranteed that these terms will consist only of free array variables
-(\texttt{Idx}).}
-We require both \texttt{Done} and \texttt{Step} nodes because the return type of
-\texttt{Done} can be any instance of \texttt{Arrays}, whereas \texttt{Step} is
-restricted to being a single array. Thus, \texttt{Done} is required to support
-operations such as array tupling, and can not be represent as \texttt{Step} with
-identity transformation functions.
+\footnote{While scalar expression terms are mutually recursive in \code{acc}, we
+are guaranteed that these terms will consist only of free array variables
+(\code{Idx}).} We require both \code{Done} and \code{Step} nodes because the
+return type of \code{Done} can be any instance of \code{Arrays}, whereas
+\code{Step} is restricted to being a single array. Thus, \code{Done} is required
+to support operations such as array tupling, and can not be represent as
+\code{Step} with identity transformation functions.
 
 In order to bring additional array terms into scope, which may be required for
-\texttt{Done} and \texttt{Step}, we combine this representation of producer
+\code{Done} and \code{Step}, we combine this representation of producer
 arrays with the method of section~\ref{sec:environment_manipulation} for
 collecting supplementary environment bindings. This completes our data structure
 for combining producer terms in Accelerate:
@@ -1208,21 +1204,20 @@ data Embed acc aenv a where
         -> Embed      acc aenv       a
 \end{lstlisting}
 
-Note the types of the array environments. The \texttt{Embed} type is expressed
-in relation to the type \texttt{aenv}, which represents all
-\texttt{let}-bindings currently in scope at this point of the AST\index{abstract
-syntax tree} that we are currently fusing. The data constructor contains an
-existentially typed \texttt{aenv'}, witnessed by the first argument,
-\texttt{Extend}, which contains any supplementary array terms collected during
-the fusion process. The actual array representation in the second argument is
-expressed in terms of this extended environment, so has access to any terms from
-the AST (\texttt{aenv}) as well as those additional bindings introduced by
-\texttt{Extend}.
+Note the types of the array environments. The \code{Embed} type is expressed in
+relation to the type \code{aenv}, which represents all \code{let}-bindings
+currently in scope at this point of the AST\index{abstract syntax tree} that we
+are currently fusing. The data constructor contains an existentially typed
+\code{aenv'}, witnessed by the first argument, \code{Extend}, which contains any
+supplementary array terms collected during the fusion process. The actual array
+representation in the second argument is expressed in terms of this extended
+environment, so has access to any terms from the AST (\code{aenv}) as well as
+those additional bindings introduced by \code{Extend}.
 
 Why do we separate the auxiliary bindings from the representation of fused
-producers? The constructors of \texttt{Cunctation} could carry this information,
+producers? The constructors of \code{Cunctation} could carry this information,
 and then we would not require this additional data structure. For example, the
-following is a valid alternative definition for the \texttt{Yield} constructor:
+following is a valid alternative definition for the \code{Yield} constructor:
 %
 \begin{lstlisting}[style=haskell]
   Yield' :: (Shape sh, Elt e)                   -- Alternative definition (bad)
@@ -1232,26 +1227,26 @@ following is a valid alternative definition for the \texttt{Yield} constructor:
          -> Cunctation acc aenv       (Array sh e)
 \end{lstlisting}
 
-To create a real AST\index{abstract syntax tree} node from the \texttt{Embed}
+To create a real AST\index{abstract syntax tree} node from the \code{Embed}
 representation, we need both the environment bindings as well as the array
 description. However, analysis of how to fuse terms requires only the array
 description. If the additional bindings are bundled as part of the array
-representation, as in \texttt{Yield'}, the existentially quantified environment
-type is only available after we pattern match on the constructor.
-This is problematic because to inspect terms and do things like function
-composition (\S\ref{sec:function_composition}) the types of the environments of
-the two terms must be the same, so after we pattern match on the constructor we
-must \texttt{sink} (\S\ref{sec:sinking}) the second term into \texttt{aenv'}.
-Even worse, for terms in the delayed state the only way to do this sinking is to
-first convert them into a real AST node and then back into the delayed state. If
-for some reason we can not fuse into this representation --- for example we do
-not meet the requirements for the more restrictive \texttt{Step} --- then this
+representation, as in \code{Yield'}, the existentially quantified environment
+type is only available after we pattern match on the constructor. This is
+problematic because to inspect terms and do things like function composition
+(\S\ref{sec:function_composition}) the types of the environments of the two
+terms must be the same, so after we pattern match on the constructor we must
+\code{sink} (\S\ref{sec:sinking}) the second term into \code{aenv'}. Even worse,
+for terms in the delayed state the only way to do this sinking is to first
+convert them into a real AST node and then back into the delayed state. If for
+some reason we can not fuse into this representation --- for example we do not
+meet the requirements for the more restrictive \code{Step} --- then this
 additional work is wasted.
 
 Why can we not analyse terms with respect to the exposed environment type
-\texttt{aenv}, ignoring for the moment the existential? At some point we will
-need to combine the extended environments, and we have no way to do this even if
-the existential types are exposed.
+\code{aenv}, ignoring for the moment the existential? At some point we will need
+to combine the extended environments, and we have no way to do this even if the
+existential types are exposed.
 %
 \begin{lstlisting}[style=haskell]
 cat :: Extend env env1 -> Extend env env2 -> Extend env ???
@@ -1276,10 +1271,10 @@ representation discussed in the previous section
 (\S\ref{sec:representing_producers}), and merging sequences of producers into a
 single operations. Smart constructors for each producer term manage the
 integration with successive producers. For example, the following is the fused
-version of \texttt{map}:
+version of \code{map}:
 %
 \begin{lstlisting}[style=haskell,
-    caption={Fused definition of the \texttt{map} operation}]
+    caption={Fused definition of the \code{map} operation}]
 mapD :: (Kit acc, Elt b)
      => PreFun     acc aenv (a -> b)
      -> Cunctation acc aenv (Array sh a)
@@ -1288,19 +1283,18 @@ mapD f (step  -> Just (Step sh ix g v)) = Step sh ix (f `compose` g) v
 mapD f (yield -> Yield sh g)            = Yield sh (f `compose` g)
 \end{lstlisting}
 
-We use two helper functions, \texttt{step} and \texttt{yield}, to expose the
-only two interesting cases and then compose (\S\ref{sec:function_composition})
-the input function \texttt{f} into the appropriate place in the constructor.
-Index transformation functions such as \texttt{backpermute} proceed in the same
-manner.
+We use two helper functions, \code{step} and \code{yield}, to expose the only
+two interesting cases and then compose (\S\ref{sec:function_composition}) the
+input function \code{f} into the appropriate place in the constructor. Index
+transformation functions such as \code{backpermute} proceed in the same manner.
 
-These helper functions operate by converting the input \texttt{Cunctation} into
+These helper functions operate by converting the input \code{Cunctation} into
 the constructor with the same name. A producer can always be expressed as a
-function from indices to elements in the style of \texttt{Yield}, but this is
-not the case for the more restrictive \texttt{Step}. For the \texttt{Done} case
-in both instances, GHC can not infer that the result type is a single
-\texttt{Array}, so we use the \texttt{accType} function to reify the
-\texttt{Arrays} class representation.
+function from indices to elements in the style of \code{Yield}, but this is not
+the case for the more restrictive \code{Step}. For the \code{Done} case in both
+instances, GHC can not infer that the result type is a single \code{Array}, so
+we use the \code{accType} function to reify the \code{Arrays} class
+representation.
 %
 \begin{lstlisting}[style=haskell]
 yield :: Kit acc => Cunctation acc aenv (Array sh e) -> Cunctation acc aenv (Array sh e)
@@ -1316,10 +1310,10 @@ step cc = case cc of
   Done v | ArraysRarray <- accType' cc -> Just $ Step (arrayShape v) identity identity v
 \end{lstlisting}
 
-The only interesting case is that of \texttt{zipWith}, which is the only
-producer that consumes multiple arrays (see Listing~\ref{lst:operations}). In
-contrast to, for example, \texttt{foldr/build}\index{fusion!foldr/build}, we
-fuse in both of the input arguments.
+The only interesting case is that of \code{zipWith}, which is the only producer
+that consumes multiple arrays (see Listing~\ref{lst:operations}). In contrast
+to, for example, \code{foldr/build}\index{fusion!foldr/build}, we fuse in both
+of the input arguments.
 %
 \begin{lstlisting}[style=haskell]
 zipWithD :: (Kit acc, Shape sh, Elt a, Elt b, Elt c)
@@ -1331,8 +1325,8 @@ zipWithD f cc1 cc0
 \end{lstlisting}
 %
 Because it is advantageous to express operations in the most specific way
-possible, \texttt{zipWith} considers the special case of when the two input
-arrays happen to derive from the same manifest data:
+possible, \code{zipWith} considers the special case of when the two input arrays
+happen to derive from the same manifest data:
 %
 \begin{lstlisting}[style=haskell,firstnumber=last]
   | Just (Step sh1 p1 f1 v1)    <- step cc1
@@ -1351,9 +1345,9 @@ elements and combine:
   = Yield (sh1 `Intersect` sh0) (combine f f1 f0)
 \end{lstlisting}
 %
-The function \texttt{combine} completes the task of drawing an element from each
-of the input arrays and combining them with the binary function \texttt{f},
-being sure to \texttt{let}-bind the intermediate results along the way.
+The function \code{combine} completes the task of drawing an element from each
+of the input arrays and combining them with the binary function \code{f}, being
+sure to \code{let}-bind the intermediate results along the way.
 %
 \begin{lstlisting}[style=haskell,firstnumber=last,escapeinside={(*}{*)}]
   where
@@ -1370,10 +1364,10 @@ being sure to \texttt{let}-bind the intermediate results along the way.
 \end{lstlisting}
 %
 Note that line~\ref{lst:zipwith_combine_weaken} requires a type signature,
-otherwise the type variable \texttt{e} introduced by the weakening step will
-escape and can not be unified correctly. This new parameter \texttt{e}
-represents in the first case of \texttt{Step} the array element type, and in the
-second instance via \texttt{Yield} the array index type.
+otherwise the type variable \code{e} introduced by the weakening step will
+escape and can not be unified correctly. This new parameter \code{e} represents
+in the first case of \code{Step} the array element type, and in the second
+instance via \code{Yield} the array index type.
 
 
 \subsection{Embedding Producers}
@@ -1418,12 +1412,12 @@ algorithm that re-traverses the whole reduct whenever a redex is reduced,
 although more efficient imperative algorithms exist
 \cite{Appel:1997gs,Benton:2004ua,Kennedy:2007cb}.
 
-The only interesting case of the \texttt{shrink} function is that of a
+The only interesting case of the \code{shrink} function is that of a
 $\beta$-redex where the number of uses is less than or equal to one. The
 implementation, outlined below, uses the \indext{de Bruijn} manipulation
 techniques developed in sections~\ref{sec:equality} and \ref{sec:substitution}.
 This also suffices to eliminate dead code, as Accelerate does not have separate
-forms for \texttt{let}-bindings and lambda abstractions.
+forms for \code{let}-bindings and lambda abstractions.
 %
 \begin{lstlisting}[
     style=Haskell,
@@ -1487,10 +1481,10 @@ example, the following rewrite is always applied:
 \end{lstlisting}
 %
 The attentive reader will note that it is straightforward to choose a positive
-non-zero floating-point value \texttt{eps} such that \lstinline{eps + 1.0 > 1.0}
-is \texttt{False}. Issues arising from simplification of floating-point
-expressions are currently ignored, but this is not so outrageous as it would be
-for a traditional offline compiler: since Accelerate programs are just-in-time
+non-zero floating-point value \code{eps} such that \code{eps + 1.0 > 1.0} is
+\code{False}. Issues arising from simplification of floating-point expressions
+are currently ignored, but this is not so outrageous as it would be for a
+traditional offline compiler: since Accelerate programs are just-in-time
 compiled, any such issues still occur only at program runtime. The only
 distinction is from in phase of program execution the problem manifests, not
 that it does.
@@ -1504,8 +1498,8 @@ that it does.
 The effectiveness of constant folding can be increased by combining it with
 other data-flow optimisations, particularly constant propagation. When
 determining whether the arguments to a primitive function application are
-constants, we consider \texttt{let}-bound constants and constant-valued tuple
-components in addition to literal constants as material for constant folding.
+constants, we consider let-bound constants and constant-valued tuple components
+in addition to literal constants as material for constant folding.
 
 
 \subsubsection{Algebraic Simplification}
@@ -1515,7 +1509,7 @@ particular operator/operand combinations to simplify expressions. The most
 obvious algebraic simplifications involve combining a binary operator with an
 operand that is the algebraic identity of that operator, or with an operand that
 always yields a constant, independent of the other value of the operand. For
-example, for a term \texttt{x} the following are always true:
+example, for a term \code{x} the following are always true:
 %
 \begin{lstlisting}[style=Haskell,numbers=none]
 %\bf$\langle$ algebraic simplification $\rangle$%
@@ -1551,7 +1545,7 @@ parts that are constant and variable.
 %are applied.
 This is particularly relevant when only one operand of a binary
 operator is identified as being constant valued. For example, the expression
-\lstinline{x + 1 + 2} would only be simplified if the second addition occurred
+\code{x + 1 + 2} would only be simplified if the second addition occurred
 first. For the case of commutative binary operators where only one operand is
 constant valued, the constant expression is applied as the first operand. The
 previous term would then be rewritten as:
@@ -1739,8 +1733,8 @@ chapter, and one can easily invent examples to show that no order can be optimal
 for all programs, but some orderings are generally preferable to others. This
 section describes the motivation for the current sequence of transformations.
 
-Consider the term \lstinline[style=inline]{zipWith f xs xs}. The fusion
-transformation rewrites this into \texttt{generate} style as per
+Consider the term \code{zipWith f xs xs}. The fusion transformation rewrites
+this into \code{generate} style as per
 section~\ref{sec:producer_producer_fusion}. Before simplification this produces
 the following term, rewritten slightly: \note{TK: no, it doesn't anymore}
 %
@@ -1760,7 +1754,7 @@ including shrinking (\S\ref{sec:simplification}) and common subexpression
 elimination (\S\ref{sec:redundancy_elimination}). The additional array bindings
 are an artefact of the way the fusion transformation handles extended
 environment bindings \note{which Trevor is ashamed of and has promised to fix},
-and clearly all array variables refer to the same manifest data, \texttt{xs} in
+and clearly all array variables refer to the same manifest data, \code{xs} in
 the expression expression. Applying shrinking to the array terms conceals this
 infelicity:
 %
@@ -1784,12 +1778,12 @@ in generate (intersect (shape a0) (shape a0))
 %
 This term is a completely valid interpretation of the source program that does
 not introduce any additional work, but we can do better. Applying shrinking
-inlines the two terms \texttt{x1} and \texttt{x2} because they are each only
+inlines the two terms \code{x1} and \code{x2} because they are each only
 referenced once in the body, resulting in two accesses of the array to the same
 index. Since our straightforward implementation of common subexpression
-elimination is aimed at removing redundant \texttt{let}-bindings, we should
-always apply redundancy elimination before shrinking, resulting in a term that
-only accesses the underlying array once:
+elimination is aimed at removing redundant let-bindings, we should always apply
+redundancy elimination before shrinking, resulting in a term that only accesses
+the underlying array once:
 %
 \begin{lstlisting}[style=haskell]
 let a0 = use (Array ...)
@@ -1929,15 +1923,15 @@ We begin by defining \emph{producers}\index{producer} as the class of operations
 that, given a set of zero or more input arrays, produce a single element for the
 output array by manipulating a \emph{single} element from each input array. This
 can be further classified along several dimensions: value transformers such as
-\texttt{map} and \texttt{zipWith} apply a scalar function to each element of
-their input array(s). On the other hand, index space transformations such as
-\texttt{backpermute}, \texttt{slice} and \texttt{replicate}, in effect rearrange
+\code{map} and \code{zipWith} apply a scalar function to each element of their
+input array(s). On the other hand, index space transformations such as
+\code{backpermute}, \code{slice} and \code{replicate}, in effect rearrange
 elements of the input array without changing the array values. In either case,
 each output array element is calculated independently of all other array
 elements. In fact, at the expense of any specific behavioural knowledge of the
-collective operation, \texttt{generate}, combined with the scalar array
-indexing operator \texttt{(!)}, is the most general array production mechanism,
-and is capable of expressing all other producer operations.
+collective operation, \code{generate}, combined with the scalar array indexing
+operator \code{(!)}, is the most general array production mechanism, and is
+capable of expressing all other producer operations.
 
 Since all producers operate on an element of the array independent of all other
 elements, at a first approximation it is reasonable to propose that our fusion
@@ -1955,17 +1949,17 @@ to be computed rather than attempting to fuse them with later stages of the
 computation.
 
 Depending on the type of collective operation, we may be able to fuse the inputs
-directly into the consumer: \texttt{fold*}, \texttt{scan*}\footnote{A parallel
+directly into the consumer: \code{fold*}, \code{scan*}\footnote{A parallel
 scan implementation typically splits the input array into contiguous chunks over
 the available processing elements and requires two passes over the data. The
 first phase computes a partial block sum and then the second phase distributes
 these partial sums to each processing element to use as a carry-in value.
 Nevertheless, it is possible for an implementation to consume the fusion
-material in the first phase only.} and \texttt{permute} read each input array
+material in the first phase only.} and \code{permute} read each input array
 element once, and so are good candidates for fusing the input arrays directly
 into the collective operation step.
 
-On the other hand, because \texttt{stencil*} operations apply the stencil
+On the other hand, because \code{stencil*} operations apply the stencil
 function with access to all elements within a local neighbourhood of the focus
 point/array element, each element of the input array may be read multiple times.
 Thus, stencil operations first fully compute their input array(s), and then
@@ -1976,8 +1970,8 @@ fully evaluate their output arrays.
 
 The remaining constructors of the Accelerate array term tree express environment
 and control flow operations. These include conditional statements
-(\texttt{|?}), introduction of constant array data (\texttt{use} and
-\texttt{unit}), array tupling and projection, pipelining (\texttt{>->}) and
+(\code{|?}), introduction of constant array data (\code{use} and
+\code{unit}), array tupling and projection, pipelining (\code{>->}) and
 environment bindings. While there may be some opportunity here --- moving array
 conditionals into scalar expressions or eliminating the aggregate tupling
 structure in an attempt to expose further opportunities for fusion --- we
@@ -1991,18 +1985,18 @@ to be computed at the correct locations in the program. However, because
 Accelerate is a \emph{deeply-embedded} language with an explicit sharing
 observation algorithm, these program locations where data must be computed to
 avoid duplicated work have been reified as part of the term tree. Any
-\texttt{let}-bound array expression implies sharing and so the fusion
-transformation should not fuse these expressions else it will introduce
-duplicate work. Thus, we neatly sidestep the main infelicity of delayed arrays.
+let-bound array expression implies sharing and so the fusion transformation
+should not fuse these expressions else it will introduce duplicate work. Thus,
+we neatly sidestep the main infelicity of delayed arrays.
 
 
 \subsubsection{Conclusion}
 
 In summary, the primary goals of the deforester is that it should be able to
 fuse arbitrary sequences of producer operations into a single producer term,
-and, excepting \texttt{stencil}, fuse producers directly into consumers
+and, excepting \code{stencil}, fuse producers directly into consumers
 outputting a consumer term. Additionally, we do not fuse into
-\texttt{let}-bindings in order to avoid work duplication.
+let-bindings in order to avoid work duplication.
 
 Implicit in the above taxonomy, what we are discriminating against is the
 collective behaviour of the array \emph{elements}. This is a key insight:
@@ -2019,7 +2013,7 @@ We begin the discussion of how to implement fusion in Accelerate through the use
 of a few motivating examples. We start with fusion of producer functions, of
 which we would like to fuse arbitrary sequences into a single operation. We have
 already mentioned some prototypical producer fusion rules, such as the classic
-\texttt{map/map} rule, which combines two value transformation operations into a
+\code{map/map} rule, which combines two value transformation operations into a
 single step:
 %
 \begin{lstlisting}[style=haskell,numbers=none,mathescape]
@@ -2059,19 +2053,19 @@ And a rule to combine two operations of this form:
     transform sh p1 f1 (transform _ p2 f2 arr) $\mapsto$ transform sh (p2 . p1) (f1 . f2) arr
 \end{lstlisting}
 %
-Finally, we need to know how to map our original \texttt{map} and
-\texttt{backpermute} in terms of this new constructor:
+Finally, we need to know how to map our original \code{map} and
+\code{backpermute} in terms of this new constructor:
 %
 \begin{lstlisting}[style=haskell,numbers=none,mathescape]
 map f arr            $\mapsto$ transform (shape arr) id f arr
 backpermute sh p arr $\mapsto$ transform sh p id arr
 \end{lstlisting}
 %
-Oops! In order to recast a \texttt{map} into the more general
-\texttt{transform}, we needed to take the \texttt{shape} of the input array, but
+Oops! In order to recast a \code{map} into the more general
+\code{transform}, we needed to take the \code{shape} of the input array, but
 to do that we have just introduced duplicated work as the arbitrarily complex
-\texttt{arr} is now used twice in the new term. Disaster! This will not do, so
-let us first \texttt{let}-bind the input array expression and refer to it:
+\code{arr} is now used twice in the new term. Disaster! This will not do, so
+let us first \code{let}-bind the input array expression and refer to it:
 %
 \begin{lstlisting}[style=haskell,numbers=none,mathescape]
 map f arr $\mapsto$ let v = arr
@@ -2079,7 +2073,7 @@ map f arr $\mapsto$ let v = arr
 \end{lstlisting}
 %
 And this correctly maintains the complexity of the original term. The
-\texttt{map/map} fusion rule now proceeds as follows:
+\code{map/map} fusion rule now proceeds as follows:
 %
 \begin{lstlisting}[style=haskell,numbers=none,mathescape]
 map f (map g arr) $\mapsto$ map f (let v = arr in transform (shape v) id g v)
@@ -2087,29 +2081,29 @@ map f (map g arr) $\mapsto$ map f (let v = arr in transform (shape v) id g v)
 \end{lstlisting}
 %
 And once again we are stuck. One of our original premises is that we should not
-fuse past \texttt{let} bindings so as to avoid the problem of duplicated work
-endemic to delayed array fusion in Repa. And so it is in this case: \texttt{v}
+fuse past let bindings so as to avoid the problem of duplicated work
+endemic to delayed array fusion in Repa. And so it is in this case: \code{v}
 here represents a multiply-used expression which we must not inline. So herein
 lies the second device required for our intermediate combinators: we need to
 make a distinction between sharing in the source program and sharing introduced
 as part of the fusion transformation.
 
 Armed with a strategy to deal with an index or value transformation applied to
-an array (as we shall see, \texttt{slice} and \texttt{replicate} can be
-represented in terms of \texttt{backpermute}), we now need to develop a way to
-deal with multiple arrays (\texttt{zipWith}), which historically speaking has
+an array (as we shall see, \code{slice} and \code{replicate} can be
+represented in terms of \code{backpermute}), we now need to develop a way to
+deal with multiple arrays (\code{zipWith}), which historically speaking has
 proved to be rather challenging for fusion systems, as well as the
-\texttt{generate} function which takes no explicit input arrays. Since
-\texttt{generate} has no input arrays, we only need to consider a single rule:
+\code{generate} function which takes no explicit input arrays. Since
+\code{generate} has no input arrays, we only need to consider a single rule:
 %
 \begin{lstlisting}[style=haskell,numbers=none,mathescape]
 %\bf$\langle$ RULE: generate/transform $\rangle$%
     transform sh p f (generate _ g) $\mapsto$ generate sh (f . g . p)
 \end{lstlisting}
 %
-Previously we mentioned that \texttt{generate} is the most general form of
-producer; we will exploit that fact here to define \texttt{zipWith} in
-terms of \texttt{generate}, and so fuse the operation without needing to
+Previously we mentioned that \code{generate} is the most general form of
+producer; we will exploit that fact here to define \code{zipWith} in
+terms of \code{generate}, and so fuse the operation without needing to
 generalise our other combinators for multiple input arrays:
 %
 \begin{lstlisting}[style=haskell,numbers=none,mathescape]
@@ -2119,14 +2113,14 @@ zipWith f xs ys $\mapsto$ let v1 = xs
                                (\ix -> f (v1!ix) (v0!ix))
 \end{lstlisting}
 %
-Where again we needed to \texttt{let}-bind the input arrays of \texttt{zipWith}
-in order to avoid work duplication, and \texttt{(!)} indexes an array at the
+Where again we needed to let-bind the input arrays of \code{zipWith}
+in order to avoid work duplication, and \code{(!)} indexes an array at the
 given index. These two rules suggest that our approach to fusion will tend
-towards fusing producer functions into a \texttt{generate} node. In fact, we
-could also formulate \texttt{map} and \texttt{backpermute} in terms of
-\texttt{generate} as well, which is the approach taken by Repa delayed arrays
+towards fusing producer functions into a \code{generate} node. In fact, we
+could also formulate \code{map} and \code{backpermute} in terms of
+\code{generate} as well, which is the approach taken by Repa delayed arrays
 (listing~\ref{lst:repa_arrays}). However, we should be cautious; being the most
-general combinator, \texttt{generate} lacks any specific knowledge of the
+general combinator, \code{generate} lacks any specific knowledge of the
 collective behaviour of the expression, so later frontend analysis or a specific
 backend implementation may lose opportunities for optimisation.
 
@@ -2150,22 +2144,22 @@ a backend by being able to ignore producer/consumer fusion.
 %     \item \textbf{Producer:} Convert the node into the reduced form on which the
 %         fusion rules will be applied as outlined previously
 %         (\S\ref{sec:node_taxonomy}), which will be either
-%         \texttt{transform}-like or \texttt{generate}-like in appearance.
-%         Additional \texttt{let}-bindings introduced by the term recasting are
-%         tracked separately via an \texttt{Extend}ed environment list, which
+%         \code{transform}-like or \code{generate}-like in appearance.
+%         Additional \code{let}-bindings introduced by the term recasting are
+%         tracked separately via an \code{Extend}ed environment list, which
 %         enables successive producer nodes to be fused together without
 %         interference.
 % 
 %     \item \textbf{Consumer:} Force the node to be evaluated by adding the input
-%         node and \texttt{bind}ing the \texttt{Extend}ed environment to the
+%         node and \code{bind}ing the \code{Extend}ed environment to the
 %         output term together with the current consumer node. We belay the
 %         discussion of how best to represent producer/consumer fusion in the term
 %         tree.
 % 
 %     \item \textbf{Control:} Nodes that represent control flow or array injection
 %         are largely left intact. Later, we will discuss when it is advantageous
-%         to break the rules and fuse \texttt{let}-bound term directly into the
-%         body expression.
+%         to break the rules and fuse let-bound term directly into the body
+%         expression.
 % 
 % \end{itemize}
 
@@ -2218,7 +2212,7 @@ array state.
 delay :: Arrays a => PreOpenAcc OpenAcc aenv a -> DelayedAcc aenv a
 \end{lstlisting}
 %
-What operations should \texttt{DelayedAcc} encode? The base case is just to
+What operations should \code{DelayedAcc} encode? The base case is just to
 store a subterm, representing real manifest array data.
 %
 \marginnote{type tags in DelayedAcc}
@@ -2230,12 +2224,12 @@ data DelayedAcc aenv a where
           -> DelayedAcc         aenv  a
 \end{lstlisting}
 %
-Note that even though \texttt{Done} represents a real array, we will still need
-to keep track of additional environment bindings with \texttt{Extend}.
+Note that even though \code{Done} represents a real array, we will still need
+to keep track of additional environment bindings with \code{Extend}.
 \marginnote{explain this: let floating etc.}
 What about operations that we wish to fuse together? We can represent an array
 by its shape and a function to compute an element at each index, similar in
-spirit to the \texttt{generate} function. While this appears like element-based
+spirit to the \code{generate} function. While this appears like element-based
 array processing, it still has a clear parallel implementation.
 \marginnote{later: additional promises made by Done? (oops, can't remember)}
 %
@@ -2250,7 +2244,7 @@ array processing, it still has a clear parallel implementation.
 For efficiency reasons it is better to use more specific functions wherever
 possible. As such we will also include a more structured form that applies an
 index and/or value space transformation to an input array, in the manner of
-\texttt{transform}.
+\code{transform}.
 %
 \begin{lstlisting}[
     style=haskell,
@@ -2266,24 +2260,24 @@ index and/or value space transformation to an input array, in the manner of
           -> DelayedAcc     aenv  (Array sh' b)
 \end{lstlisting}
 %
-This intermediate form is clearly less general than \texttt{Yield}. The purpose
+This intermediate form is clearly less general than \code{Yield}. The purpose
 for this more restrictive intermediate form is that it may afford greater
 opportunities for optimisation in the implementation of the collective
 operation, while avoiding the need to recover this information by analysing the
 term tree.
 
-Note that \texttt{Step} applies its transformation functions to an array stored
-as an environment index, rather than as an arbitrary term as \texttt{transform}
-does. This ensures that \texttt{Step} can always be fused into \emph{consumer}
+Note that \code{Step} applies its transformation functions to an array stored
+as an environment index, rather than as an arbitrary term as \code{transform}
+does. This ensures that \code{Step} can always be fused into \emph{consumer}
 operations by embedding the producer function and accessing the input data via
 array indexing. We will return this this when implementing consumer fusion.
 
-The astute reader may wonder; can \texttt{Step} subsume the rule of
-\texttt{Done} by specifying the identity function for the value and index
+The astute reader may wonder; can \code{Step} subsume the rule of
+\code{Done} by specifying the identity function for the value and index
 transformation? This would greatly simplify the implementation since we would
 only need to account for the interaction of two constructions. Unfortunately
-this is not possible, since \texttt{Done} produces a term of of type in the
-class \texttt{Arrays} rather than a single \texttt{Array}. \texttt{Step} is not
+this is not possible, since \code{Done} produces a term of of type in the
+class \code{Arrays} rather than a single \code{Array}. \code{Step} is not
 able to satisfy this constraint, which is required to support functionality such
 as tuples of arrays and the introduction thereof, so three intermediate forms
 are needed.
@@ -2303,18 +2297,18 @@ force (Step env sh ix f v) = bind env $ Transform sh ix f a     -- apply index/v
 %
 Note that the last case may further specialise its output term by inspecting its
 operands. For example, if the shape of the input and output array remains
-unchanged and no index space transformation is applied, a standard \texttt{map}
+unchanged and no index space transformation is applied, a standard \code{map}
 is sufficient. This may be more efficient on some backend implementations
 because, being shape agnostic, map does not require the full multidimensional
 array indexing of the surface language.
 
 \subsubsection{Producer Fusion}
 
-The last remaining piece of the puzzle is \texttt{delay}, which is the magic
+The last remaining piece of the puzzle is \code{delay}, which is the magic
 that will apply the fusion transformation between terms. We traverse the array
-expression bottom up, building terms in the \texttt{DelayedAcc} state, and
+expression bottom up, building terms in the \code{DelayedAcc} state, and
 deciding what to do with this based on the class of term currently being
-inspected. If it is a consumer node such as \texttt{map}, we fuse the two
+inspected. If it is a consumer node such as \code{map}, we fuse the two
 operations together by adding the scalar function application to the delayed
 representation.
 %
@@ -2330,7 +2324,7 @@ mapD f acc = case acc of
   Yield env sh g        -> Yield env sh (sinkF env f `compose` g)
   Step env sh ix g a    -> Step env sh ix (sinkF env f `compose` g) a
   Done env a            -> Step env' (arrayShape ZeroIdx) identity (sinkF env' f) ZeroIdx
-    where env' = env `PushEnv` a        -- introduce \emph{a} as the outermost bound variable; \texttt{ZeroIdx}
+    where env' = env `PushEnv` a        -- introduce \emph{a} as the outermost bound variable; \code{ZeroIdx}
 \end{lstlisting}
 %
 Because we have three intermediate forms and need to explicitly track the type
@@ -2342,8 +2336,8 @@ introduced here.
 
 \paragraph{Function Composition}
 
-Beginning in familiar territory, \texttt{compose} is the equivalent of function
-composition \texttt{(.)} for core language terms. This critical piece of kit
+Beginning in familiar territory, \code{compose} is the equivalent of function
+composition \code{(.)} for core language terms. This critical piece of kit
 allows us to combine unary scalar functions, and is based on the simultaneous
 substitution machinery developed earlier
 (\S\ref{sec:substitution}).\footnote{Annoyingly, we also require a second
@@ -2361,9 +2355,9 @@ compose (Lam (Body f)) (Lam (Body g)) = Lam (Body (substitute f g))
 \end{lstlisting}
 % compose _              _              = error "compose: impossible evaluation"
 %
-The real work is done by \texttt{substitute}, which replaces an expression that
+The real work is done by \code{substitute}, which replaces an expression that
 uses the top environment variable with another, moving variables around as
-appropriate. We must be careful to \texttt{let}-bind the result of the first
+appropriate. We must be careful to let-bind the result of the first
 function application and then substitute this bound term into the second to
 avoid work duplication.
 %
@@ -2382,8 +2376,8 @@ substitute f g = Let g (rebuild split f)
 
 \paragraph{Sinking}
 
-The second piece of machinery hard at work in the \texttt{map}-fusion
-implementation of listing~\ref{lst:map_fusion} is that of \texttt{sinkF}, which
+The second piece of machinery hard at work in the \code{map}-fusion
+implementation of listing~\ref{lst:map_fusion} is that of \code{sinkF}, which
 is busy moving terms from one scope to another. Why is this necessary? If we
 want to combine terms --- for example for scalar function composition or as
 arguments to a collective array operation --- we require that the context of the
@@ -2391,11 +2385,11 @@ expressions be the same, which ensures they refer to the same environment
 variables.
 \marginnote{is there an actual name for this process? lifting? sinking?}
 
-Looking at the definitions for our \texttt{DelayedAcc} forms in
+Looking at the definitions for our \code{DelayedAcc} forms in
 listing~\ref{lst:DelayedAcc}, we see that the carried terms are defined in the
-context of the existentially typed environment \texttt{aenv'}; that is,
-underneath the extra bindings carried by \texttt{Extend}. If we wish to combine
-these terms with one in the external context \texttt{aenv}, we need to shift all
+context of the existentially typed environment \code{aenv'}; that is,
+underneath the extra bindings carried by \code{Extend}. If we wish to combine
+these terms with one in the external context \code{aenv}, we need to shift all
 the variable indices along and create enough space for the extra bindings that
 will be introduced from the extend environment. This is the job of sinking; to
 weaken a term by a number of indices specified by an external witness:
@@ -2408,7 +2402,7 @@ sink BaseEnv       = id
 sink (PushEnv e _) = SuccIdx . sink e
 \end{lstlisting}
 %
-Which we can then plug into \texttt{rebuild} from the simultaneous substitution
+Which we can then plug into \code{rebuild} from the simultaneous substitution
 toolkit to shift all variables in the term.
 %
 % \marginnote{use of varIn is ambiguous in choice of Syntactic?}
@@ -2422,20 +2416,20 @@ toolkit to shift all variables in the term.
 
 \paragraph{}
 
-At long last we have implemented our \texttt{map/map} fusion rule. Huzzah! The
+At long last we have implemented our \code{map/map} fusion rule. Huzzah! The
 tactic for handling the other producer operations outlined in
 section~\ref{sec:elements_of_style} proceeds in the same way: recast the node
-into \texttt{DelayedAcc} form, fusing as we go by combining the scalar
+into \code{DelayedAcc} form, fusing as we go by combining the scalar
 representation functions. The process for combining two index space transforms
-follows in precisely the same manner as \texttt{mapD}. Fusing \texttt{transpose}
+follows in precisely the same manner as \code{mapD}. Fusing \code{transpose}
 operations can be done by simply sequencing the index transformation and value
-transformation steps with these two functions, and \texttt{generate} is
-trivially rewritten into a \texttt{Yield} node.
+transformation steps with these two functions, and \code{generate} is trivially
+rewritten into a \code{Yield} node.
 
 The only operator left to deal with is the multiple consumer function
-\texttt{zipWith}. Historically speaking, \texttt{zipWith} has proved notoriously
+\code{zipWith}. Historically speaking, \code{zipWith} has proved notoriously
 difficult for fusion systems to handle. Nevertheless, let us begin by extending
-\texttt{mapD} in the obvious way and see how far we can get.
+\code{mapD} in the obvious way and see how far we can get.
 
 % \begin{lstlisting}[style=haskell]
 % backpermuteD
@@ -2478,8 +2472,8 @@ a1   :: PreOpenAcc OpenAcc aenv'1 a
 a2   :: PreOpenAcc OpenAcc aenv'2 b
 \end{lstlisting}
 %
-What is the relationship between these skolem type variables \texttt{aenv'1} and
-\texttt{aenv'2}? Unfortunately; nothing. Can we linearise the types somehow, say
+What is the relationship between these skolem type variables \code{aenv'1} and
+\code{aenv'2}? Unfortunately; nothing. Can we linearise the types somehow, say
 be concatenating our witnesses?
 %
 % http://stackoverflow.com/questions/12719435/what-are-skolems
@@ -2499,8 +2493,8 @@ type instance Cat env (env',s) = (Cat env env', s)
 %
 However this ends up leading to difficulties in other parts of the
 implementation, since all aspects of the fusion process including
-\texttt{DelayedAcc} must be defined in terms of \texttt{Cat}. Since
-\texttt{zipWith} is the only function of its type in the core language, let us
+\code{DelayedAcc} must be defined in terms of \code{Cat}. Since
+\code{zipWith} is the only function of its type in the core language, let us
 take a different route and treat it specially. The trick is to linearly
 construct the extended environments by delaying the second array after lifting
 it into the existentially quantified environment of the first.
@@ -2517,9 +2511,9 @@ zipWithD f acc1 acc2 =
       Done env2 a2 -> ...
 \end{lstlisting}
 %
-Where \texttt{sinkA} shifts all array environment variables of the term
-according to the witness \texttt{env1} in the manner discussed previously. Now
-the \texttt{Extend} witness and corresponding array terms have the following
+Where \code{sinkA} shifts all array environment variables of the term
+according to the witness \code{env1} in the manner discussed previously. Now
+the \code{Extend} witness and corresponding array terms have the following
 existential environment type:
 %
 \begin{lstlisting}[style=haskell]
@@ -2536,7 +2530,7 @@ cat :: Extend env env' -> Extend env' env'' -> Extend env env''
 Phew! We can now view both input arrays with the same environment context. The
 last step is to express the input arrays in terms of a function from indices to
 elements, which are then composed into a single such function. As with the
-\texttt{mapD} case, which relied on unary function composition, the simultaneous
+\code{mapD} case, which relied on unary function composition, the simultaneous
 substitution algorithm will be doing the heavy lifting, shifting variables to
 make space and substituting in new terms.
 %
@@ -2571,7 +2565,7 @@ implementation required to implement this canonical array fusion program.
 \subsubsection{Consumer Fusion}
 
 So far we have only discussed how to fuse sequences of simple producer
-operations such as \texttt{map} and \texttt{generate}. However, to be truly
+operations such as \code{map} and \code{generate}. However, to be truly
 useful we also need to fuse these producer functions directly into consumer
 operations. As hinted at previously, what we require is a way to represent the
 production of array elements, and to embed this directly into the consumer of
@@ -2585,11 +2579,10 @@ dotp xs ys = fold (+) 0 (zipWith (*) xs ys)
 \end{lstlisting}
 %
 We want to avoid storing the intermediate array result of
-\lstinline[style=inline]{zipWith (*) xs ys} to memory because the arithmetic
-work done per array element is very low: the processor spends most of its time
-waiting for data to be read from or written to memory. Instead, we want to fuse
-the production of elements directly into the consumer
-\lstinline[style=inline]{fold (+) 0}.
+\code{zipWith (*) xs ys} to memory because the arithmetic work done per array
+element is very low: the processor spends most of its time waiting for data to
+be read from or written to memory. Instead, we want to fuse the production of
+elements directly into the consumer \code{fold (+) 0}.
 
 At another example, consider an $n$-body simulation which models the evolution
 of a system of bodies in which each body continually interacts with each other
@@ -2597,7 +2590,7 @@ body. A familiar example is an astrophysical simulation in which each body
 interacts via gravitational acceleration. The following is a na\"ive
 implementation of the $n$-body simulation, which calculates all $n^{2}$
 interactions between each pair of bodies in the system. The function
-\texttt{accel} computes the accelerate between two bodies, and \texttt{plus} is
+\code{accel} computes the accelerate between two bodies, and \code{plus} is
 addition applied component-wise to the acceleration in each axis.
 %
 \begin{lstlisting}[style=haskell]
@@ -2617,11 +2610,11 @@ other body. Summing across one dimension of the interaction matrix then
 calculates the total acceleration experienced by each body as a result of being
 influenced by all other bodies in the system.
 
-A direct implementation of the operations used in \texttt{calcAccels} would
+A direct implementation of the operations used in \code{calcAccels} would
 result in very bad space and time performance. As with vector dot product we
-wish to fuse \texttt{zipWith} into \texttt{fold} to avoid storing that
+wish to fuse \code{zipWith} into \code{fold} to avoid storing that
 intermediate array to memory, but it is important to also fuse the
-\texttt{replicate} operation to avoid producing those intermediate arrays of
+\code{replicate} operation to avoid producing those intermediate arrays of
 $n^2$ elements. Fusing this sequence of operations into a single step allows you
 to write an Accelerate program that does asymptotically more computation than it
 uses memory.\footnote{A hylomorphism deforestation} This section discusses the
@@ -2633,7 +2626,7 @@ implementation of producer/consumer fusion to accomplish that.
 \note{mention that this generalises to all producers / consumers; fold is
 just the specific example.}
 %
-Taking \texttt{fold} as our motivating example, recall that it is parameterised
+Taking \code{fold} as our motivating example, recall that it is parameterised
 by a single binary associative function representing the reduction phase, plus a
 scalar value for the default element. Eliding class constraints the environment
 types for brevity, we have:
@@ -2643,8 +2636,8 @@ fold :: Fun (e -> e -> e) -> Exp e -> Acc (Array (sh:.Int) -> e) -> Acc (Array s
 \end{lstlisting}
 
 The simplest case we might like to consider is applying a function to an array
-of elements via \texttt{map} and then reducing the result with \texttt{fold}. We
-could make the intermediate representation of \texttt{fold} a little more
+of elements via \code{map} and then reducing the result with \code{fold}. We
+could make the intermediate representation of \code{fold} a little more
 complex by also parameterising it by the mapping function:
 %
 \begin{lstlisting}[style=haskell,numbers=none]
@@ -2652,11 +2645,11 @@ foldMap :: Fun (a -> b)
         -> Fun (b -> b -> b) -> Exp b -> Acc (Array (sh:.Int) -> a) -> Acc (Array sh b)
 \end{lstlisting}
 
-It is immediately obvious that \texttt{foldMap} is somewhat limited; as it
+It is immediately obvious that \code{foldMap} is somewhat limited; as it
 carries only a value transformation function, it can not fuse index space
-transformations such as \texttt{replicate} or functions that map indices to
-values in the style of \texttt{generate}. So, let's instead decorate
-\texttt{fold} in the style of our the most general producer operation:
+transformations such as \code{replicate} or functions that map indices to
+values in the style of \code{generate}. So, let's instead decorate
+\code{fold} in the style of our the most general producer operation:
 %
 \begin{lstlisting}[style=haskell,numbers=none]
 foldGen :: Exp (sh:.Int) -> Fun ((sh:.Int) -> e)
@@ -2665,30 +2658,29 @@ foldGen :: Exp (sh:.Int) -> Fun ((sh:.Int) -> e)
 %
 That producer/consumer array fusion is occurring is obvious: indeed there is no
 explicit input array so the values being reduced \emph{must} be generated on the
-fly. This doesn't look much like our original \texttt{fold} function any more,
+fly. This doesn't look much like our original \code{fold} function any more,
 which is a little unfortunate. Additionally, we may incur a slight performance
-penalty from recasting all inputs into \texttt{generate} form, which requires
+penalty from recasting all inputs into \code{generate} form, which requires
 multidimensional array indices to be generated even for cases such as
-\lstinline[style=inline]{(fold . map)} where linearly accessing the underlying
-memory is sufficient. Moreover, we need to change the definition of every
-consumer operation in a similar way.
+\code{(fold . map)} where linearly accessing the underlying memory is
+sufficient. Moreover, we need to change the definition of every consumer
+operation in a similar way.
 
 What we need is a way to decorate the intermediate representation of consumer
 operations that balances efficiency and generality. Happily, this is precisely
 the considerations which drove the design for representing delayed arrays for
-producer fusion. So, why not simply embed the \texttt{DelayedAcc} representation
-as the input array argument to \texttt{fold}?
+producer fusion. So, why not simply embed the \code{DelayedAcc} representation
+as the input array argument to \code{fold}?
 %
 \begin{lstlisting}[style=haskell,numbers=none]
 fold :: Fun (e -> e -> e) -> Exp e -> DelayedAcc (Array (sh:.Int) e) -> Acc (Array sh e)
 \end{lstlisting}
 %
-This allows us to do all the \lstinline[style=inline]{(fold . map)} and
-\lstinline[style=inline]{(fold . generate)} fusions we desire, and contains
-sufficient information for a backend to provide a more efficient implementation
-when appropriate based on how exactly the data is input. However, there are
-several disadvantages with changing the internal representation of terms in this
-way.
+This allows us to do all the \code{(fold . map)} and \code{(fold . generate)}
+fusions we desire, and contains sufficient information for a backend to provide
+a more efficient implementation when appropriate based on how exactly the data
+is input. However, there are several disadvantages with changing the internal
+representation of terms in this way.
 %
 \begin{itemize}
     \item It intimately ties the definition of the core language with
@@ -2697,7 +2689,7 @@ way.
         Additionally, it requires substantial rewriting of existing frontend and
         backend code.
 
-    \item The \texttt{DelayedAcc} representation encodes certain properties in
+    \item The \code{DelayedAcc} representation encodes certain properties in
         its constructors, so conversion to de Bruijn form with and embedded
         delayed array representation may pollute other aspects of the frontend
         with considerations from the fusion transformation.
@@ -2724,7 +2716,7 @@ is used by the fusion transformation. However, this had the disadvantage of
 polluting many other aspects of Accelerate and its backend implementation, while
 making the core terms unwieldy to manipulate.
 %
-The question is: when a collective operation such as \texttt{fold} accesses data
+The question is: when a collective operation such as \code{fold} accesses data
 from its input array, how should we express that this input might not be
 represented as manifest data?
 
@@ -2732,7 +2724,7 @@ It is informative to think about the problem of representing fused
 producer/consumer operations and how to implement this at a specific example.
 Consider the Accelerate CUDA backend, and in particular how we generate CUDA C
 code for collective operations using a framework of algorithmic skeletons.
-Consider the \texttt{map} skeleton:
+Consider the \code{map} skeleton:
 %
 \begin{lstlisting}[style=cuda]
 __global__ void map(TyOut * d_out, const TyIn0 * d_in0, const int length)
@@ -2747,15 +2739,15 @@ __global__ void map(TyOut * d_out, const TyIn0 * d_in0, const int length)
 }
 \end{lstlisting}
 %
-The skeleton fixes \texttt{map}'s parallel algorithmic structure and contains
-placeholders for the element types of the input and output arrays \texttt{TyIn0}
-and \texttt{TyOut}, as well as for the function \texttt{apply} that is applied
+The skeleton fixes \code{map}'s parallel algorithmic structure and contains
+placeholders for the element types of the input and output arrays \code{TyIn0}
+and \code{TyOut}, as well as for the function \code{apply} that is applied
 to each individual array element. The skeleton instantiation is completed by
 bundling the skeleton code together with concrete definitions that fill in these
 placeholders to fix the array type and scalar function.
 
 Returning to our original question, what happens if the input array does not
-represent manifest array data?\footnote{Of course, \texttt{map} is typically
+represent manifest array data?\footnote{Of course, \code{map} is typically
 fused into other operations, but the example is no less informative}. The key
 observation is that algorithmic skeletons not only encode the algorithmic
 structure of a collective operation, they implicitly encode a data access
@@ -2806,8 +2798,8 @@ generating input data, completing the final step of the fusion transformation.
 \subsubsection{Rules Were Made to be Broken}
 
 The preceding sections explained how to fuse producer operations such as
-\texttt{zipWith} and how to embed these operations into consumers such as
-\texttt{fold}. This completes the basic formulation of array fusion in
+\code{zipWith} and how to embed these operations into consumers such as
+\code{fold}. This completes the basic formulation of array fusion in
 Accelerate, so let us recap on the overall strategy of rewriting the AST to fuse
 terms:
 %
@@ -2828,27 +2820,27 @@ explicitly force arrays to be evaluated. Consider the following example:
 let b = map f a in mmMult b b
 \end{lstlisting}
 %
-If the result \texttt{b} is not evaluated, each access to an element of
-\texttt{b} in \texttt{mmMult} will apply the (arbitrarily expensive) function
-\texttt{f} to the corresponding element of \texttt{a}. It follows that each of
+If the result \code{b} is not evaluated, each access to an element of
+\code{b} in \code{mmMult} will apply the (arbitrarily expensive) function
+\code{f} to the corresponding element of \code{a}. It follows that each of
 these arbitrarily expensive computations will be computed \emph{at least twice},
-once for each argument in \texttt{mmMult} and quite contrary to the programmer's
-intent. Indeed, if \texttt{mmMult} itself consumes elements of its arguments in
-a non-linear way, accessing them more than once, the computation of \texttt{f}
-will be performed each time. The solution is to ensure that \texttt{b} is
+once for each argument in \code{mmMult} and quite contrary to the programmer's
+intent. Indeed, if \code{mmMult} itself consumes elements of its arguments in
+a non-linear way, accessing them more than once, the computation of \code{f}
+will be performed each time. The solution is to ensure that \code{b} is
 computed to a manifest array.
 
 Once this problem was identified, it helped to guide the design for the
-Accelerate array fusion process: simply do not fuse into \texttt{let}-bindings,
+Accelerate array fusion process: simply do not fuse into let-bindings,
 as this introduces work duplication. Now that we have a decent story for
 producer and consumer array fusion, we can evaluate the effectiveness of this
-strategy. Consider the expression \lstinline[style=inline]{zipWith f xs (map g xs)}
-where we will take it that \texttt{xs} is a manifest array defined elsewhere.
-Since the input array \texttt{xs} is used twice, sharing recovery correctly
+strategy. Consider the expression \code{zipWith f xs (map g xs)}
+where we will take it that \code{xs} is a manifest array defined elsewhere.
+Since the input array \code{xs} is used twice, sharing recovery correctly
 generates the following expression, rewritten slightly for clarity:
 %
 \begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)        -- input array \texttt{xs}
+let a0 = use (Array ...)        -- input array \code{xs}
 in zipWith f a0 (map g a0)
 \end{lstlisting}
 %
@@ -2860,11 +2852,11 @@ in generate (shape a0) (\ix -> let x = a0 ! ix
                                in  f x (g x))
 \end{lstlisting}
 %
-This \texttt{generate} term is a prime candidate to fuse with further producer
-operations.\footnote{Recall that \texttt{generate} is represented by a
-\texttt{Yield} node in the internal representation.} For example, the source
-program may then \texttt{map} a function \texttt{h} over the result of the
-\texttt{zipWith} expression. This produces the following term:
+This \code{generate} term is a prime candidate to fuse with further producer
+operations.\footnote{Recall that \code{generate} is represented by a
+\code{Yield} node in the internal representation.} For example, the source
+program may then \code{map} a function \code{h} over the result of the
+\code{zipWith} expression. This produces the following term:
 %
 \begin{lstlisting}[style=haskell]
 let a0 = use (Array ...)
@@ -2873,30 +2865,30 @@ let a0 = use (Array ...)
 in map h a1
 \end{lstlisting}
 %
-Hmm, that is not what we wanted! The scalar function \texttt{h} should have been
-pushed into argument function of \texttt{generate}, yielding a single fused
+Hmm, that is not what we wanted! The scalar function \code{h} should have been
+pushed into argument function of \code{generate}, yielding a single fused
 collective operation --- what went wrong?
 
 \paragraph{\texttt{\bf let}-floating}
 
-The problem is that \texttt{generate} appears as the body expression of the
-\texttt{let}-binding for the array \texttt{a0}. In a sense this, rather
+The problem is that \code{generate} appears as the body expression of the
+\code{let}-binding for the array \code{a0}. In a sense this, rather
 unintentionally, gets in the way of the fusion process: when inspecting the
-array argument to \texttt{map} to see if can be fused, we encounter the
-\texttt{let} node and cautiously proceed no further, lest we introduce duplicate
+array argument to \code{map} to see if can be fused, we encounter the
+\code{let} node and cautiously proceed no further, lest we introduce duplicate
 work.
 
 However, as we have seen this is not quite correct. Instead we should look
 underneath the bound term and attempt to apply the fusion process to the binding
 term. In fact, this is straightforward to accomplish using our existing notion
-of extended environments, which should be unsurprising since the \texttt{Extend}
-apparatus was developed to prevent \texttt{let}-bindings introduced by the
+of extended environments, which should be unsurprising since the \code{Extend}
+apparatus was developed to prevent \code{let}-bindings introduced by the
 fusion transformation from causing exactly the same problem
 (\S\ref{sec:environment_manipulation}). This process of ``floating'' bindings
 applies not only to manifest arrays but to all expressions that were determined
 to be in a non-delayed representation:
-\footnote{This includes not only array injection such as \texttt{use}, but also
-consumers such as \texttt{fold} that must be computed at this point in the
+\footnote{This includes not only array injection such as \code{use}, but also
+consumers such as \code{fold} that must be computed at this point in the
 program.}
 %
 \begin{lstlisting}[style=haskell]
@@ -2912,25 +2904,24 @@ aletD bndAcc bodyAcc =
       Step ...
 \end{lstlisting}
 %
-Here, \texttt{join} and \texttt{cons} combine the snoc-list of extended
-environments and are analogous to \texttt{(++)} and \texttt{(:)} for standard
+Here, \code{join} and \code{cons} combine the snoc-list of extended
+environments and are analogous to \code{(++)} and \code{(:)} for standard
 Haskell lists, respectively. This then allows us to push underneath
-\texttt{let}-bindings of manifest array terms, as desired. However, what if the
+\code{let}-bindings of manifest array terms, as desired. However, what if the
 bound term is not in a manifest state, is there anything we can do in this case?
 \marginnote{didn't show the final, but should be obvious enough?}
 
 \paragraph{\texttt{\bf let}-elimination}
 
 In the previous section we saw that it was necessary to allow
-\texttt{let}-bindings of manifest arrays to float so that we can inspect the
+\code{let}-bindings of manifest arrays to float so that we can inspect the
 body of the binding to possibly apply further fusion. The next question to ask
 is whether it makes sense to do something similar if the bound computation is in
-a delayed state? Consider the expression
-\lstinline[style=inline]{map f (reverse xs)}
-for some manifest array \texttt{xs}. Being a straightforward sequence of index
-and value transformation, we expect that these two functions fuse together to
-produce a term similar to \texttt{transform}. Applying fusion to the expression
-yields the following term:
+a delayed state? Consider the expression \code{map f (reverse xs)} for some
+manifest array \code{xs}. Being a straightforward sequence of index and value
+transformation, we expect that these two functions fuse together to produce a
+term similar to \code{transform}. Applying fusion to the expression yields the
+following term:
 %
 \begin{lstlisting}[style=haskell]
 let a0 = use (Array ...)
@@ -2940,9 +2931,9 @@ let a0 = use (Array ...)
 in map f a1
 \end{lstlisting}
 %
-which is, once again, not what was desired, as the \texttt{map} and
-\texttt{backpermute} operators were not. The problem can be seen by inspecting
-the definition of \texttt{reverse}:
+which is, once again, not what was desired, as the \code{map} and
+\code{backpermute} operators were not. The problem can be seen by inspecting
+the definition of \code{reverse}:
 %
 \begin{lstlisting}[style=haskell]
 reverse :: Elt e => Acc (Vector e) -> Acc (Vector e)
@@ -2952,28 +2943,28 @@ reverse xs =
   in  backpermute (shape xs) (ilift1 pf) xs
 \end{lstlisting}
 %
-The array \texttt{xs} is clearly used multiple times in the definition of
-\texttt{reverse}, and so the sharing recovery algorithm correctly
-\texttt{let}-binds this array rather than inlining the definition into the three
+The array \code{xs} is clearly used multiple times in the definition of
+\code{reverse}, and so the sharing recovery algorithm correctly
+\code{let}-binds this array rather than inlining the definition into the three
 use sites to avoid work duplication.
 
 However, if we encounter this term as a delayed array during the fusion
 transformation, we can be a bit cleverer. The critical thing to note is that the
-input argument to \texttt{backpermute} is \texttt{let}-bound only so that the
-shape information of the array can be accessed: the actual array data itself is
-used only once. Recall that the delayed representations
+input argument to \code{backpermute} is let-bound only so that the shape
+information of the array can be accessed: the actual array data itself is used
+only once. Recall that the delayed representations
 (listing~\ref{lst:DelayedAcc}) include the shape of the array it represents as a
 scalar term. This allows us to ignore uses of the array for shape information,
-and so potentially eliminate \texttt{let}-bindings by pushing the scalar shape
+and so potentially eliminate \code{let}-bindings by pushing the scalar shape
 and value generation functions of the bound term directly into the subject body
 when uses of the array \emph{data} component satisfy the standard criteria for
 fusing terms.
 
 \marginnote{should mention somewhere, much earlier, that we rely on all array
 expressions being lifted out of scalar computations.}
-Implementation of \texttt{let}-elimination requires a modified version of
-\texttt{usesOf} (listing~\ref{lst:shrinking}) that does not consider
-contributions from \texttt{Shape}, and a function to replace shape and indexing
+Implementation of \code{let}-elimination requires a modified version of
+\code{usesOf} (listing~\ref{lst:shrinking}) that does not consider
+contributions from \code{Shape}, and a function to replace shape and indexing
 of a given array with scalar expressions:
 %
 \begin{lstlisting}[style=haskell]
@@ -2995,7 +2986,7 @@ replace idx sh' f' exp =
 \end{lstlisting}
 
 \marginnote{type of matchIdx? *wave hands*}
-Eliminating \texttt{let}-bindings in this way can also be done to
+Eliminating \code{let}-bindings in this way can also be done to
 \emph{introduce} work duplication, which may be beneficial if we can estimate
 that the cost of re-computation is less than the cost of completely evaluating
 the array and subsequently retrieving the data from memory. Currently we adopt
@@ -3016,8 +3007,8 @@ represent the fusion state.
 %
 To exploit all fusion opportunities while still respecting sharing of subterms,
 special attention was paid to manipulating the array environment, in the form of
-\texttt{let}-floating
-% (both explicit and implicit via the \texttt{Extend} data type)
-and \texttt{let}-elimination.
+\code{let}-floating
+% (both explicit and implicit via the \code{Extend} data type)
+and \code{let}-elimination.
 
 

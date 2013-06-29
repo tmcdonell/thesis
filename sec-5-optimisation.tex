@@ -1207,6 +1207,37 @@ of $n$ nodes scales as $O(r^n)$, where $r$ is the number of different rules we
 have for combining delayed terms. While the semantics of the algorithm
 ultimately remain the same, for performance reasons this separation is critical.
 
+Finally, we convert the delayed representations into manifest data using the
+\code{compute} function. It inspects the argument terms of the representation to
+identify special cases, such as \code{map}s or \code{backpermute}s.
+%
+\begin{lstlisting}[style=haskell
+    ,label=lst:compute
+    ,caption={Computing the delayed representation to a manifest array}]
+compute :: Arrays arrs => Embed acc aenv arrs -> PreOpenAcc acc aenv arrs
+compute (Embed env cc) = bind env (compute' cc)
+
+compute' :: Arrays arrs => Cunctation acc aenv arrs -> PreOpenAcc acc aenv arrs
+compute' cc = case simplify cc of
+  Done v                                   -> Avar v
+  Yield sh f                               -> Generate sh f
+  Step sh p f v
+    | Just REFL <- match sh (arrayShape v)
+    , Just REFL <- isIdentity p
+    , Just REFL <- isIdentity f            -> Avar v                       -- unmodified manifest array
+    | Just REFL <- match sh (arrayShape v)
+    , Just REFL <- isIdentity p            -> Map f (avarIn v)             -- linear indexing OK
+    | Just REFL <- isIdentity f            -> Backpermute sh p (avarIn v)  -- pure index transform
+    | otherwise                            -> Transform sh p f (avarIn v)  -- index \& value transform
+\end{lstlisting}
+
+The helper functions \code{match} and \code{isIdentity} check for congruence of
+expressions. As discussed in section~\ref{sec:equality}, we match on \code{Just
+REFL} to inject information on the positive case to both the type and value
+level. For example, \code{isIdentity} checks whether a function corresponds to
+the term $\lambda x.x$, and in the positive case witnesses that its type must be
+\code{a -> a}.
+
 
 \subsection{Producer/Producer Fusion}
 \label{sec:producer_producer_fusion}
@@ -1387,11 +1418,12 @@ further fused into later terms.
 
 In contrast to \code{fuse}, which allows the result to be combined with later
 terms, the \code{force} function instead evaluates the argument array at this
-point in the program. This is achieved by converting the \code{Embed}
-representation into a real AST\index{abstract syntax tree} node using
-\code{compute'} (see tk). The only point of note is that the argument array
-(\code{cc}) is placed adjacent to the term consuming it (\code{op}), which is
-important for the second fusion phase (\S\ref{sec:producer_consumer_fusion}).
+point in the program to a manifest array. This is achieved by converting the
+\code{Embed} representation into a real AST\index{abstract syntax tree} node
+using \code{compute'} (see Listing~\ref{lst:compute}). The only point of note is
+that the argument array (\code{cc}) is placed adjacent to the term consuming it
+(\code{op}), which is important for the second fusion phase
+(\S\ref{sec:producer_consumer_fusion}).
 
 \begin{lstlisting}[style=haskell,name=embedPreAcc]
     force :: (Arrays as, Arrays bs)

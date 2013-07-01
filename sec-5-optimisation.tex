@@ -598,7 +598,7 @@ producers and consumers, the fusion transform is split into two distinct phases:
     \label{fig:fusion}
 \end{figure}
 
-Figure~\ref{fig:fusion} shows how our fusion technique affects the
+Figure~\ref{fig:fusion} shows how the fusion technique affects the
 AST\index{abstract syntax tree}: blue boxes labelled $p_1$ to $p_7$ represent
 producers, where $p_5$ is a producer like \code{zipWith} that takes two arrays
 as input. The consumers are labelled $c_1$ and $c_2$. In the first phase all
@@ -849,7 +849,9 @@ specialise it to one-at-a-time substitution.
 The following function takes a replacement for the top variable and returns a
 simultaneous substitution which eliminates \code{ZeroIdx}.
 %
-\begin{lstlisting}[style=haskell,name=inlining]
+\begin{lstlisting}[style=haskell
+    ,name=inlining
+    ,caption={[A simultaneous substitution to inline terms]}]
 subTop :: Term env s -> Idx (env, s) t -> Term env t
 subTop s ZeroIdx      = s
 subTop _ (SuccIdx ix) = Var ix
@@ -885,7 +887,9 @@ replace an expression that uses the top variable with one that uses another,
 remembering to bind the result of the first expression so that it can be reused
 in the second without duplication.
 %
-\begin{lstlisting}[style=haskell,name=function_composition]
+\begin{lstlisting}[style=haskell
+    ,name=function_composition
+    ,caption={[A simultaneous substitution to compose unary function terms]}]
 dot :: Term (env, b) c -> Term (env, a) b -> Term (env, a) c
 dot f g = Let g (rebuild split f)
   where
@@ -1294,7 +1298,9 @@ that consumes multiple arrays (see Listing~\ref{lst:operations}). In contrast
 to, for example, \code{foldr/build}\index{fusion!foldr/build}, we fuse in both
 of the input arguments.
 %
-\begin{lstlisting}[style=haskell,name=zipWithD]
+\begin{lstlisting}[style=haskell
+    ,name=zipWithD
+    ,caption={[Fused definition of the \code{zipWith} operation]}]
 zipWithD :: (Shape sh, Elt a, Elt b, Elt c)
          => PreFun     acc aenv (a -> b -> c)
          -> Cunctation acc aenv (Array sh a)
@@ -1328,7 +1334,10 @@ The function \code{combine} completes the task of drawing an element from each
 of the input arrays and combining them with the binary function \code{f}, being
 sure to let-bind the intermediate results along the way.
 %
-\begin{lstlisting}[style=haskell,name=zipWithD,escapeinside={(*}{*)}]
+\begin{lstlisting}[style=haskell
+    ,name=zipWithD
+    ,caption={Fused definition of the \code{zipWith} operation}
+    ,escapeinside={(*}{*)}]
   where
     combine :: forall acc aenv a b c e. (Elt a, Elt b, Elt c)
             => PreFun acc aenv (a -> b -> c)
@@ -1349,8 +1358,8 @@ in the first case of \code{Step} the array element type, and in the second
 instance via \code{Yield} the array index type.
 
 
-\subsection{Embedding Producers}
-\label{sec:embedding_producers}
+\subsubsection{Step 1: Fusing Producers}
+\label{sec:fusing_producers}
 
 The first phase of fusion completes via bottom-up tree contraction of the
 AST\index{abstract syntax tree}. Terms are converted into the intermediate
@@ -1361,14 +1370,17 @@ non-computation form (\code{use}). Non-computation forms may also employ smart
 constructors, the most interesting of which is that for let-bindings, although
 we defer that discussion until section~\ref{sec:binder_elimination}.
 %
-\begin{lstlisting}[style=haskell,name=embedPreAcc]
+\begin{lstlisting}[style=haskell
+    ,name=embedPreAcc
+    ,label=lst:embedPreAcc
+    ,caption={[Producer fusion via bottom-up contraction of the AST]}]
 embedPreAcc :: PreOpenAcc acc aenv arrs -> Embed acc aenv arrs
 embedPreAcc pacc =
   case pacc of
     Alet bnd body       -> aletD bnd body                               -- see section~\ref{sec:binder_elimination}
     Use arrs            -> done  (Use arrs)                             -- non-computation node
     Map f a             -> fuse  (into  mapD (cvtF f)) a                -- producers
-    Fold f z a          -> force (into2 Fold (cvtF f) (cvtE z)) a       -- consumers
+    Fold f z a          -> embed (into2 Fold (cvtF f) (cvtE z)) a       -- consumers
     ...
 \end{lstlisting}
 
@@ -1417,20 +1429,22 @@ further fused into later terms.
 \end{lstlisting}
 
 In contrast to \code{fuse}, which allows the result to be combined with later
-terms, the \code{force} function instead evaluates the argument array at this
+terms, the \code{embed} function instead evaluates the argument array at this
 point in the program to a manifest array. This is achieved by converting the
 \code{Embed} representation into a real AST\index{abstract syntax tree} node
 using \code{compute'} (see Listing~\ref{lst:compute}). The only point of note is
 that the argument array (\code{cc}) is placed adjacent to the term consuming it
-(\code{op}), which is important for the second fusion phase
-(\S\ref{sec:producer_consumer_fusion}).
+(\code{op}), which is important for the second fusion phase discussed in the
+next section (\S\ref{sec:producer_consumer_fusion}).
 
-\begin{lstlisting}[style=haskell,name=embedPreAcc]
-    force :: (Arrays as, Arrays bs)
+\begin{lstlisting}[style=haskell
+    ,name=embedPreAcc
+    ,caption={Producer fusion via bottom-up contraction of the AST}]
+    embed :: (Arrays as, Arrays bs)
           => (forall aenv'. Extend acc aenv aenv' -> acc aenv' as -> PreOpenAcc acc aenv' bs)
           ->       acc aenv as
           -> Embed acc aenv bs
-    force op (embedAcc -> Embed env cc) =
+    embed op (embedAcc -> Embed env cc) =
       = Embed (env `PushEnv` op env (inject (compute' cc))) (Done ZeroIdx)
 \end{lstlisting}
 
@@ -1438,6 +1452,124 @@ that the argument array (\code{cc}) is placed adjacent to the term consuming it
 \label{sec:producer_consumer_fusion}
 % TK: The Delayed type and embedding producers into consumers (second phase of
 % fusion)
+
+Now that we have a story for producer/producer fusion, we discuss how to deal
+with consumers. The classic array fusion example is that of vector dot product:
+
+\begin{lstlisting}[style=haskell,label=lst:dotp]
+dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
+dotp xs ys = A.fold (+) 0                       -- sum result of\ldots
+           $ A.zipWith (*) xs ys                -- \ldots element-wise multiplying inputs
+\end{lstlisting}
+%
+This consists of two collective operations: the first multiplies values from the
+two input arrays element-wise, and the second sums this result. The fusion
+system should translate this into a single collective operation, in much the
+same way as a human would write if working directly in a low-level language such
+as C or CUDA.
+
+The basic idea is to pass producers encoded in the \code{Cunctation}
+representation directly to consumers, and implementation of the consumer can
+decide how best to access values of the input. Consumers themselves have no
+\code{Cunctation} representation, however.
+
+Consumers such as \code{stencil} apply a function with access to all array
+elements within a local neighbourhood of the focal point of the stencil. As
+overlapping stencils from neighbouring elements access the same elements in
+their argument arrays many times, they must be implemented carefully not to
+duplicate work. Even when the argument of such a consumer is a manifest array,
+the consumer should still ensure that it caches already fetched elements, as
+GPUs impose a high performance penalty for repeated memory access. So, stencil
+operations fully compute their input array(s) before evaluating their outputs.
+On the other hand, some consumers can be implemented more efficiently when given
+a producer that is expressed in terms of a function from a multi-dimensional
+array index to an element value, so that the elements the consumer needs are
+generated on-the-fly instead of simply read from manifest data. Other consumers
+can be further optimised by utilising functions that map the flat linear index
+of the underlying array to its value. The consumer friendly representation
+therefore contains all of these versions:
+
+\begin{lstlisting}[style=haskell
+    ,name=DelayedOpenAcc
+    ,label=lst:DelayedOpenAcc
+    ,caption={The type of delayed arrays in Accelerate}]
+data DelayedOpenAcc aenv a where
+  Manifest              :: PreOpenAcc DelayedOpenAcc aenv a -> DelayedOpenAcc aenv a
+
+  Delayed               :: (Shape sh, Elt e) =>
+    { extentD           :: PreExp DelayedOpenAcc aenv sh
+    , indexD            :: PreFun DelayedOpenAcc aenv (sh  -> e)
+    , linearIndexD      :: PreFun DelayedOpenAcc aenv (Int -> e)
+    }                   -> DelayedOpenAcc aenv (Array sh e)
+\end{lstlisting}
+
+This representation is used to annotate the AST\index{abstract syntax tree} in
+the recursive knot to distinguish standard AST terms from operand arrays that
+should be fused into their consumers so that the elements are generated
+on-the-fly.
+
+Producers can only be embedded into consumers during the (much later) code
+generation phase. During code generation, the code for the embedded producer
+terms such as \code{indexD} is generated and integrated directly into the
+skeleton code of the consumer. The end result is that no intermediate array
+needs to be created.
+
+
+\subsubsection{Step 2: Embedding Producers}
+\label{sec:embedding_producers}
+
+The second phase of fusion is a top-down translation from the \code{Embed}
+representation from the first phase (\S\ref{sec:producer_producer_fusion}) into
+an AST using \code{DelayedOpenAcc} (Listing~\ref{lst:DelayedOpenAcc}) to
+annotate which nodes of the AST should be computed to manifest arrays and which
+should be embedded into consumers.
+
+\begin{lstlisting}[style=haskell
+    ,name=fuseOpenAcc
+    ,label=lst:fuseOpenAcc
+    ,caption={[Consumer fusion via top-down knot-tying of the AST]}]
+fuseOpenAcc :: Arrays arrs => Embed OpenAcc aenv arrs -> DelayedOpenAcc aenv arrs
+fuseOpenAcc = manifest . inject . compute
+\end{lstlisting}
+
+The function \code{manifest} for the most part simply wraps each node of the
+AST\index{abstract syntax tree} in a \code{Manifest} constructor, indicating
+that this node should must be computed to memory. In the first phase (see
+Listing~\ref{lst:embedPreAcc}) we left all producers such as \code{map} in a
+state ready for further fusion. Some producers might still exist as a manifest
+array, however. These producer terms may be the last stage of the computation,
+or the result of a let-binding to be used multiple times, for example.
+
+\begin{lstlisting}[style=haskell,name=fuseOpenAcc]
+  where
+    manifest :: OpenAcc aenv a -> DelayedOpenAcc aenv a
+    manifest (OpenAcc pacc) = Manifest $ case pacc of
+      Alet bnd body     -> Alet (manifest bnd) (manifest body)
+      Use arr           -> Use arr
+      Map f a           -> Map  (cvtF f) (delayed a)
+      Fold f z a        -> Fold (cvtF f) (cvtE z) (delayed a)
+      ...
+\end{lstlisting}
+
+Here the function \code{delayed} is used to traverse the input array arguments
+to the computation nodes \code{map} and \code{fold}. This inspects the
+\code{Embed} representation of producer terms to generate the fragments that
+will be later embedded into producer functions during code generation. We take
+care to recover opportunities for linear indexing of the underlying array data.
+
+\begin{lstlisting}[style=haskell,name=fuseOpenAcc]
+    delayed :: (Shape sh, Elt e) => OpenAcc aenv (Array sh e) -> DelayedOpenAcc aenv (Array sh e)
+    delayed (embedOpenAcc -> Embed BaseEnv cc) = case cc of
+      Done v                            -> Delayed (arrayShape v) (indexArray v) (linearIndex v)
+      Yield (cvtE -> sh) (cvtF -> f)    -> Delayed sh f (f `compose` fromIndex sh)
+      Step  (cvtE -> sh) (cvtF -> p) (cvtF -> f) v
+        | Just REFL <- match sh (arrayShape v)
+        , Just REFL <- isIdentity p
+        -> Delayed sh (f `compose` indexArray v) (f `compose` linearIndex v)
+        | f'        <- f `compose` indexArray v `compose` p
+        -> Delayed sh f' (f' `compose` fromIndex sh)
+\end{lstlisting}
+
 
 \subsection{Binder elimination}
 \label{sec:binder_elimination}
@@ -1838,7 +1970,7 @@ This term is a completely valid interpretation of the source program that does
 not introduce any additional work, but we can do better. Applying shrinking
 inlines the two terms \code{x1} and \code{x2} because they are each only
 referenced once in the body, resulting in two accesses of the array to the same
-index. Since our straightforward implementation of common subexpression
+index. Since the straightforward implementation of common subexpression
 elimination is aimed at removing redundant let-bindings, we should always apply
 redundancy elimination before shrinking, resulting in a term that only accesses
 the underlying array once:

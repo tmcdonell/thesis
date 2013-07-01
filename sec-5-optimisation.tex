@@ -1358,7 +1358,88 @@ in the first case of \code{Step} the array element type, and in the second
 instance via \code{Yield} the array index type.
 
 
-\subsubsection{Step 1: Fusing Producers}
+\subsection{Producer/Consumer Fusion}
+\label{sec:producer_consumer_fusion}
+% TK: The Delayed type and embedding producers into consumers (second phase of
+% fusion)
+
+Now that we have a story for producer/producer fusion, we discuss how to deal
+with consumers. The classic array fusion example is that of vector dot product:
+
+\begin{lstlisting}[style=haskell,label=lst:dotp]
+dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
+dotp xs ys = A.fold (+) 0                       -- sum result of\ldots
+           $ A.zipWith (*) xs ys                -- \ldots element-wise multiplying inputs
+\end{lstlisting}
+%
+This consists of two collective operations: the first multiplies values from the
+two input arrays element-wise, and the second sums this result. The fusion
+system should translate this into a single collective operation, in much the
+same way as a human would write if working directly in a low-level language such
+as C or CUDA.
+
+The basic idea is to pass producers encoded in the \code{Cunctation}
+representation directly to consumers, and implementation of the consumer can
+decide how best to access values of the input. Consumers themselves have no
+\code{Cunctation} representation, however.
+
+Consumers such as \code{stencil} apply a function with access to all array
+elements within a local neighbourhood of the focal point of the stencil. As
+overlapping stencils from neighbouring elements access the same elements in
+their argument arrays many times, they must be implemented carefully not to
+duplicate work. Even when the argument of such a consumer is a manifest array,
+the consumer should still ensure that it caches already fetched elements, as
+GPUs impose a high performance penalty for repeated memory access. So, stencil
+operations fully compute their input array(s) before evaluating their outputs.
+On the other hand, some consumers can be implemented more efficiently when given
+a producer that is expressed in terms of a function from a multi-dimensional
+array index to an element value, so that the elements the consumer needs are
+generated on-the-fly instead of simply read from manifest data. Other consumers
+can be further optimised by utilising functions that map the flat linear index
+of the underlying array to its value. The consumer friendly representation
+therefore contains all of these versions:
+
+\begin{lstlisting}[style=haskell
+    ,name=DelayedOpenAcc
+    ,label=lst:DelayedOpenAcc
+    ,caption={The type of delayed arrays in Accelerate}]
+data DelayedOpenAcc aenv a where
+  Manifest              :: PreOpenAcc DelayedOpenAcc aenv a -> DelayedOpenAcc aenv a
+
+  Delayed               :: (Shape sh, Elt e) =>
+    { extentD           :: PreExp DelayedOpenAcc aenv sh
+    , indexD            :: PreFun DelayedOpenAcc aenv (sh  -> e)
+    , linearIndexD      :: PreFun DelayedOpenAcc aenv (Int -> e)
+    }                   -> DelayedOpenAcc aenv (Array sh e)
+\end{lstlisting}
+
+This representation is used to annotate the AST\index{abstract syntax tree} in
+the recursive knot to distinguish standard AST terms from operand arrays that
+should be fused into their consumers so that the elements are generated
+on-the-fly.
+
+Producers can only be embedded into consumers during the (much later) code
+generation phase. During code generation, the code for the embedded producer
+terms such as \code{indexD} is generated and integrated directly into the
+skeleton code of the consumer. The end result is that no intermediate array
+needs to be created.
+
+
+\subsection{The Fusion Pipeline}
+
+The fusion transformation of Accelerate array programs consists of two phases:
+%
+\begin{enumerate}
+    \item A bottom-up contraction of the AST that fuses sequences of producer
+        terms into a single producer. This is a source-to-source transformation
+        of the AST.
+
+    \item A top-down transformation that annotates the AST as to which nodes
+        should be computed to manifest data and which should be embedded into
+        their consumers.
+\end{enumerate}
+
+\paragraph{Phase 1: Fusing Producers}
 \label{sec:fusing_producers}
 
 The first phase of fusion completes via bottom-up tree contraction of the
@@ -1448,74 +1529,7 @@ next section (\S\ref{sec:producer_consumer_fusion}).
       = Embed (env `PushEnv` op env (inject (compute' cc))) (Done ZeroIdx)
 \end{lstlisting}
 
-\subsection{Producer/Consumer Fusion}
-\label{sec:producer_consumer_fusion}
-% TK: The Delayed type and embedding producers into consumers (second phase of
-% fusion)
-
-Now that we have a story for producer/producer fusion, we discuss how to deal
-with consumers. The classic array fusion example is that of vector dot product:
-
-\begin{lstlisting}[style=haskell,label=lst:dotp]
-dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
-dotp xs ys = A.fold (+) 0                       -- sum result of\ldots
-           $ A.zipWith (*) xs ys                -- \ldots element-wise multiplying inputs
-\end{lstlisting}
-%
-This consists of two collective operations: the first multiplies values from the
-two input arrays element-wise, and the second sums this result. The fusion
-system should translate this into a single collective operation, in much the
-same way as a human would write if working directly in a low-level language such
-as C or CUDA.
-
-The basic idea is to pass producers encoded in the \code{Cunctation}
-representation directly to consumers, and implementation of the consumer can
-decide how best to access values of the input. Consumers themselves have no
-\code{Cunctation} representation, however.
-
-Consumers such as \code{stencil} apply a function with access to all array
-elements within a local neighbourhood of the focal point of the stencil. As
-overlapping stencils from neighbouring elements access the same elements in
-their argument arrays many times, they must be implemented carefully not to
-duplicate work. Even when the argument of such a consumer is a manifest array,
-the consumer should still ensure that it caches already fetched elements, as
-GPUs impose a high performance penalty for repeated memory access. So, stencil
-operations fully compute their input array(s) before evaluating their outputs.
-On the other hand, some consumers can be implemented more efficiently when given
-a producer that is expressed in terms of a function from a multi-dimensional
-array index to an element value, so that the elements the consumer needs are
-generated on-the-fly instead of simply read from manifest data. Other consumers
-can be further optimised by utilising functions that map the flat linear index
-of the underlying array to its value. The consumer friendly representation
-therefore contains all of these versions:
-
-\begin{lstlisting}[style=haskell
-    ,name=DelayedOpenAcc
-    ,label=lst:DelayedOpenAcc
-    ,caption={The type of delayed arrays in Accelerate}]
-data DelayedOpenAcc aenv a where
-  Manifest              :: PreOpenAcc DelayedOpenAcc aenv a -> DelayedOpenAcc aenv a
-
-  Delayed               :: (Shape sh, Elt e) =>
-    { extentD           :: PreExp DelayedOpenAcc aenv sh
-    , indexD            :: PreFun DelayedOpenAcc aenv (sh  -> e)
-    , linearIndexD      :: PreFun DelayedOpenAcc aenv (Int -> e)
-    }                   -> DelayedOpenAcc aenv (Array sh e)
-\end{lstlisting}
-
-This representation is used to annotate the AST\index{abstract syntax tree} in
-the recursive knot to distinguish standard AST terms from operand arrays that
-should be fused into their consumers so that the elements are generated
-on-the-fly.
-
-Producers can only be embedded into consumers during the (much later) code
-generation phase. During code generation, the code for the embedded producer
-terms such as \code{indexD} is generated and integrated directly into the
-skeleton code of the consumer. The end result is that no intermediate array
-needs to be created.
-
-
-\subsubsection{Step 2: Embedding Producers}
+\paragraph{Phase 2: Embedding Producers}
 \label{sec:embedding_producers}
 
 The second phase of fusion is a top-down translation from the \code{Embed}

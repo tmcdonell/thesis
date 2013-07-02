@@ -31,6 +31,7 @@ computations. These procedures almost always improve the performance of the code
 they are applied to.
 
 \subsection{Sharing Observation}
+\label{sec:sharing_observation}
 
 As described in section~TK, operations of the embedded language do not
 directly issue computations; instead, they build \emph{abstract syntax
@@ -506,6 +507,7 @@ amounts to a partial proof of correctness checked by the type checker.
 
 
 \subsubsection{The Main Idea}
+\label{sec:the_main_idea}
 
 All collective operations in Accelerate are array-to-array transformations.
 Reductions, such as \code{fold}, which reduce an array to a single element,
@@ -1426,6 +1428,7 @@ needs to be created.
 
 
 \subsection{The Fusion Pipeline}
+\label{sec:fusion_pipeline}
 
 The fusion transformation of Accelerate array programs consists of two phases:
 %
@@ -1587,6 +1590,174 @@ care to recover opportunities for linear indexing of the underlying array data.
 
 \subsection{Binder elimination}
 \label{sec:binder_elimination}
+
+As mentioned previously (\S\ref{sec:fusion}), we need to be careful about fusing
+shared array computations to avoid duplicating work. However, \emph{scalar}
+Accelerate computations that manipulate \emph{array shapes}, as opposed to the
+bulk array data, can lead to terms that employ sharing but can never duplicate
+work. Such terms are common in Accelerate code and so it is important that they
+do not inhibit fusion.
+
+Consider the following (contrived) example program, that zips an array with
+itself and then maps a function over the result. Being a function of two
+producer terms we would hope these are fused into a single operation, as per the
+aims of section~\ref{sec:producer_producer_fusion}):
+%
+\begin{lstlisting}[style=haskell]
+zipMap = map g
+       $ let xs = use (Array ...)
+         in  zipWith f xs xs
+\end{lstlisting}
+%
+The binding, although trivial, prevents fusion of the two producer terms.
+Moreover, it does so unnecessarily. The semantics of our program do not change
+if we float let bindings of manifest data across producer chains. This helps to
+expose further opportunities for producer/producer fusion.
+
+Similarly, consider the following example that first reverses a vector with
+\code{backpermute}, and then maps a function \code{f} over the result. Again, we
+would hope these are fused into a single operation:%
+\footnote{Some details of the backwards permutation function are elided for
+clarity. See the definition of \texttt{reverse}:
+\url{http://hackage.haskell.org/packages/archive/accelerate/latest/doc/html/Data-Array-Accelerate.html\#v:reverse}}
+%
+\begin{lstlisting}[style=haskell]
+reverseMap f xs
+  = map f
+  $ backpermute (shape xs) (\i -> length xs - i - 1) xs
+\end{lstlisting}
+%
+Unfortunately, sharing recovery, using the algorithm from
+section~\ref{sec:sharing_observation}, causes a problem. The variable \code{xs}
+is used three times in the arguments to \code{backpermute}, so sharing recovery
+introduces a let binding at the lowest common meet point for all uses of the
+array. This places it between the \code{map} and \code{backpermute} operations:
+%
+\begin{lstlisting}[style=haskell]
+reverseMap f xs
+  = map f
+  $ let v = xs
+    in  backpermute (shape v) (\i -> length v - i - 1) v
+\end{lstlisting}
+%
+The argument array is used three times: twice to access shape information, but
+only once to access the array data --- in the final argument to
+\code{backpermute}. Fortunately there is a simple workaround. Since the delayed
+array constructors representing producer arrays, \code{Step} and \code{Yield}
+(Listing~\ref{lst:cunctation}), carry the shape of the arrays they represent as
+part of the constructor, we can eliminate all uses of the array that only access
+shape information, leaving just a single reference to the array's payload.
+That single reference allows us remove the unnecessary let-binding and re-enable
+fusion.
+
+Both these tasks, let floating and let elimination, are handled by the smart
+constructor for let bindings, and is applied in the first fusion phase
+(\S\ref{sec:fusion_pipeline}):
+%
+\begin{lstlisting}[style=haskell
+    ,name=aletD
+    ,label=lst:aletD
+    ,caption={[Fusion rule for let bindings]}]
+aletD :: (Arrays arrs, Arrays brrs)
+      =>       acc aenv        arrs
+      ->       acc (aenv,arrs) brrs
+      -> Embed acc aenv        brrs
+aletD (embedAcc -> Embed env1 cc1) acc0
+\end{lstlisting}
+
+The first and simplest case to consider is if the bound term is a manifest
+array, as in the \code{zipMap} example. Recall that manifest arrays are encoded
+using the \code{Done} constructor, and referenced using a \indexe{de Bruijn}
+index into the environment. In this case there is no need to create an
+indirection. We substitute (\S\ref{sec:substitution}) references in the body to
+the top variable \code{ZeroIdx} --- what would have been the new binding ---
+with the principal array \code{v1} instead. This process is valid not just for
+manifest input arrays injected via \code{use}, but any term that has been forced
+into a manifest array.
+%
+\begin{lstlisting}[style=haskell,name=aletD]
+  | Done v1             <- cc1
+  , Embed env0 cc0      <- embedAcc $ rebuildAcc (subTop (Avar v1) . sink1 env1) acc0
+  = Embed (env1 `join` env0) cc0
+\end{lstlisting}
+
+The remaining cases are when the let bound term \code{cc1} is in a fusible
+state. We wish to determine if the binding should be eliminated, as in the
+second example above, \code{reverseMap}. Note that the body expression was input
+as an \code{acc} term, and that we only transform it into the delayed
+representation, using \code{embedAcc}, after determining which of let floating
+or let elimination may apply. Not doing so can lead to unnecessary sinking or
+delaying of terms, which ruins performance.
+%
+\begin{lstlisting}[style=haskell,name=aletD]
+  | Embed env0 cc0      <- embedAcc $ sink1 env1 acc0
+  = case cc1 of
+      Step{}    -> aletD' env1 cc1 env0 cc0
+      Yield{}   -> aletD' env1 cc1 env0 cc0
+\end{lstlisting}
+
+At this point we must decide whether or not to eliminate the let binding. In the
+first case (line~\ref{lst:aletD_bind}) the decision is made to leave the let
+binding intact, which we do by simply adding the bound term to the environment
+list (\S\ref{sec:environment_manipulation}) and returning the body expression
+unchanged.
+%
+\begin{lstlisting}[style=haskell,name=aletD,escapeinside={(*}{*)}]
+  where
+    aletD' env1 cc1 env0 cc0
+      | not shouldInline         = Embed (env1 `PushEnv` bnd `join` env0) cc0                   (* \label{lst:aletD_bind} *)
+      | Step sh1 p1 f1 v1 <- cc1 = eliminate sh1 (f1 `compose` indexArray v1 `compose` p1)      (* \label{lst:aletD_elim} *)
+      | Yield sh1 f1      <- cc1 = eliminate sh1 f1
+      where
+        bnd          = compute' cc1
+\end{lstlisting}
+
+When should the let binding be eliminated? Since the analysis occurs at program
+runtime, we have the complete program AST\index{abstract syntax tree} as well as
+information of the executing hardware at our disposal, so could compute an
+accurate cost model to make an informed decision. This is left for future work
+however, and the current implementation is conservative and never duplicates
+work (\S\ref{sec:the_main_idea}). We simply traverse the AST, counting
+occurrences of the bound variable for uses of the array \emph{data} component,
+but not its \emph{shape} (see Listing~\ref{lst:shrinking} for the method).
+%
+\begin{lstlisting}[style=haskell,name=aletD]
+        body         = computeAcc (Embed env0 cc0)
+        shouldInline = usesOf ZeroIdx body <= 1
+\end{lstlisting}
+%
+Note that we need to check the uses of the bound variable in the body expression
+\emph{including} any additional environment bindings introduced via \code{env0}.
+(tk: this happened in Canny, extract minimal example?)
+
+The interesting case of let binding elimination (line~\ref{lst:aletD_elim}) is
+achieved by inlining the definition of the bound term directly into the body
+expression. This entails replacing expressions that access the shape of the
+array --- the original motivating example from \code{reverseMap} --- with the
+shape carried by the delayed representation, as well as a replacement for
+accesses to the array data as a result of array indexing from scalar
+expressions.
+%
+\begin{lstlisting}[style=haskell,name=aletD]
+        eliminate :: PreExp acc      aenv' sh
+                  -> PreFun acc      aenv' (sh -> e)
+                  -> Embed  acc aenv       brrs
+        eliminate sh1 f1
+          | sh1'                <- weakenEA rebuildAcc SuccIdx sh1      -- increase array environment\ldots
+          , f1'                 <- weakenFA rebuildAcc SuccIdx f1       -- \ldots size by one for \texttt{bnd}
+          , Embed env0' cc0'    <- embedAcc $ rebuildAcc (subTop bnd) (replaceA sh1' f1' ZeroIdx body)
+          = Embed (env1 `join` env0') cc0'
+\end{lstlisting}
+%
+Here \code{replaceA} traverses the body of the let binding, replacing uses of
+the array variable within scalar expressions with the terms \code{sh1} and
+\code{f1}, which instead generate an equivalent result directly. Its
+implementation is unremarkable. Inlining the bound term into this result both
+fixes the array environment type, and places the term at the correct position so
+that it will be fused during the final \code{embedAcc} traversal.
+
+\note{tk: talk about whether this increases (maximum) memory usage (it
+shouldn't, but I have no proof)}
 
 
 \section{Simplification}

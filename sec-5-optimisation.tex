@@ -1003,7 +1003,6 @@ sink1 = ...
 
 \section{Implementing Array Fusion}
 \label{sec:implementing_array_fusion}
-\marginnote{tk: describe Kit? else drop references to it}
 
 Section~\ref{sec:fusion} outlined the basic approach to fusion. To reiterate, we
 partition array operations into two categories as per
@@ -1572,7 +1571,8 @@ Here the function \code{delayed} is used to traverse the input array arguments
 to the computation nodes \code{map} and \code{fold}. This inspects the
 \code{Embed} representation of producer terms to generate the fragments that
 will be later embedded into producer functions during code generation. We take
-care to recover opportunities for linear indexing of the underlying array data.
+care to recover optimisation opportunities such as linear indexing of the
+underlying array data.
 
 \begin{lstlisting}[style=haskell,name=fuseOpenAcc]
     delayed :: (Shape sh, Elt e) => OpenAcc aenv (Array sh e) -> DelayedOpenAcc aenv (Array sh e)
@@ -1588,7 +1588,7 @@ care to recover opportunities for linear indexing of the underlying array data.
 \end{lstlisting}
 
 
-\subsection{Binder elimination}
+\subsection{Exploiting all opportunities for fusion}
 \label{sec:binder_elimination}
 
 As mentioned previously (\S\ref{sec:fusion}), we need to be careful about fusing

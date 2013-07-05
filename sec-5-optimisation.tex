@@ -372,7 +372,7 @@ optimisation techniques.
 
 
 \subsubsection{Data Parallel Haskell}
-\code{split/join}\index{fusion!split/join} fusion from
+tk: \code{split/join}\index{fusion!split/join} fusion from
 DPH.\index{data-parallel Haskell}\index{DPH|see{data-parallel Haskell}}
 \citet{Chakravarty:2007tc,Jones:2008uu}.
 
@@ -414,10 +414,10 @@ represented as a transformation function from array indices to values.
 \end{itemize}
 
 \subsubsection{Hylomorphism fusion?}
-\citet{Takano:1995}
+tk: \citet{Takano:1995}
 
 \subsubsection{Loop fusion (from imperative languages)?}
-\citet{Warren:1984ka,Sarkar:1991ff}
+tk: \citet{Warren:1984ka,Sarkar:1991ff}
 
 
 \subsubsection{Conclusion}
@@ -1367,7 +1367,7 @@ instance via \code{Yield} the array index type.
 Now that we have a story for producer/producer fusion, we discuss how to deal
 with consumers. The classic array fusion example is that of vector dot product:
 
-\begin{lstlisting}[style=haskell,label=lst:dotp]
+\begin{lstlisting}[style=haskell]
 dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
 dotp xs ys = A.fold (+) 0                       -- sum result of\ldots
            $ A.zipWith (*) xs ys                -- \ldots element-wise multiplying inputs
@@ -1739,13 +1739,14 @@ accesses to the array data as a result of array indexing from scalar
 expressions.
 %
 \begin{lstlisting}[style=haskell,name=aletD]
-        eliminate :: PreExp acc      aenv' sh
-                  -> PreFun acc      aenv' (sh -> e)
+        eliminate :: PreExp acc      aenv' sh           -- replacement shape
+                  -> PreFun acc      aenv' (sh -> e)    -- directly generate data of embedded array
                   -> Embed  acc aenv       brrs
         eliminate sh1 f1
           | sh1'                <- weakenEA rebuildAcc SuccIdx sh1      -- increase array environment\ldots
           , f1'                 <- weakenFA rebuildAcc SuccIdx f1       -- \ldots size by one for \texttt{bnd}
-          , Embed env0' cc0'    <- embedAcc $ rebuildAcc (subTop bnd) (replaceA sh1' f1' ZeroIdx body)
+          , Embed env0' cc0'    <- embedAcc $ rebuildAcc (subTop bnd)
+                                            $ replaceA sh1' f1' ZeroIdx body
           = Embed (env1 `join` env0') cc0'
 \end{lstlisting}
 %

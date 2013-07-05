@@ -119,8 +119,8 @@
 % Citations
 % ------------------------------------------------------------------------------
 
-\let\oldcite\cite
-\renewcommand{\cite}{\nolinebreak\oldcite}
+\let\Cite\cite
+\renewcommand{\cite}{\nolinebreak\Cite}
 
 
 % Keys and margin notes
@@ -145,6 +145,17 @@
 % Code listings
 % ------------------------------------------------------------------------------
 
+% Fix spacing between chapter groups in the list of listings
+%
+% Unfortunately this _always_ adds the space, so the first entry is lower than
+% it should be. We hack around this by adding some negative space to begin with.
+%
+\let\Chapter\chapter
+\def\chapter{\addtocontents{lol}{\protect\addvspace{10pt}}\Chapter}
+\addtocontents{lol}{\protect\vspace*{-20pt}}
+
+% Define the language styles we will use
+%
 \lstset{
     frame=single,
     rulecolor={\color[gray]{0.7}},

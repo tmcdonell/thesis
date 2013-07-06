@@ -4,37 +4,328 @@
 
 \chapter{Results}
 \label{ch:results}
-% \epigraph{Dionysus [is] the Master of Illusions, who could make a vine grow 
-% out grow out of a ship's plank, and in general enable his votaries to see the 
+% \epigraph{Dionysus [is] the Master of Illusions, who could make a vine grow
+% out grow out of a ship's plank, and in general enable his votaries to see the
 % world as the world's not.}%
 % {\textsc{---e.\ r.\ dodds}\\\textit{The Greeks and the Irrational}}
 
-% \epigraph{If the immutable appears recast, then you yourself have been 
+% \epigraph{If the immutable appears recast, then you yourself have been
 % transformed.}%
 % {\textsc{---r.\ scott bakker}\\\textit{The Judging Eye}}
 
 \epigraph{Logic merely enables one to be wrong with authority}%
 {\textsc{---the doctor}} %\\\textit{The Wheel in Space}}
 
-\begin{itemize}
-    \item performance \& analysis
-    \begin{itemize}
-      \item What is an optimisation? Describe the metrics considered.
-        \begin{itemize}
-          \item wall-clock time, parallel speedup??
-          \item instruction count
-          \item memory traffic (load/store/coalescing)
-          \item memory size (heap, register count, shared memory)
-          \item program size (number of parallel steps)
-          \item code size (generated binary, compilation time c.f. code complexity)
-        \end{itemize}
-    \end{itemize}
+% \begin{itemize}
+%     \item performance \& analysis
+%     \begin{itemize}
+%       \item What is an optimisation? Describe the metrics considered.
+%         \begin{itemize}
+%           \item wall-clock time, parallel speedup??
+%           \item instruction count
+%           \item memory traffic (load/store/coalescing)
+%           \item memory size (heap, register count, shared memory)
+%           \item program size (number of parallel steps)
+%           \item code size (generated binary, compilation time c.f. code complexity)
+%         \end{itemize}
+%     \end{itemize}
+% 
+%     \item expressiveness / example programs
+%     \item difficulties
+%     \begin{itemize}
+%         \item code generation
+%         \item unintentional nesting
+%     \end{itemize}
+% \end{itemize}
 
-    \item expressiveness / example programs
-    \item difficulties
-    \begin{itemize}
-        \item code generation
-        \item unintentional nesting
-    \end{itemize}
-\end{itemize}
+The previous chapters discussed the design, implementation and optimisation of
+the Accelerate language and CUDA backend. This chapter analyses the performance
+of the implementation. Benchmarks were conducted on a single Tesla T10 processor
+(compute capability 1.3, 30 multiprocessors = 240 cores at 1.3GHz, 4GB RAM)
+backed by two quad core Xeon E5405 CPUs (64-bit, 2GHz, 8GB RAM) running
+GNU/Linux (Ubuntu 12.04 LTS, CUDA 5.0).
+
+
+\section{Runtime Overheads}
+
+Runtime program optimisation, code generation, kernel loading, data transfer,
+and so on can contribute significant overhead to short lived GPU computations.
+Accelerate mitigates these overheads via caching and memoisation. For example,
+the first time a particular expression is executed it is compiled to CUDA code,
+which is reused for subsequent invocations. This section analyses those
+overheads, so that they can be factored out later when we discuss the effects of
+the program optimisations on kernel runtimes of the benchmark programs.
+
+
+\subsection{Program Optimisation}
+
+% tk: performance and benchmarks for the fusion pass
+%   - actual runtime
+%   - tick counters for the final version and old one with extend/cunctation
+%     separation
+
+\subsection{Data Transfer}
+
+% tk: some graphs of memory transfer times or bandwith vs. array size
+% tk: importance of using weak pointers, so data transfers ``escape'' the black
+%     box of evaluating the AST --> hashcat.
+% tk: importance of the nursery for reducing calls to malloc/free
+
+\subsection{Code Generation \& Compilation}
+
+% tk: measure \& tabulate some code generation / compilation times
+% tk: persistent cache, perhaps just a mention?
+
+
+\section{Dot product}
+
+Dot product, or scalar product, is an algebraic operation that takes two
+equal-length sequences of numbers and returns a single number by computing the
+sum of the products of the corresponding entries in the two sequences. Dot
+product can be defined in Accelerate using the code below, which was also seen
+in section~\ref{sec:producer_consumer_fusion}.
+%
+\begin{lstlisting}[style=haskell
+    ,label=lst:dotp
+    ,caption={Vector dot-product in Accelerate}]
+dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
+dotp xs ys = A.fold (+) 0                       -- sum result of\ldots
+           $ A.zipWith (*) xs ys                -- \ldots element-wise multiplying inputs
+\end{lstlisting}
+%
+Figure~\ref{fig:dotp} show the result of running this code, compared to several
+other sequential and parallel implementations of the same operation. Without
+fusion the intermediate array produced by \code{zipWith} is created in GPU
+memory before being read back by \code{fold}. As this is a simple memory bound
+benchmark, fusion roughly doubles the performance of the unfused Accelerate
+program.
+
+The \texttt{Data.Vector} baseline is sequential code produced by
+\index{fusion!stream}stream fusion~\cite{Coutts:2007kp}, running on the host
+CPU. The \texttt{Repa} version runs in parallel on all eight cores of the host
+CPU, using the fusion method of \index{fusion!delayed arrays}delayed
+arrays~\cite{Keller:2010er}. The \texttt{NDP2GPU}~\cite{Bergstrom:2012bi}
+version compiles NESL code~\cite{Blelloch:1995ut} down to CUDA. The performance
+of this version suffers because the \texttt{NDP2GPU} compiler uses the legacy
+NESL compiler for the front-end, which introduces redundant administrative
+operations that are not strictly needed when evaluating a dot product.
+
+\begin{figure}[htbp]
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{images/sec-6/dotp/dotp}
+    \end{center}
+    \caption[Vector dot product kernel benchmarks]{Kernel runtimes for vector
+        dot product, in Accelerate with and without optimisations, compared to
+        other parallel GPU and CPU implementations. Note the log-log scale.}
+    \label{fig:dotp}
+\end{figure}
+
+While the fused Accelerate version is about $30\times$ faster than the
+sequential version executed on the CPU, it is still approximately $20\%$ slower
+than the hand-written CUDA version. Dot product is a computationally simple
+task, so any additional overheads in the implementation will be significant.
+We first discuss how reductions are implemented in CUDA, as a basis for
+understanding these sources of overhead.
+
+
+\subsection{Parallel Reductions in CUDA}
+\label{sec:parallel_reduction}
+
+\note{tk: probably move this to the implementation chapter}
+
+Figure~\ref{fig:tree_reduction} illustrates the basic strategy of a tree
+reduction, a common and important data-parallel primitive. Within each thread
+block a tree-based approach is used to reduce elements to a single value, and
+multiple thread blocks each process a portion of the array in parallel. There is
+no global synchronisation primitive in CUDA, because (a) it would be expensive
+to build in hardware for large numbers of multiprocessors, and (b) would be
+difficult for programmers to use without introducing sources of deadlock.
+Instead, kernel launches serve as a global synchronisation point, so thread
+blocks instead communicate their partial results by committing them to memory,
+and the kernel is launched recursively until the final reduction is computed.
+
+\begin{figure}[htbp]
+    \begin{center}
+        \includegraphics[width=\textwidth]{images/sec-6/tree-reduction}
+    \end{center}
+    \caption[A parallel tree reduction]{Illustration of a tree reduction,
+        performed in two steps. In the first step 8 thread blocks in parallel
+        reduce 8 elements to a single value. The thread blocks synchronise by
+        writing their result to memory, and the kernel is called recursively
+        until the final result is computed.}
+    \label{fig:tree_reduction}
+\end{figure}
+
+For a fused dot product kernel, only the first line of reductions at level zero
+perform the element wise multiplication. All subsequent reductions in that
+kernel, as well as the recursive steps at level one and beyond, are pure
+reductions. Thus, the fused operation requires compilation of two separate
+kernels. % We focus on the level zero kernel, which is more interesting.
+
+\subsubsection{Parallel Reduction Complexity}
+\label{sec:parallel_complexity}
+
+If each thread combines two elements at a time, then a vector of length $N$ will
+be reduced in $\mathcal{O}\left( \log N \right)$ parallel steps. Each step $S$
+does $\sfrac{N}{S^2}$ independent operations, so the \emph{step
+complexity}\index{complexity!step} of the algorithm is:
+\[
+\mathcal{O}\left( \log N \right)
+\]
+For $N=2^{D}$, the algorithm thus performs $\sum_{S=1}^{D}2^{D-S} = N - 1$
+operations. This means that the \emph{work complexity}\index{complexity!work} of
+the algorithm is:
+\[
+\mathcal{O}\left( N \right)
+\]
+and so does not perform more work than a sequential algorithm. For $P$ threads
+running physically in parallel on $P$ processors, the \emph{time
+complexity}\index{complexity!time} is $\mathcal{O}\left( \sfrac{N}{P} + \log N
+\right)$. In a thread block $N = P$, so the time complexity is:
+\[
+\mathcal{O}\left( \log N \right)
+\]
+Compare this to a sequential reduction, which has a time complexity of
+$\mathcal{O}\left( N \right)$.
+
+\subsubsection{Algorithm Cascading}
+\label{sec:algorithm_cascading}
+
+The \emph{cost} of a parallel algorithm is the number of processors $\times$
+time complexity. This implies that the cost of the algorithm is
+$\mathcal{O}\left( N \log N \right)$, which is \emph{not} cost efficient.
+
+Brent's theorem~\cite{Chatterjee:2009vh} suggests that instead of each thread
+summing two elements, \emph{algorithm cascading} can be used to combine a
+sequential and parallel reduction. Each thread does $\mathcal{O}\left( \log N
+\right)$ sequential work, which reduces the cost of the algorithm to
+$\mathcal{O}\left( \sfrac{N}{\log N} \log N \right)$, or rather:
+\[
+\mathcal{O}\left( N \right)
+\]
+while keeping the work complexity $\mathcal{O}\left( N \right)$ and step
+complexity $\mathcal{O}\left( \log N \right)$.
+
+This suggests, for example, that a block of 256 threads should sum a total of
+2048 elements. In practice it is beneficial to do even more sequential work per
+thread, since this reduces the number of levels in the recursive tree reduction
+and provides better latency hiding.
+
+
+\subsection{Fused Dot Product}
+
+The fused version of dot product embeds a function of type \code{(sh -> a)} into
+the reduction, represented here as the second argument to the constructor
+\code{Delayed}. This scalar function does the work of element wise multiplying
+the two input vectors:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...) in
+let a1 = use (Array ...) in
+fold (\x0 x1 -> x0 + x1) 0.0
+   (Delayed (intersect (shape a0) (shape a1))   -- extent of the input array
+            (\x0 -> (a0!x0) * (a1!x0)))         -- function to generate a value at each index
+\end{lstlisting}
+%
+To see why this version performs slightly slower than the CUBLAS version, we
+must inspect the generated code.
+
+\subsubsection{Duplicate loop counters}
+
+The fused dot product operation will only perform the element wise
+multiplication of the two input arrays in the first step of the tree reduction
+(\S\ref{sec:parallel_reduction}). This occurs in the phase of the cascaded
+algorithm when individual threads sequentially sum multiple elements
+(\S\ref{sec:algorithm_cascading}). After embedding the fused producer, the
+following CUDA code is generated for the inner loop of this step:
+%
+% pookie is the bestest
+% bubbaboo ish silly
+% kekekee
+% i can't put smiley faces in cause weird things happen
+% hehe^{this is my thesis
+% please like it
+% i worked really hard
+% and writed a lots
+% }<++>
+%
+%
+\begin{lstlisting}[style=cuda,firstnumber=18]
+for (ix += gridSize; ix < shapeSize; ix += gridSize) {
+    const Int64 v2 = ix;
+    const int v3 = toIndex(shIn0, shape(v2));
+    const int v4 = toIndex(shIn1, shape(v2));
+
+    x0 = arrIn0_a0[v3] * arrIn1_a0[v4];
+    y0 = x0 + y0;
+}
+\end{lstlisting}
+%
+We have four loop counters: \code{ix}, \code{v2}, \code{v3} and \code{v4} ---
+two for the source arrays and two to convert between the multidimensional and
+linear representations. These counters contain the same value and are
+incremented in lockstep. In addition to the superfluous arithmetic, the
+duplication of counters unnecessarily increases register pressure.
+
+\marginnote{this was unexpected}
+The corresponding section of PTX~\cite{PTX:2012} code is for this loop is shown
+below. To retrieve the data from the first input array, the input array pointer
+is retrieved (line~\ref{lst:dotp_ptx_ldparam}), the offset stored in register
+\code{rd16} added to it (line~\ref{lst:dotp_ptx_add}), and then the value read
+from global memory at this address (line~\ref{lst:dotp_ptx_ldglobal}). Note that
+retrieving the second input element (line~\ref{lst:dotp_ptx_ldglobal2})
+\emph{also} uses the offset stored in register \code{rd16}. Happily, in this
+instance the CUDA compiler was able to coalesce our four counters into a single
+counter, but in general it may be unwise to rely on this behaviour.
+%
+\begin{lstlisting}[style=ptx,firstnumber=103]
+ //  18          for (ix += gridSize; ix < shapeSize; ix += gridSize) {
+        cvt.u32.u16     %r10, %nctaid.x;
+        mul.lo.u32      %r11, %r10, %r1;
+        add.s32         %r12, %r11, %r7;
+        mov.s32         %r13, %r12;
+        setp.le.s32     %p2, %r8, %r12;
+        @%p2 bra        $Lt_0_13058;
+        cvt.s64.s32     %rd12, %r12;
+        cvt.s64.u32     %rd13, %r11;
+$Lt_0_14082:
+ //<loop> Loop body line 18, nesting depth: 1, estimated iterations: unknown
+        .loc    16      24      0
+ //  20              const int v3 = toIndex(shIn0, shape(v2));
+ //  21              const int v4 = toIndex(shIn1, shape(v2));
+ //  22
+ //  23              x0 = arrIn0\_a0[v3] * arrIn1\_a0[v4];
+ //  24              y0 = x0 + y0;
+        cvt.s32.s64     %rd14, %rd12;
+        cvt.s32.s64     %r14, %rd14;
+        cvt.s64.s32     %rd15, %r14;
+        mul.wide.s32    %rd16, %r14, 4;
+        .loc    16      17      0
+        ld.param.u64    %rd9, [__cudaparm_foldAll_arrIn0_a0];   (@* \label{lst:dotp_ptx_ldparam} *@)
+        .loc    16      24      0
+        add.u64         %rd17, %rd16, %rd9;                     (@* \label{lst:dotp_ptx_add} *@)
+        ld.global.f32   %f4, [%rd17+0];                         (@* \label{lst:dotp_ptx_ldglobal} *@)
+        .loc    16      17      0
+        ld.param.u64    %rd8, [__cudaparm_foldAll_arrIn1_a0];
+        .loc    16      24      0
+        add.u64         %rd18, %rd16, %rd8;
+        ld.global.f32   %f5, [%rd18+0];                         (@* \label{lst:dotp_ptx_ldglobal2} *@)
+        mad.f32         %f3, %f4, %f5, %f3;
+        add.s32         %r13, %r13, %r11;
+        add.s64         %rd12, %rd12, %rd13;
+        setp.gt.s32     %p3, %r8, %r13;
+        @%p3 bra        $Lt_0_14082;
+        bra.uni         $Lt_0_13058;
+$Lt_0_13314:
+        mov.f32         %f3, %f6;
+$Lt_0_13058:
+        .loc    16      27      0
+ //  25          }
+\end{lstlisting}
+
+
+% \subsection{64-bit Arithmetic}
+% \subsection{Non-neutral starting elements}
+% \subsection{Kernel implementation}
+% tk: how to test?
 

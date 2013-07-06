@@ -48,6 +48,7 @@
 \usepackage[width={autoauto}]{thumbs}
 \usepackage{tipa}
 % \usepackage{upquote}
+\usepackage{xfrac}
 
 \onehalfspacing
 %\doublespacing
@@ -212,6 +213,12 @@
     keywordstyle=[5]\color{Cyan}
 }
 
+\lstdefinestyle{ptx}{
+    language=CUDA,
+    basicstyle=\scriptsize\ttfamily,
+    mathescape=false,
+    escapeinside={(@*}{*@)}
+}
 
 \lstdefinestyle{inline}{
     style=haskell,

@@ -272,11 +272,9 @@ The corresponding section of PTX~\cite{PTX:2012} code is for this loop is shown
 below. To retrieve the data from the first input array, the input array pointer
 is retrieved (line~\ref{lst:dotp_ptx_ldparam}), the offset stored in register
 \code{rd16} added to it (line~\ref{lst:dotp_ptx_add}), and then the value read
-from global memory at this address (line~\ref{lst:dotp_ptx_ldglobal}). Note that
-retrieving the second input element (line~\ref{lst:dotp_ptx_ldglobal2})
-\emph{also} uses the offset stored in register \code{rd16}. Happily, in this
-instance the CUDA compiler was able to coalesce our four counters into a single
-counter, but in general it may be unwise to rely on this behaviour.
+from global memory at this address (line~\ref{lst:dotp_ptx_ldglobal}). Happily,
+we note that retrieving the second input element \emph{also} uses the offset
+stored in register \code{rd16} (line~\ref{lst:dotp_ptx_ldglobal2}).
 %
 \begin{lstlisting}[style=ptx,firstnumber=103]
  //  18          for (ix += gridSize; ix < shapeSize; ix += gridSize) {
@@ -323,8 +321,31 @@ $Lt_0_13058:
  //  25          }
 \end{lstlisting}
 
-
+In this case the CUDA compiler was able to coalesce our four counters into a
+single counter. This is because our definition of \code{toIndex} for
+one-dimensional indices does \emph{not} do bounds checking:
 % \subsection{64-bit Arithmetic}
+%
+\begin{lstlisting}[style=cuda]
+template <>
+static __inline__ __device__ Ix toIndex(const DIM1 sh, const DIM1 ix)
+{
+    return ix;
+}
+\end{lstlisting}
+%
+Since we do not check that the current index \code{ix} is within bounds of the
+array shape \code{sh}, the compiler can see that the definitions of \code{v3}
+and \code{v4} are identical. Similarly one-dimensional indices are just
+integers, and so the one-dimensional instance of \code{shape} is the identity
+function. For higher dimensional shapes, however, this is not the case and
+\code{toIndex} and \code{shape} do real work to their arguments. As the shape
+\code{shIn0} and \code{shIn1} are inputs arguments to the kernel, the compiler
+will not be able to determine they are equivalent and so the counters would not
+be combined.
+
+
+
 % \subsection{Non-neutral starting elements}
 % \subsection{Kernel implementation}
 % tk: how to test?

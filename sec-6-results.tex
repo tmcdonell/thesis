@@ -463,3 +463,86 @@ will be computed many times the extra compilation overhead can be amortised by
 the improved kernel performance, and may thus be worthwhile. Such
 specialisations are left for future work.
 
+
+\section{Black-Scholes option pricing}
+
+The Black-Scholes algorithm is a partial differential equation for modelling the
+evolution of a European-style stock option price under certain assumptions. The
+corresponding Accelerate program is shown in Listing~\ref{lst:blackscholes}.
+Given a vector of triples of the underlying stock price, strike price, and time
+to maturity in years, the Black-Scholes formula computes the price of a call and
+put option. The function \code{callput} evaluates the Black-Scholes formula for
+a single triple, and \code{blackscholes} maps it over a vector of triples such
+that all individual applications of the formula are executed in parallel.
+%
+\begin{lstlisting}[style=haskell
+    ,float=htbp
+    ,label=lst:blackscholes
+    ,caption={Black-Scholes option pricing in Accelerate}]
+horner :: Num a => [a] -> a -> a
+horner coeff x = x * foldr1 madd coeff
+  where
+  madd a b = a + x*b
+
+cnd' :: Floating a => a -> a
+cnd' d =
+  let poly     = horner coeff
+      coeff    = [0.31938153,-0.356563782,1.781477937,-1.821255978,1.330274429]
+      rsqrt2pi = 0.39894228040143267793994605993438
+      k        = 1.0 / (1.0 + 0.2316419 * abs d)
+  in
+  rsqrt2pi * exp (-0.5*d*d) * poly k
+
+blackscholes :: Acc (Vector (Float, Float, Float)) -> Acc (Vector (Float, Float))
+blackscholes = A.map callput
+  where
+  callput x =
+    let (price, strike, years) = A.unlift x
+        r       = A.constant riskfree
+        v       = A.constant volatility
+        v_sqrtT = v * sqrt years
+        d1      = (log (price / strike) + (r + 0.5 * v * v) * years) / v_sqrtT
+        d2      = d1 - v_sqrtT
+        cnd d   = let c = cnd' d in d >* 0 ? (1.0 - c, c)
+        cndD1   = cnd d1
+        cndD2   = cnd d2
+        x_expRT = strike * exp (-r * years)
+    in
+    A.lift ( price * cndD1 - x_expRT * cndD2                    -- call price
+           , x_expRT * (1.0 - cndD2) - price * (1.0 - cndD1))   -- put price
+\end{lstlisting}
+
+Figure~\ref{fig:blackscholes} shows the result of running this code compared to
+the implementation that ships with the CUDA SDK. Without optimisations, the
+Accelerate version is almost twenty times slower than the equivalent
+implementation in CUDA C. As \code{blackscholes} includes only one collective
+array operation, the problem can not be a lack of fusion.
+
+\begin{figure}[htbp]
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{images/sec-6/black-scholes/black-scholes}
+    \end{center}
+    \caption[Black-Scholes kernel benchmarks]{Kernel runtimes for Black-Scholes
+        options pricing, in Accelerate with and without optimisations, compared
+        to a hand-written CUDA version. Note the log-log scale.}
+    \label{fig:blackscholes}
+\end{figure}
+
+\subsection{Too little sharing}
+
+The function \code{callput} from Listing~\ref{lst:blackscholes} includes a
+significant amount of sharing: the helper functions \code{cnd'} and hence
+\code{horner} are used twice --- for \code{d1} and \code{d2} --- and its
+argument \code{d} is used multiple times in the body. Furthermore, the
+conditional expression \code{d >* 0 ? (1 - c, c)} results in a branch that,
+without sharing, results in a growing number of predicated instructions that
+leads to a large penalty on the SIMD architecture of the GPU.
+
+Without sharing the generated code requires 2573 instructions and results in
+\marginnote{check instruction count difference}
+significant warp divergence which serialises portions of the execution. With
+sharing recovery the generate code requires 501 instructions and is actually
+slightly faster than the reference CUDA version because the latter contains a
+common subexpression that is not spotted by the programmer and not eliminated by
+the CUDA compiler. The common subexpression performs a single multiplication.
+

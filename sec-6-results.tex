@@ -124,16 +124,30 @@ While the fused Accelerate version is about $30\times$ faster than the
 sequential version executed on the CPU, it is still approximately $20\%$ slower
 than the hand-written CUDA version. Dot product is a computationally simple
 task, so any additional overheads in the implementation will be significant.
-We first discuss how reductions are implemented in CUDA, as a basis for
-understanding these sources of overhead.
+
+The fused version of dot product embeds a function of type \code{(sh -> a)} into
+the reduction, represented here as the second argument to the constructor
+\code{Delayed}. This scalar function does the work of element wise multiplying
+the two input vectors:
+%
+\begin{lstlisting}[style=haskell]
+let a0 = use (Array ...) in
+let a1 = use (Array ...) in
+fold (\x0 x1 -> x0 + x1) 0.0
+   (Delayed (intersect (shape a0) (shape a1))   -- extent of the input array
+            (\x0 -> (a0!x0) * (a1!x0)))         -- function to generate a value at each index
+\end{lstlisting}
+%
+To see why this version performs slightly slower than the CUBLAS version, we
+discuss how reductions are implemented in CUDA, as a basis for analysing the
+generated code to inspect it for sources of overhead.
 
 
 \subsection{Parallel Reductions in CUDA}
 \label{sec:parallel_reduction}
 
-\note{tk: probably move this to the implementation chapter}
-
 Figure~\ref{fig:tree_reduction} illustrates the basic strategy of a tree
+\marginnote{tk: move to the implementation chapter}
 reduction, a common and important data-parallel primitive. Within each thread
 block a tree-based approach is used to reduce elements to a single value, and
 multiple thread blocks each process a portion of the array in parallel. There is
@@ -212,32 +226,14 @@ thread, since this reduces the number of levels in the recursive tree reduction
 and provides better latency hiding.
 
 
-\subsection{Problems with fused dot product}
-
-The fused version of dot product embeds a function of type \code{(sh -> a)} into
-the reduction, represented here as the second argument to the constructor
-\code{Delayed}. This scalar function does the work of element wise multiplying
-the two input vectors:
-%
-\begin{lstlisting}[style=haskell]
-let a0 = use (Array ...) in
-let a1 = use (Array ...) in
-fold (\x0 x1 -> x0 + x1) 0.0
-   (Delayed (intersect (shape a0) (shape a1))   -- extent of the input array
-            (\x0 -> (a0!x0) * (a1!x0)))         -- function to generate a value at each index
-\end{lstlisting}
-%
-To see why this version performs slightly slower than the CUBLAS version, we
-must inspect the generated code.
-
-\subsubsection{Duplicate loop counters}
+\subsection{Duplicate loop counters}
 
 The fused dot product operation will only perform the element wise
 multiplication of the two input arrays in the first step of the tree reduction
 (\S\ref{sec:parallel_reduction}). This occurs in the phase of the cascaded
-algorithm when individual threads sequentially sum multiple elements
-(\S\ref{sec:algorithm_cascading}). After embedding the fused producer, the
-following CUDA code is generated for the inner loop of this step:
+algorithm when individual threads sequentially sum multiple elements. After
+embedding the fused producer, the following CUDA code is generated for the inner
+loop of this step:
 %
 % pookie is the bestest
 % bubbaboo ish silly
@@ -329,8 +325,8 @@ $Lt_0_13058:
 \end{lstlisting}
 
 In this case the CUDA compiler was able to coalesce our four counters into a
-single counter. This is because our definition of \code{toIndex} for
-one-dimensional indices does \emph{not} do bounds checking:
+single counter. This is because our definition of \code{toIndex} specialised for
+one-dimensional indices \code{DIM1} does \emph{not} do bounds checking:
 %
 \begin{lstlisting}[style=cuda]
 template <>
@@ -358,7 +354,7 @@ It would be a straightforward matter of adding runtime bounds checks for
 supported devices, however.
 
 
-\subsubsection{64-bit Arithmetic}
+\subsection{64-bit Arithmetic}
 
 CUDA devices are at their core 32-bit processors and thus are optimised for
 32-bit arithmetic. For example, our Tesla GPU with compute capability 1.3 has a
@@ -379,7 +375,7 @@ directly with CUDA only used the \code{int} type, which would be interpreted by
 the CUDA compiler as a 32-bit wide integer.
 
 
-\subsubsection{Non-neutral starting elements}
+\subsection{Non-neutral starting elements}
 
 For convenience, and to avoid possibly unexpected behaviour, Accelerate's
 \code{fold*} family of functions do not require the combination function and
@@ -435,7 +431,7 @@ low arithmetic intensity to begin with, and is the limiting factor in the
 performance of this kernel, so additional bounds checks further reduce
 performance.
 
-\subsubsection{Kernel Specialisation}
+\subsection{Kernel Specialisation}
 
 To further reduce instruction overhead, it is possible to completely unroll the
 reduction by specialising the kernel for a specific block size. In standard CUDA

@@ -1,4 +1,4 @@
-%% Created using Papers on Sat, 06 Jul 2013.
+%% Created using Papers on Sun, 07 Jul 2013.
 %% http://papersapp.com/papers/
 
 @book{Altenkirch:2003kz,
@@ -1867,6 +1867,13 @@ publisher = { IEEE Computer Society},
 month = may
 }
 
+@inproceedings{Harris:2007te,
+author = {Harris, Mark},
+title = {{Optimizing Parallel Reduction in CUDA}},
+booktitle = {CUDA SDK},
+year = {2007}
+}
+
 @inproceedings{Gill:2009dx,
 author = {Gill, Andy},
 title = {{Type-Safe Observable Sharing in Haskell}},
@@ -1874,12 +1881,6 @@ booktitle = {Proceedings of the 2009 ACM SIGPLAN Haskell Symposium},
 year = {2009},
 pages = {117--128},
 month = sep
-}
-
-@inproceedings{Lippmeier:WZGJsUgV,
-author = {Lippmeier, Ben and Chakravarty, Manuel M T and Keller, Gabriele and Robinson, Amos},
-title = {{Data Flow Fusion with Series Expressions in Haskell}},
-booktitle = {Haskell '13: Proceedings of the 2013 symposium on Haskell}
 }
 
 @book{OpenCL:2009,
@@ -1911,12 +1912,10 @@ pages = {325--335},
 annote = {A C\{\#} library of abstractions for data-parallel arrays and operations that allows programmers to combine operations for the CPU and GPU within a single application. To improve efficiency, the library uses a graph-based lazy evaluation strategy of data-parallel operations on the GPU. Evaluation is typically triggered by the explicit conversion of an array from a data-parallel to a serial representation.}
 }
 
-@techreport{Blelloch:1995ut,
-author = {Blelloch, Guy E.},
-title = {{NESL: A Nested Data-Parallel Language}},
-year = {1995},
-number = {CMU-CS-95-170},
-month = sep
+@inproceedings{Lippmeier:WZGJsUgV,
+author = {Lippmeier, Ben and Chakravarty, Manuel M T and Keller, Gabriele and Robinson, Amos},
+title = {{Data Flow Fusion with Series Expressions in Haskell}},
+booktitle = {Haskell '13: Proceedings of the 2013 symposium on Haskell}
 }
 
 @book{Gibbons:1988,
@@ -1936,12 +1935,15 @@ month = aug,
 annote = {Comprehensive survey paper of the (then) current features and limitations of graphics hardware in the context of their use for general purpose computation. Discussion of the differences between CPU and GPU hardware and software programming models, and methods to improve flow control. Includes many examples of algorithms and applications which are well categorised, with evolution of algorithms/methods as additional programmability was introduced. GPGPU techniques discussed include: * stream operations (map, reduce, scatter/gather, sort, search, filter) * data structures (dense/sparse, static/dynamic) * Differential equations and linear algebra}
 }
 
-@manual{NVIDIA:2012vj,
-title = {{Parallel Thread Execution ISA}},
-author = {{NVIDIA}},
-edition = {3.1},
-month = sep,
-year = {2012}
+@article{Nickolls:2008io,
+author = {Nickolls, John and Buck, Ian and Garland, Michael and Skadron, Kevin},
+title = {{Scalable parallel programming with CUDA}},
+journal = {Queue},
+year = {2008},
+volume = {6},
+number = {2},
+pages = {40},
+month = mar
 }
 
 @techreport{Nikhil:1993,
@@ -2002,12 +2004,12 @@ publisher = {ACM},
 address = {New York, NY, USA}
 }
 
-@techreport{NVIDIA:2012wf,
-author = {{NVIDIA}},
-title = {{CUDA C Programming Guide}},
-year = {2012},
-number = {PG-02829-001\_v5.0},
-month = oct
+@techreport{Blelloch:1995ut,
+author = {Blelloch, Guy E.},
+title = {{NESL: A Nested Data-Parallel Language}},
+year = {1995},
+number = {CMU-CS-95-170},
+month = sep
 }
 
 @inproceedings{Keller:1998fx,
@@ -2021,14 +2023,12 @@ publisher = {Springer-Verlag},
 annote = {Extend the flattening transform of Blelloch and Sabot to support user-defined recursive data types, which allows parallel tree structures to be defined. Previously, tree structures were mapped to vectors, requiring explicit index calculations to track parent-child relationships, and leading to suboptimal data distributions on distributed-memory machines.}
 }
 
-@incollection{McBride:2005jv,
-author = {McBride, Conor},
-title = {{Epigram: Practical Programming with Dependent Types}},
-booktitle = {Lecture Notes in Computer Science},
-year = {2005},
-pages = {130--170},
-publisher = {Springer Berlin Heidelberg},
-address = {Berlin, Heidelberg}
+@manual{NVIDIA:2012vj,
+title = {{Parallel Thread Execution ISA}},
+author = {{NVIDIA}},
+edition = {3.1},
+month = sep,
+year = {2012}
 }
 
 @article{Claessen:2002,
@@ -2052,6 +2052,14 @@ address = {New York, NY, USA},
 annote = {Present an analysis of dense matrix-matrix multiplication, and find that even though the algorithm has regular data access patterns and highly parallel computational requirements, the lack of high bandwidth access to cached data will impair performance and limit the types of applications that will benefit from the computational power available from these architectures.}
 }
 
+@techreport{NVIDIA:2012wf,
+author = {{NVIDIA}},
+title = {{CUDA C Programming Guide}},
+year = {2012},
+number = {PG-02829-001\_v5.0},
+month = oct
+}
+
 @techreport{Bonachea:2006,
 author = {Hilfinger, Paul N. and Bonachea, Dan and Datta, Kaushik and Gay, David and Graham, Susan and Kamil, Amir and Liblit, Ben and Pike, Geoff and Su, Jimmy and Yelick, Katherine},
 title = {{Titanium Language Reference Manual, v2.20}},
@@ -2073,6 +2081,16 @@ title = {{NVIDIA's GT200: Inside a Parallel Processor}},
 year = {2008},
 month = aug,
 url = {http://www.realworldtech.com/page.cfm?ArticleID=RWT090808195242}
+}
+
+@incollection{McBride:2005jv,
+author = {McBride, Conor},
+title = {{Epigram: Practical Programming with Dependent Types}},
+booktitle = {Lecture Notes in Computer Science},
+year = {2005},
+pages = {130--170},
+publisher = {Springer Berlin Heidelberg},
+address = {Berlin, Heidelberg}
 }
 
 @inproceedings{Coutts:2007ia,

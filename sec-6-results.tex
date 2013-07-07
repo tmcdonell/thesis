@@ -379,7 +379,87 @@ directly with CUDA only used the \code{int} type, which would be interpreted by
 the CUDA compiler as a 32-bit wide integer.
 
 
-% \subsection{Non-neutral starting elements}
-% \subsection{Kernel implementation}
-% tk: how to test?
+\subsubsection{Non-neutral starting elements}
+
+For convenience, and to avoid possibly unexpected behaviour, Accelerate's
+\code{fold*} family of functions do not require the combination function and
+starting element to form a moniod. We still require the function to be
+associative, so that the reduction can be implemented efficiently in parallel as
+a tree-reduction, but the initial element does not need to be a \emph{neutral}
+element.\marginnote{semigroup?} For example, \code{fold (+) 10} is valid in
+Accelerate and evaluates to the correct answer.
+
+However, this means that evaluation of the reduction is more complex. In
+particular, we can not simply initialise all threads to the initial value.
+In the first phase of the reduction, threads must be sure to initialise
+their local sum \code{y0} with values from the input array before beginning the
+sequential loop show in Listing~\ref{lst:dotp_cuda}:
+%
+% tk: hacks in comment style below: check if changing the basic language style
+\begin{lstlisting}[style=cuda,firstnumber=12]
+if (ix < shapeSize) {
+    const Int64 v2 = ix;
+    const int v3 = toIndex(shIn0, shape(v2));
+    const int v4 = toIndex(shIn1, shape(v2));
+
+    y0 = arrIn0_a0[v3] * arrIn1_a0[v4];
+    for (ix += gridSize; ix < shapeSize; ix += gridSize) {
+\end{lstlisting}
+
+Similarly, in the second parallel tree reduction phase threads may only read
+values from shared memory that were properly initialised. This requires
+additional bounds checks at every step:
+%
+\begin{lstlisting}[style=cuda,firstnumber=27]
+sdata0[threadIdx.x] = y0;
+__syncthreads();
+ix = min(shapeSize - blockIdx.x * blockDim.x, blockDim.x);
+if (threadIdx.x + 512 < ix) {
+    x0 = sdata0[threadIdx.x + 512];
+    y0 = y0 + x0;
+    sdata0[threadIdx.x] = y0;
+}
+__syncthreads();
+if (threadIdx.x + 256 < ix) {
+    x0 = sdata0[threadIdx.x + 256];
+    y0 = y0 + x0;
+    sdata0[threadIdx.x] = y0;
+}
+__syncthreads();
+// etc...
+\end{lstlisting}
+
+These requirements increase overhead from ancillary instructions that are not
+loads, stores, or arithmetic for the core computation. A summation reduction has
+low arithmetic intensity to begin with, and is the limiting factor in the
+performance of this kernel, so additional bounds checks further reduce
+performance.
+
+\subsubsection{Kernel Specialisation}
+
+To further reduce instruction overhead, it is possible to completely unroll the
+reduction by specialising the kernel for a specific block size. In standard CUDA
+this can be achieved through the use of C++ templates. Branches referring to the
+template parameter will be evaluated at compile time, resulting in a very
+efficient inner loop.
+%
+\begin{lstlisting}[style=cuda]
+template <unsigned int blockSize> __global__ void reduce(...) {
+    ...
+    if (blockSize > 512) {
+    }
+    if (blockSize > 256) {
+    }
+    ...
+\end{lstlisting}
+
+This technique has shown to produce significant gains in
+practice~\cite{Harris:2007te}, although requires compiling a separate kernel for
+each thread block size we wish to specialise for. Accelerate can achieve this
+kind of kernel specialisation because the CUDA code is generated at program
+runtime, but this extra compilation adds significant additional overhead. Since
+compiled kernels are cached and reused (\S tk), if we know that the reduction
+will be computed many times the extra compilation overhead can be amortised by
+the improved kernel performance, and may thus be worthwhile. Such
+specialisations are left for future work.
 

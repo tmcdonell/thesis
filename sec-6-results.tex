@@ -476,16 +476,17 @@ that all individual applications of the formula are executed in parallel.
     ,label=lst:blackscholes
     ,caption={Black-Scholes option pricing in Accelerate}]
 horner :: Num a => [a] -> a -> a
-horner coeff x = x * foldr1 madd coeff
-  where
-  madd a b = a + x*b
+horner coeff x =
+  let madd a b  = a + x*b
+  in
+  x * foldr1 madd coeff
 
 cnd' :: Floating a => a -> a
 cnd' d =
-  let poly     = horner coeff
-      coeff    = [0.31938153,-0.356563782,1.781477937,-1.821255978,1.330274429]
-      rsqrt2pi = 0.39894228040143267793994605993438
-      k        = 1.0 / (1.0 + 0.2316419 * abs d)
+  let poly      = horner coeff
+      coeff     = [0.31938153,-0.356563782,1.781477937,-1.821255978,1.330274429]
+      rsqrt2pi  = 0.39894228040143267793994605993438
+      k         = 1.0 / (1.0 + 0.2316419 * abs d)
   in
   rsqrt2pi * exp (-0.5*d*d) * poly k
 

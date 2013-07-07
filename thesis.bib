@@ -1936,7 +1936,7 @@ month = aug,
 annote = {Comprehensive survey paper of the (then) current features and limitations of graphics hardware in the context of their use for general purpose computation. Discussion of the differences between CPU and GPU hardware and software programming models, and methods to improve flow control. Includes many examples of algorithms and applications which are well categorised, with evolution of algorithms/methods as additional programmability was introduced. GPGPU techniques discussed include: * stream operations (map, reduce, scatter/gather, sort, search, filter) * data structures (dense/sparse, static/dynamic) * Differential equations and linear algebra}
 }
 
-@manual{PTX:2012,
+@manual{NVIDIA:2012vj,
 title = {{Parallel Thread Execution ISA}},
 author = {{NVIDIA}},
 edition = {3.1},
@@ -2002,14 +2002,12 @@ publisher = {ACM},
 address = {New York, NY, USA}
 }
 
-@incollection{McBride:2005jv,
-author = {McBride, Conor},
-title = {{Epigram: Practical Programming with Dependent Types}},
-booktitle = {Lecture Notes in Computer Science},
-year = {2005},
-pages = {130--170},
-publisher = {Springer Berlin Heidelberg},
-address = {Berlin, Heidelberg}
+@techreport{NVIDIA:2012wf,
+author = {{NVIDIA}},
+title = {{CUDA C Programming Guide}},
+year = {2012},
+number = {PG-02829-001\_v5.0},
+month = oct
 }
 
 @inproceedings{Keller:1998fx,
@@ -2021,6 +2019,16 @@ editor = {Pritchard, David and Reeve, Jeff},
 pages = {709--719},
 publisher = {Springer-Verlag},
 annote = {Extend the flattening transform of Blelloch and Sabot to support user-defined recursive data types, which allows parallel tree structures to be defined. Previously, tree structures were mapped to vectors, requiring explicit index calculations to track parent-child relationships, and leading to suboptimal data distributions on distributed-memory machines.}
+}
+
+@incollection{McBride:2005jv,
+author = {McBride, Conor},
+title = {{Epigram: Practical Programming with Dependent Types}},
+booktitle = {Lecture Notes in Computer Science},
+year = {2005},
+pages = {130--170},
+publisher = {Springer Berlin Heidelberg},
+address = {Berlin, Heidelberg}
 }
 
 @article{Claessen:2002,

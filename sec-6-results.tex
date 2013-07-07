@@ -250,7 +250,10 @@ following CUDA code is generated for the inner loop of this step:
 % }<++>
 %
 %
-\begin{lstlisting}[style=cuda,firstnumber=18]
+\begin{lstlisting}[style=cuda
+    ,firstnumber=18
+    ,label=lst:dotp_cuda
+    ,caption={Generated CUDA code for the first step of fused dot product}]
 for (ix += gridSize; ix < shapeSize; ix += gridSize) {
     const Int64 v2 = ix;
     const int v3 = toIndex(shIn0, shape(v2));
@@ -268,15 +271,19 @@ incremented in lockstep. In addition to the superfluous arithmetic, the
 duplication of counters unnecessarily increases register pressure.
 
 \marginnote{this was unexpected}
-The corresponding section of PTX~\cite{PTX:2012} code is for this loop is shown
-below. To retrieve the data from the first input array, the input array pointer
-is retrieved (line~\ref{lst:dotp_ptx_ldparam}), the offset stored in register
-\code{rd16} added to it (line~\ref{lst:dotp_ptx_add}), and then the value read
-from global memory at this address (line~\ref{lst:dotp_ptx_ldglobal}). Happily,
-we note that retrieving the second input element \emph{also} uses the offset
-stored in register \code{rd16} (line~\ref{lst:dotp_ptx_ldglobal2}).
+The corresponding section of PTX~\cite{NVIDIA:2012vj} code is for this loop is
+shown below. To retrieve the data from the first input array, the input array
+pointer is retrieved (line~\ref{lst:dotp_ptx_ldparam}), the offset stored in
+register \code{rd16} added to it (line~\ref{lst:dotp_ptx_add}), and then the
+value read from global memory at this address
+(line~\ref{lst:dotp_ptx_ldglobal}). Happily, we note that retrieving the second
+input element \emph{also} uses the offset stored in register \code{rd16}
+(line~\ref{lst:dotp_ptx_ldglobal2}).
 %
-\begin{lstlisting}[style=ptx,firstnumber=103]
+\begin{lstlisting}[style=ptx
+    ,firstnumber=103
+    ,label=lst:dotp_ptx
+    ,caption={Corresponding PTX code for the first step of fused dot product}]
  //  18          for (ix += gridSize; ix < shapeSize; ix += gridSize) {
         cvt.u32.u16     %r10, %nctaid.x;
         mul.lo.u32      %r11, %r10, %r1;
@@ -294,9 +301,9 @@ $Lt_0_14082:
  //  22
  //  23              x0 = arrIn0\_a0[v3] * arrIn1\_a0[v4];
  //  24              y0 = x0 + y0;
-        cvt.s32.s64     %rd14, %rd12;
+        cvt.s32.s64     %rd14, %rd12;                           (@* \label{lst:dotp_ptx_cvt1} *@)
         cvt.s32.s64     %r14, %rd14;
-        cvt.s64.s32     %rd15, %r14;
+        cvt.s64.s32     %rd15, %r14;                            (@* \label{lst:dotp_ptx_cvt3} *@)
         mul.wide.s32    %rd16, %r14, 4;
         .loc    16      17      0
         ld.param.u64    %rd9, [__cudaparm_foldAll_arrIn0_a0];   (@* \label{lst:dotp_ptx_ldparam} *@)
@@ -324,7 +331,6 @@ $Lt_0_13058:
 In this case the CUDA compiler was able to coalesce our four counters into a
 single counter. This is because our definition of \code{toIndex} for
 one-dimensional indices does \emph{not} do bounds checking:
-% \subsection{64-bit Arithmetic}
 %
 \begin{lstlisting}[style=cuda]
 template <>
@@ -336,14 +342,41 @@ static __inline__ __device__ Ix toIndex(const DIM1 sh, const DIM1 ix)
 %
 Since we do not check that the current index \code{ix} is within bounds of the
 array shape \code{sh}, the compiler can see that the definitions of \code{v3}
-and \code{v4} are identical. Similarly one-dimensional indices are just
-integers, and so the one-dimensional instance of \code{shape} is the identity
-function. For higher dimensional shapes, however, this is not the case and
-\code{toIndex} and \code{shape} do real work to their arguments. As the shape
-\code{shIn0} and \code{shIn1} are inputs arguments to the kernel, the compiler
-will not be able to determine they are equivalent and so the counters would not
-be combined.
+and \code{v4} in Listing~\ref{lst:dotp_cuda} are identical. Similarly
+one-dimensional indices are just integers, and so the one-dimensional instance
+of \code{shape} is the identity function. For higher dimensional shapes,
+however, this is not the case and \code{toIndex} and \code{shape} do real work
+to their arguments. As the shape \code{shIn0} and \code{shIn1} are inputs
+arguments to the kernel, the compiler will not be able to determine they are
+equivalent and so the counters would not be combined.
 
+Why don't we perform bounds checks in \code{toIndex}? Implementing exceptions in
+a massively parallel architecture is difficult, and support for throwing
+exceptions from kernel functions was only recently added for devices of compute
+capability 2.0 and later~\cite{NVIDIA:2012wf}. % [\SB.15]
+It would be a straightforward matter of adding runtime bounds checks for
+supported devices, however.
+
+
+\subsubsection{64-bit Arithmetic}
+
+CUDA devices are at their core 32-bit processors and thus are optimised for
+32-bit arithmetic. For example, our Tesla GPU with compute capability 1.3 has a
+throughput of eight 32-bit floating-point add, multiply, or multiply-add
+operations per clock cycle per multiprocessor, but only a single operation per
+cycle of the 64-bit equivalents of these~\cite{NVIDIA:2012wf}. % [\S5.4.1]
+
+However, the host architecture that the Haskell program executes on is likely to
+be a 64-bit processor. This means that an \code{Int} value from Haskell ---
+which may appear marshalled as array data or shape values --- will generate code
+to manipulate 64-bit integers, as well as conversions between 32- and 64-bit
+types. Lines~\ref{lst:dotp_ptx_cvt1}--\ref{lst:dotp_ptx_cvt3} of
+Listing~\ref{lst:dotp_ptx} contain such type conversions, which on our compute
+capability 1.3 device have a throughput of only a single operation per cycle per
+multiprocessor. These conversions would not be necessary if we were not
+cross-compiling from a 64-bit Haskell host, or if the programmer working
+directly with CUDA only used the \code{int} type, which would be interpreted by
+the CUDA compiler as a 32-bit wide integer.
 
 
 % \subsection{Non-neutral starting elements}

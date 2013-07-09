@@ -94,21 +94,16 @@ dotp xs ys = A.fold (+) 0                       -- sum result of\ldots
 \end{lstlisting}
 %
 Figure~\ref{fig:dotp} show the result of running this code, compared to several
-other sequential and parallel implementations of the same operation. Without
-fusion the intermediate array produced by \code{zipWith} is created in GPU
-memory before being read back by \code{fold}. As this is a simple memory bound
-benchmark, fusion roughly doubles the performance of the unfused Accelerate
-program.
-
-The \texttt{Data.Vector} baseline is sequential code produced by
-\index{fusion!stream}stream fusion~\cite{Coutts:2007kp}, running on the host
-CPU. The \texttt{Repa} version runs in parallel on all eight cores of the host
-CPU, using the fusion method of \index{fusion!delayed arrays}delayed
-arrays~\cite{Keller:2010er}. The \texttt{NDP2GPU}~\cite{Bergstrom:2012bi}
-version compiles NESL code~\cite{Blelloch:1995ut} down to CUDA. The performance
-of this version suffers because the \texttt{NDP2GPU} compiler uses the legacy
-NESL compiler for the front-end, which introduces redundant administrative
-operations that are not strictly needed when evaluating a dot product.
+other sequential and parallel implementations. The \texttt{Data.Vector} baseline
+is sequential code produced by \index{fusion!stream}stream
+fusion~\cite{Coutts:2007kp}, running on the host CPU. The \texttt{Repa} version
+runs in parallel on all eight cores of the host CPU, using the fusion method of
+\index{fusion!delayed arrays}delayed arrays~\cite{Keller:2010er}. The
+\texttt{NDP2GPU}~\cite{Bergstrom:2012bi} version compiles NESL
+code~\cite{Blelloch:1995ut} down to CUDA. The performance of this version
+suffers because the \texttt{NDP2GPU} compiler uses the legacy NESL compiler for
+the front-end, which introduces redundant administrative operations that are not
+strictly needed when evaluating a dot product.
 
 \begin{figure}[htbp]
     \begin{center}
@@ -120,15 +115,27 @@ operations that are not strictly needed when evaluating a dot product.
     \label{fig:dotp}
 \end{figure}
 
-While the fused Accelerate version is about $30\times$ faster than the
-sequential version executed on the CPU, it is still approximately $20\%$ slower
-than the hand-written CUDA version. Dot product is a computationally simple
-task, so any additional overheads in the implementation will be significant.
+Without optimisations the Accelerate version executes in approximately twice the
+time of the CUBLAS version. Since the individual aggregate operations consist of
+only a single arithmetic operation each, the problem can not be a lack of
+sharing.
 
-The fused version of dot product embeds a function of type \code{(sh -> a)} into
-the reduction, represented here as the second argument to the constructor
-\code{Delayed}. This scalar function does the work of element wise multiplying
-the two input vectors:
+
+\subsection{Too many kernels}
+
+The slow-down in the unoptimised version is due to Accelerate generating one GPU
+kernel function for each aggregate operation in the source program. The use of
+two separate kernels requires the intermediate array produced by \code{zipWith}
+to be constructed in GPU memory before being immediately read back by
+\code{fold}. In contrast the CUBLAS version uses only a single kernel. As this
+is a simple memory bound benchmark, lack of fusion roughly doubles the runtime.
+
+The fused version of dot product combines the aggregate computations by
+embedding a function of type \code{(sh -> a)} into the reduction, represented
+here as the second argument to the constructor \code{Delayed}. This scalar
+function does the work of element wise multiplying the two input vectors, and is
+performed on-the-fly as part of the reduction kernel instead of requiring an
+intermediate array:
 %
 \begin{lstlisting}[style=haskell]
 let a0 = use (Array ...) in
@@ -137,13 +144,13 @@ fold (\x0 x1 -> x0 + x1) 0.0
    (Delayed (intersect (shape a0) (shape a1))   -- extent of the input array
             (\x0 -> (a0!x0) * (a1!x0)))         -- function to generate a value at each index
 \end{lstlisting}
-%
-To see why this version performs slightly slower than the CUBLAS version, we
-discuss how reductions are implemented in CUDA, as a basis for analysing the
-generated code to inspect it for sources of overhead.
 
-
-
+While the fused Accelerate version is $30\times$ faster than the sequential
+version executed on the CPU, it is still approximately $20\%$ slower than the
+hand-written CUBLAS version. As dot product is a computationally simple task,
+any additional overheads in the implementation will be significant. To see why
+this version is still slightly slower, we analyse the generated code to inspect
+it for sources of overhead.
 
 
 \subsection{Duplicate loop counters}
@@ -188,15 +195,16 @@ duplication of counters unnecessarily increases register pressure.
 
 \marginnote{this was unexpected}
 The corresponding section of PTX~\cite{NVIDIA:2012vj} code is for this loop is
-shown below. To retrieve the data from the first input array, the input array
-pointer is retrieved (line~\ref{lst:dotp_ptx_ldparam}), the offset stored in
-register \code{rd16} added to it (line~\ref{lst:dotp_ptx_add}), and then the
-value read from global memory at this address
-(line~\ref{lst:dotp_ptx_ldglobal}). Happily, we note that retrieving the second
-input element \emph{also} uses the offset stored in register \code{rd16}
-(line~\ref{lst:dotp_ptx_ldglobal2}).
+shown in Listing~\ref{lst:dotp_ptx}. To retrieve the data from the first input
+array, the input array pointer is retrieved (line~\ref{lst:dotp_ptx_ldparam}),
+the offset stored in register \code{rd16} added to it
+(line~\ref{lst:dotp_ptx_add}), and then the value read from global memory at
+this address (line~\ref{lst:dotp_ptx_ldglobal}). Happily, we note that
+retrieving the second input element \emph{also} uses the offset stored in
+register \code{rd16} (line~\ref{lst:dotp_ptx_ldglobal2}).
 %
 \begin{lstlisting}[style=ptx
+    ,float
     ,firstnumber=103
     ,label=lst:dotp_ptx
     ,caption={Corresponding PTX code for the first step of fused dot product}]

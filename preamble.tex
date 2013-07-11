@@ -26,10 +26,13 @@
 \usepackage{doi}
 \usepackage{epigraph}
 \usepackage{fancyhdr}
+% \usepackage{tipa}
+\usepackage{fontspec}
 \usepackage{graphicx}
 \usepackage[all]{hypcap}
 \usepackage{ifthen}
-\usepackage{inconsolata}
+% \usepackage{dejavu}
+% \usepackage{inconsolata}
 % \usepackage{sourcecodepro}
 % \usepackage{lastpage}
 \usepackage{listings}
@@ -46,9 +49,9 @@
 \usepackage{subfig}
 \usepackage{titlesec}
 \usepackage[width={autoauto}]{thumbs}
-\usepackage{tipa}
-% \usepackage{upquote}
+\usepackage{upquote}
 \usepackage{xfrac}
+\usepackage{textcomp}
 
 \onehalfspacing
 %\doublespacing
@@ -155,34 +158,39 @@
 \def\chapter{\addtocontents{lol}{\protect\addvspace{10pt}}\Chapter}
 \addtocontents{lol}{\protect\vspace*{-20pt}}
 
+\newfontfamily\sourcecodepro{Source Code Pro}
+
+
 % Define the language styles we will use
 %
 \lstset{
     frame=single,
     rulecolor={\color[gray]{0.7}},
     numbers=left,
-    basicstyle=\ttfamily,
+    basicstyle=\sourcecodepro,
     numberstyle=\color{Gray}\tiny\it,
     commentstyle=\color{MidnightBlue}\it,
     stringstyle=\color{Maroon},
+    keywordstyle=[1],
     keywordstyle=[2]\color{ForestGreen}\bf,
     keywordstyle=[3]\color{Bittersweet},
-%   keywordstyle=[4]\color{RoyalPurple},
+    keywordstyle=[4]\color{RoyalPurple},
     captionpos=b,
     aboveskip=2\medskipamount,
     xleftmargin=0.5\parindent,
     xrightmargin=0.5\parindent,
     flexiblecolumns=false,
-    basewidth={0.5em,0.45em},
+%   basewidth={0.5em,0.45em},           % default {0.6,0.45}
     escapechar={\%},
-    texcl=true
+    texcl=true                          % tex comment lines
 }
 
 \lstloadlanguages{Haskell}
 
 \lstdefinestyle{haskell}{
     language=Haskell,
-    basicstyle=\scriptsize\ttfamily,
+    upquote=true,
+    basicstyle=\scriptsize\sourcecodepro,
     deletekeywords={case,class,data,default,deriving,in,instance,let,of,type,where},
     morekeywords={[2]class,data,default,deriving,family,instance,type,where},
     morekeywords={[3]in,let,case,of},
@@ -198,14 +206,14 @@
         {forall}{{$\forall$}}1
         {exists}{{$\exists$}}1
         {...}{{$\cdots$}}3
-        {`}{{\`{}}}1
+%       {`}{{\`{}}}1
 %       {\ .}{{$\circ$}}2
 %       {\ .\ }{{$\circ$}}2
 }
 
 \lstdefinestyle{cuda}{
     language=CUDA,
-    basicstyle=\scriptsize\ttfamily,
+    basicstyle=\scriptsize\sourcecodepro,
     keywordstyle=[1]\color{ForestGreen},
     keywordstyle=[2]\color{Bittersweet},
     keywordstyle=[3]\color{BrickRed},
@@ -215,7 +223,7 @@
 
 \lstdefinestyle{ptx}{
     language=CUDA,
-    basicstyle=\scriptsize\ttfamily,
+    basicstyle=\scriptsize\sourcecodepro,
     mathescape=false,
     escapeinside={(@*}{*@)}
 }
@@ -224,7 +232,7 @@
     style=haskell,
     frame=none,
     numbers=none,
-    basicstyle=\small\ttfamily
+    basicstyle=\small\sourcecodepro
 }
 
 

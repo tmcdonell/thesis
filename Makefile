@@ -5,7 +5,7 @@ MAINFILE	= thesis
 SUBDIRS		= images semantics
 MISCDEP		= listings
 BUILDDIR	= build
-LATEXMK_FLAGS	= -outdir=$(BUILDDIR) -pdf
+LATEXMK_FLAGS	= -outdir=$(BUILDDIR) -xelatex
 OTT_FLAGS	= -show_sort true -show_defns true -tex_wrap false
 
 default:continuous

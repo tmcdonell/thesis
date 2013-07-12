@@ -358,7 +358,7 @@ low arithmetic intensity to begin with, and is the limiting factor in the
 performance of this kernel, so additional bounds checks further reduce
 performance.
 
-\subsection{Kernel Specialisation}
+\subsection{Kernel specialisation}
 
 To further reduce instruction overhead, it is possible to completely unroll the
 reduction by specialising the kernel for a specific block size. In standard CUDA
@@ -649,29 +649,76 @@ maximum number of resident threads halves the maximum performance.
 
 \subsection{Loop recovery}
 
+Sometimes unrolling loops can be beneficial. A CUDA programmer can control how
+aggressively the compiler unrolls loops using the \code{#pragma unroll}
+directive with an explicit unroll factor, where zero means to not unroll the
+loop at all.
+
+The problem is that the way we have fused the collective operations does not
+preserve the iteration structure of the recurrence relation, so the loop is
+completely unrolled in the single fused operation. We can re-introduce scalar
+loops by analysing the fused expression to look for the following pattern:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+%\bf$\langle$ loop introduction $\rangle$%
+    let x =
+        let y = e1
+        in e2
+    in e3
+    $\mapsto$
+    iterate[2] (\y -> e2) e1            %\rm if \texttt{e2} $\equiv$ \texttt{e3}%
+\end{lstlisting}
+%
+The nested bindings are replaced with an explicit scalar value iteration
+structure, where the expression \code{e2} is repeated twice with the initial
+value \code{e1}. Similarly, loops can be joined:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+%\bf$\langle$ loop joining $\rangle$%
+    let x = iterate[n] (\y -> e2) e1
+    in e3
+    $\mapsto$
+    iterate[n+1] (\y -> e2) e1          %\rm if \texttt{e2} $\equiv$ \texttt{e3}%
+\end{lstlisting}
+%
+Recovering scalar loops in this way enables a backend to generate explicit loops
+in the target language, and the compiler makes the decision of whether or not to
+unroll the loop. In future, it would be beneficial to augment it with related
+loop optimisations such as loop invariant code motion in the frontend and
+lower-level code generation optimisations in a backend.
 
 
+\subsection{Unbalanced workload}
 
+The final problem with the Mandelbrot program is due to the initial formulation
+of the program using a fixed unrolling, as we must handle application of the
+function to elements which have already diverged. As explained, this is to
+ensure that all threads [in a warp] continue doing the same thing, which avoids
+excessive SIMD divergence, but means that the computation always proceeds to the
+iteration limit.
 
-% \subsection{Too many kernels}
-% 
-% Figure~TK shows that without fusion performance is poor
-% because storing each step of the iteration saturates the memory bus to the point
-% that reducing arithmetic intensity via sharing recovery provides no improvement.
-% The fused code is greatly improved, but suffers due to our initial formulation
-% that requires us to additionally handle application of the function to elements
-% which have already diverged.
-% % CUDA partially unrolls the loop and uses a custom software thread block
-% % scheduler to improve performance of the unbalanced workload.
-% 
-% The CUDA version also stops calculation as soon as the iteration diverges, but
-% the results presented here are for the worst case, where every point
-% reaches the iteration limit. For an image containing the entire Mandelbrot
-% fractal (centre coordinate ($-0.5+0i$) and horizontal width $3.2$) there are
-% large regions of low activity which diverge quickly, and so the time for the
-% CUDA implementation drops to $5.0$~ms. For comparison, a single-threaded
-% implementation in C takes $1.4$~s to compute the same set. Avoiding thread
-% divergence in CUDA programs is an active area of research~\cite{Zhang:2010jc}
-% and adding support for iteration that nevertheless results in efficient SIMD
-% programs is left for future work.
+For the Mandelbrot program threads only diverge in the sense that they are
+either still computing the recurrence relation, or the point is not in the set
+and the computation has completed; threads do not diverge to follow separate
+execution paths. The latter type of SIMD divergence is what we really need to
+avoid, because this results in predicated execution: threads taking the
+\code{true} path of a branch execute while all other threads sit idle, then
+execution switches to the \code{false} branch while the first set of threads
+idle.
+
+The CUDA version is faster because threads exit the loop as soon as their point
+in the complex plane diverges. Although once a thread completes it sits idle
+until all threads in the group complete their calculation, if all the points
+within a group of threads diverge quickly this can save a significant amount of
+work. Table~\ref{tab:mandelbrot} shows the difference in execution time when
+displaying the entire fractal (avg), where points diverge at varying iteration
+depths in the sequence, compared to a region where all thread continue to the
+iteration limit (limit). In order to manage this unbalanced workload, the CUDA
+version additionally includes a custom thread block scheduler.
+
+This test demonstrates that while loop recovery offered a significant
+performance benefit for free, it would be beneficial to expose looping
+constructs in the source language as well, rather than relying on potentially
+fragile post-hoc transformations. Avoiding thread divergence in CUDA programs is
+an active area of research~\cite{Zhang:2010jc}.
 

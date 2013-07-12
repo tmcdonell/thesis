@@ -722,3 +722,64 @@ constructs in the source language as well, rather than relying on potentially
 fragile post-hoc transformations. Avoiding thread divergence in CUDA programs is
 an active area of research~\cite{Zhang:2010jc}.
 
+\section{N-body gravitational simulation}
+
+\begin{figure}[htbp]
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{images/sec-6/nbody/nbody}
+    \end{center}
+    \caption[N-body gravitational simulation kernel benchmarks]{Kernel runtimes
+        for the $n$-body gravitational simulation, in Accelerate with and
+        without optimisations, compared to a hand-written CUDA implementation.
+        Note the log-log scale.}
+    \label{fig:nbody}
+\end{figure}
+
+The $n$-body example simulates the Newtonian gravitational forces on a set of
+massive bodies in 3D space, using the na\"ive $\mathcal{O}\left( n^{2} \right)$
+algorithm. In a data-parallel setting, the natural way to express this algorithm
+is first to compute the forces between every pair of bodies, before adding the
+forces applied to each body using a segmented sum. Without fusion this approach
+also requires $\mathcal{O}\left( n^{2} \right)$ space for the intermediate array
+of forces, which exhausts the memory of our device (4GB!) when using more than
+about five thousand bodies. With fusion, the reduction operation consumes each
+force value on-the-fly, so that the program only needs $\mathcal{O}\left( n
+\right)$ space to store the final force values. The core of the $n$-body
+simulation is shown below, where \code{accel} calculates the acceleration
+between two particles, and \code{(.+.)} component-wise sums the acceleration of
+a particle along each $x$, $y$ and $z$ axis.
+
+\begin{lstlisting}[style=haskell
+    ,label=lst:nbody
+    ,caption={$N$-body gravitational simulation in Accelerate}]
+calcAccels :: Exp R -> Acc (Vector Body) -> Acc (Vector Accel)
+calcAccels epsilon bodies
+  = let n       = A.size bodies
+        cols    = A.replicate (lift $ Z :. n :. All) bodies
+        rows    = A.replicate (lift $ Z :. All :. n) bodies
+    in
+    A.fold (.+.) (vec 0) $ A.zipWith (accel epsilon) rows cols
+\end{lstlisting}
+
+\subsection{Use of Shared Memory}
+
+Even with fusion the reference CUDA version is over 10x faster. In CUDA, the
+memory hierarchy of the device is made explicit to the programmer, including a
+small on-chip shared memory region threads can use to communicate results, that
+is essentially a software managed cache (\S tk). The CUDA version uses this
+memory region to share the particle mass and position data between a group of
+threads, whereas Accelerate uses this region to share computation.
+
+The CUDA version uses this low-latency memory region to reduce the bandwidth
+requirements of the program by sharing the particle mass and position data
+between the group of threads. This reduces the bandwidth requirement of the
+program by a factor of the number of threads in a block (256) but requires each
+thread to sum its particle interactions sequentially in $\mathcal{O}\left( n
+\right)$ time. The Accelerate version uses shared memory to perform a
+tree-reduction in $\mathcal{O}\left( \log n \right)$ time
+(\S\ref{sec:parallel_reduction}) but requires all $n^{2}$ memory transfers. For
+this bandwidth bound application, making the trade-off of parallelism for
+bandwidth clearly wins. Automatic use of shared memory is a separate
+consideration to the optimisations discussed in this work, and remains an open
+research problem~\cite{Ma:2010ft}.
+

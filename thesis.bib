@@ -1,4 +1,4 @@
-%% Created using Papers on Sun, 07 Jul 2013.
+%% Created using Papers on Fri, 12 Jul 2013.
 %% http://papersapp.com/papers/
 
 @book{Altenkirch:2003kz,
@@ -1946,11 +1946,15 @@ pages = {40},
 month = mar
 }
 
-@techreport{Nikhil:1993,
-author = {Nikhil, Rishiyur S},
-title = {{An Overview of the Parallel Language Id (a foundation for pH, a parallel dialect of Haskell)}},
-year = {1993},
-address = {Cambridge Research Laboratory}
+@article{Huet:1997ue,
+author = {Huet, Gerard},
+title = {{Functional Pearl: The Zipper}},
+journal = {Journal of Functional Programming},
+year = {1997},
+volume = {7},
+number = {5},
+pages = {549--554},
+month = sep
 }
 
 @article{Wall:1991,
@@ -2004,12 +2008,14 @@ publisher = {ACM},
 address = {New York, NY, USA}
 }
 
-@techreport{Blelloch:1995ut,
-author = {Blelloch, Guy E.},
-title = {{NESL: A Nested Data-Parallel Language}},
-year = {1995},
-number = {CMU-CS-95-170},
-month = sep
+@inproceedings{Ma:2010ft,
+author = {Ma, Wenjing and Agrawal, Gagan},
+title = {{An integer programming framework for optimizing shared memory use on GPUs}},
+booktitle = {2010 International Conference on High Performance Computing (HiPC)},
+year = {2010},
+pages = {1--10},
+publisher = {IEEE},
+month = dec
 }
 
 @inproceedings{Keller:1998fx,
@@ -2023,12 +2029,11 @@ publisher = {Springer-Verlag},
 annote = {Extend the flattening transform of Blelloch and Sabot to support user-defined recursive data types, which allows parallel tree structures to be defined. Previously, tree structures were mapped to vectors, requiring explicit index calculations to track parent-child relationships, and leading to suboptimal data distributions on distributed-memory machines.}
 }
 
-@manual{NVIDIA:2012vj,
-title = {{Parallel Thread Execution ISA}},
-author = {{NVIDIA}},
-edition = {3.1},
-month = sep,
-year = {2012}
+@techreport{Nikhil:1993,
+author = {Nikhil, Rishiyur S},
+title = {{An Overview of the Parallel Language Id (a foundation for pH, a parallel dialect of Haskell)}},
+year = {1993},
+address = {Cambridge Research Laboratory}
 }
 
 @article{Claessen:2002,
@@ -2052,12 +2057,12 @@ address = {New York, NY, USA},
 annote = {Present an analysis of dense matrix-matrix multiplication, and find that even though the algorithm has regular data access patterns and highly parallel computational requirements, the lack of high bandwidth access to cached data will impair performance and limit the types of applications that will benefit from the computational power available from these architectures.}
 }
 
-@techreport{NVIDIA:2012wf,
-author = {{NVIDIA}},
-title = {{CUDA C Programming Guide}},
-year = {2012},
-number = {PG-02829-001\_v5.0},
-month = oct
+@techreport{Blelloch:1995ut,
+author = {Blelloch, Guy E.},
+title = {{NESL: A Nested Data-Parallel Language}},
+year = {1995},
+number = {CMU-CS-95-170},
+month = sep
 }
 
 @techreport{Bonachea:2006,
@@ -2083,14 +2088,12 @@ month = aug,
 url = {http://www.realworldtech.com/page.cfm?ArticleID=RWT090808195242}
 }
 
-@incollection{McBride:2005jv,
-author = {McBride, Conor},
-title = {{Epigram: Practical Programming with Dependent Types}},
-booktitle = {Lecture Notes in Computer Science},
-year = {2005},
-pages = {130--170},
-publisher = {Springer Berlin Heidelberg},
-address = {Berlin, Heidelberg}
+@manual{NVIDIA:2012vj,
+title = {{Parallel Thread Execution ISA}},
+author = {{NVIDIA}},
+edition = {3.1},
+month = sep,
+year = {2012}
 }
 
 @inproceedings{Coutts:2007ia,
@@ -2102,6 +2105,14 @@ pages = {50--64},
 publisher = {Springer-Verlag}
 }
 
+@techreport{NVIDIA:2012wf,
+author = {{NVIDIA}},
+title = {{CUDA C Programming Guide}},
+year = {2012},
+number = {PG-02829-001\_v5.0},
+month = oct
+}
+
 @inproceedings{Seiler:2008,
 author = {Seiler, Larry and Carmean, Doug and Sprangle, Eric and Forsyth, Tom and Abrash, Michael and Dubey, Pradeep and Junkins, Stephen and Lake, Adam and Sugerman, Jeremy and Cavin, Robert and Espasa, Roger and Grochowski, Ed and Juan, Toni and Hanrahan, Pat},
 title = {{Larrabee: a many-core x86 architecture for visual computing}},
@@ -2110,6 +2121,16 @@ year = {2008},
 pages = {1--15},
 publisher = {ACM},
 address = {New York, NY, USA}
+}
+
+@incollection{McBride:2005jv,
+author = {McBride, Conor},
+title = {{Epigram: Practical Programming with Dependent Types}},
+booktitle = {Lecture Notes in Computer Science},
+year = {2005},
+pages = {130--170},
+publisher = {Springer Berlin Heidelberg},
+address = {Berlin, Heidelberg}
 }
 
 @book{Koelbel:1994,

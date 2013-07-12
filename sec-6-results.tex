@@ -843,3 +843,124 @@ access to the grid elements $u_{xy}$, precisely because these operations are so
 expensive.
 
 
+\section{Canny edge detection}
+
+The edge detection example applies the Canny algorithm to square images of
+various sizes. The overall algorithm consists of seven distinct phases, the
+first six of which are naturally data parallel and are performed on the GPU. The
+last phase uses a recursive algorithm to ``connect'' the pixels that make up the
+output lines. In our implementation this phase is performed on the CPU, which
+requires the image data to be transferred from the GPU back to the CPU for
+processing. In the figure, this final phase accounts for the non-linear slowdown
+visible with smaller image sizes. We also show the run time for just the first
+six data parallel phases, which exhibit linear speedup.
+
+Neglecting the final phase, we note that the data parallel phase is still
+slightly slower than in OpenCV. This is because the stencil kernels in
+Accelerate currently make a test for every array access to see if the element is
+in bounds, or if it lies outside the array and needs to be handled specially,
+even though the vast majority of points in the array are far from the boundary.
+For simple convolutions such as those used by Canny, this adds significant
+overhead~\cite{BenLippmeier:2012cd}. To correct this infelicity we intend to
+separate computation of the border region which requires boundary checks, from
+the main internal region which does not, but leave this to future work.
+
+
+\section{Radix sort}
+
+The radix sort benchmark implements a simple parallel radix sort algorithm as
+described by \citet{Blelloch:1990vl} to sort an array of signed 32-bit integers.
+We compare our implementation of Blelloch's algorithm to one written in
+Nikola~\cite{Mainland:2010vj}, which is also an embedded language in Haskell for
+CUDA programming.\footnote{To be more specific, we estimate based on the results
+presented in the paper~\cite{Mainland:2010vj} as Nikola no longer compiles with
+recent versions of GHC, and the development version to replace it is not yet
+complete. Nevertheless, results are informative as the same GPU, a Tesla T10, is
+used in both cases.}
+%
+For this benchmark the Accelerate code is faster than Nikola, because Nikola is
+limited to single kernel programs so must transfer every intermediate result
+back to the host. Additionally, we are faster than a sequential radix sort
+implementation using \texttt{Data.Vector} for as few as $\sim256$ elements,
+whereas Nikola requires a dataset of about 32kB before the additional
+parallelism of the GPU outperforms the sequential version.
+
+Note that the absolute performance of this simple algorithm, which requires $b$
+iterations to sort an array of elements $b$-bits wide, is quite low.
+Implementations of radix sort optimised for the CUDA architecture, such as
+Thrust~\cite{Satish:2009kx}, make efficient use of memory bandwidth and on-chip
+shared memory and are approximately $10\times$ faster than Blelloch's algorithm
+in Accelerate. To address this we propose to implement a foreign function
+interface for Accelerate to take advantage of existing high-performance
+libraries. We leave this for future work.
+
+
+\section{Sparse-matrix vector multiplication}
+
+\begin{table}
+\centering
+\begin{tabular}{lrrrr}
+
+\textbf{Name}   & \parbox[b]{12ex}{\centering Non-zeros\\(nnz/row)}
+                & \multicolumn{1}{c}{\rotatebox{90}{CUSP}}
+                & \multicolumn{1}{c}{\rotatebox{90}{Accelerate}}
+                & \multicolumn{1}{c}{\begin{sideways}\parbox{9ex}
+                        {\centering Accelerate\\no fusion}\end{sideways}}
+                \\ \hline
+
+Dense                   & 4M (2K)       & 14.48 & 14.62 & 3.41  \\
+Protein                 & 4.3M (119)    & 13.55 & 13.65 & 0.26  \\
+FEM/Spheres             & 6M (72)       & 12.63 &  9.03 & 4.70  \\
+FEM/Cantilever          & 4M (65)       & 11.98 &  7.96 & 4.41  \\
+Wind Tunnel             & 11.6M (53)    & 11.98 &  7.33 & 4.62  \\
+FEM/Harbour             & 2.37M (50)    &  9.42 &  6.14 & 0.13  \\
+QCD                     & 1.9M (39)     &  7.79 &  4.66 & 0.13  \\
+FEM/Ship                & 3.98 (28)     & 12.28 &  6.60 & 4.47  \\
+Economics               & 1.27M (6)     &  4.59 &  0.90 & 1.06  \\
+Epidemiology            & 1.27M (4)     &  6.42 &  0.59 & 0.91  \\
+FEM/Accelerator         & 2.62M (22)    &  5.41 &  3.08 & 2.92  \\
+Circuit                 & 959k (6)      &  3.56 &  0.82 & 1.08  \\
+Webbase                 & 3.1M (3)      &  2.11 &  0.47 & 0.74  \\
+LP                      & 11.3M (2825)  &  5.22 &  5.04 & 2.41  \\
+
+\end{tabular}
+\caption{Overview of sparse matrices tested and results of the benchmark.
+Measurements are in GFLOPS/s (higher is better).}
+\label{tab:smvm-summary}
+\end{table}
+
+
+This benchmark considers the multiplication of sparse matrices in compressed row
+format (CSR)~\cite{Chatterjee:1990vj} with a dense vector. This matrix format
+consists of an array of the non-zero elements paired with their column index,
+together with a segment descriptor recording the number of non-zeros in each
+row.
+
+Table~\ref{tab:smvm-summary} compares Accelerate to the CUSP
+library~\cite{Bell:2009}; a special purpose library for sparse matrix
+operations. Using a 14 matrix corpus derived from a variety of application
+domains~\cite{Williams:2009cy}, we compare against the CUSP implementation for
+compressed row format matrices.
+
+Compared to our previous work~\cite{Chakravarty:2011fr} the fusion
+transformation compresses the program into a single segmented reduction. As
+predicted, the corresponding reduction in memory bandwidth means that Accelerate
+is on par with the CUSP library for several of the test matrices. In a balanced
+machine SMVM should be limited by memory throughput, and a dense matrix in
+sparse format should provide an upper bound on performance because loops are
+long running and accesses to the source vector are contiguous and have high
+re-use. We see that Accelerate with array fusion not only achieves this expected
+performance limit, but is also slightly faster than the CUSP implementation.
+
+However, matrices such as FEM/Spheres, with few non-zeros per row ($\lesssim 2
+\times \text{warp size} = 64$) exhibit a drop in performance relative to CUSP.
+This may be related to the way the skeleton code ensures that the vector read of
+each row is coalesced and aligned to the warp boundary to maximise global memory
+throughput, but is then not able to amortize this extra startup cost over the
+row length. Matrices such as Epidemiology, with large vectors and few non-zeros
+per row, exhibit low flop:byte ratio and are poorly suited to the CSR format,
+with all implementations performing well below peak. The regression relative to
+our previous result will be investigated. Nevertheless, this highlights the
+nature of sparse computations and the reason the CUSP library supports several
+algorithms and matrix formats.
+

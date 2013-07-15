@@ -752,7 +752,7 @@ a particle along each $x$, $y$ and $z$ axis.
 \begin{lstlisting}[style=haskell
     ,label=lst:nbody
     ,caption={$N$-body gravitational simulation in Accelerate}]
-calcAccels :: Exp R -> Acc (Vector Body) -> Acc (Vector Accel)
+calcAccels :: Exp Float -> Acc (Vector Body) -> Acc (Vector Accel)
 calcAccels epsilon bodies
   = let n       = A.size bodies
         cols    = A.replicate (lift $ Z :. n :. All) bodies
@@ -826,7 +826,9 @@ parameters.
         fluid flow simulation, in Accelerate with and without optimisations,
         compared to sequential and parallel CPU implementations. Running the
         Repa program with seven threads on the eight cores was found to be
-        faster. Note the log-log scale.}
+        faster. Note the log-log scale.
+        \note{TK: Check the fluid demo that is part of the CUDA SDK, it looks
+        like it might implement something similar.}}
     \label{fig:fluid}
 \end{figure}
 
@@ -841,6 +843,50 @@ this program. Sharing recovery has a surprisingly minimal impact because the
 implementation of stencils always shares some parts of the computation: namely
 access to the grid elements $u_{xy}$, precisely because these operations are so
 expensive.
+
+\subsection{Bounds checking}
+
+When implementing stencil operations, an immediate concern is what to do when
+the stencil ``falls off'' the edge of the array. For example,
+Figure~\ref{fig:stencil3x3} shows the application of a $3\times3$ stencil
+in this circumstance. The white squares indicate the \emph{internal} region
+where the stencil is entirely within the array, and the grey squares indicate
+the \emph{border} region, where part of the stencil falls lies outside of the
+array boundary.
+
+\begin{figure}[htbp]
+    \begin{center}
+        \includegraphics[width=0.5\textwidth]{images/sec-6/stencil3x3}
+    \end{center}
+    \caption[Application of a $3\times3$ stencil in the border region]
+        {Application of a $3\times3$ stencil in the border region. Elements in
+        the border region (grey), such as the indicated element at index
+        \lstinline[style=inline,basicstyle=\sourcecodepro\footnotesize]{(Z:.2:.0)},
+        have neighbouring elements which might fall outside the array bounds,
+        whereas for elements in the internal region (white) the stencil lies
+        entirely within the array.}
+    \label{fig:stencil3x3}
+\end{figure}
+
+With the array sizes typical of GPU programs, the border region represents only
+a tiny fraction of the entire array. A 512-pixel square image for example has
+less than one percent of its pixels along the edge. This fact implies that for
+optimal performance, we should avoid testing of the boundary each time we read
+an element from the source array.
+
+\note{tk: example showing performance of \code{map (+1)} versus the equivalent
+of using a stencil: extra addressing arithmetic should be significant. For fluid
+flow, the actual computation time (probably) greatly outweighs the extra
+arithmetic.}
+
+
+\subsection{Sharing}
+
+\note{tk: using shared memory. This is difficult because our stencils lack
+significant structure: i.e. they can be quite sparse, so reading all
+elements into shared memory (wlog, in itself tricky!) might be a waste. We avoid
+this issue and just use the texture cache. It might be worthwhile to specialise
+for the 2D texture cache (and extra addressing modes?).}
 
 
 \section{Canny edge detection}

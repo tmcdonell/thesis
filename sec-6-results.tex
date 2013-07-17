@@ -78,6 +78,7 @@ the program optimisations on kernel runtimes of the benchmark programs.
 
 
 \section{Dot product}
+\label{sec:dotp}
 
 Dot product, or scalar product, is an algebraic operation that takes two
 equal-length sequences of numbers and returns a single number by computing the
@@ -388,6 +389,7 @@ specialisations are left for future work.
 
 
 \section{Black-Scholes option pricing}
+\label{sec:blackscholes}
 
 The Black-Scholes algorithm is a partial differential equation for modelling the
 evolution of a European-style stock option price under certain assumptions. The
@@ -723,6 +725,7 @@ fragile post-hoc transformations. Avoiding thread divergence in CUDA programs is
 an active area of research~\cite{Zhang:2010jc}.
 
 \section{N-body gravitational simulation}
+\label{sec:nbody}
 
 \begin{figure}[htbp]
     \begin{center}
@@ -785,6 +788,7 @@ research problem~\cite{Ma:2010ft}.
 
 
 \section{Fluid Flow}
+\label{sec:fluid}
 
 The fluid flow example implements Jos Stam's stable fluid
 algorithm~\cite{Stam:1999ey}, which is a fast approximate algorithm intended for
@@ -833,7 +837,7 @@ parameters.
 \end{figure}
 
 Figure~\ref{fig:fluid} compares Accelerate to a parallel implementation written
-in Repa and running on the host CPU \cite{Lippmeier:2012vv}. The program is
+in Repa and running on the host CPU \cite{Lippmeier:2012gx}. The program is
 extremely memory intensive, performing approximately 160 convolutions of the
 grid per time step. Given the nature of the computation, we find that the raw
 bandwidth available on the CUDA device, which is much greater than that
@@ -845,6 +849,7 @@ access to the grid elements $u_{xy}$, precisely because these operations are so
 expensive.
 
 \subsection{Bounds checking}
+\label{sec:stencil_bounds_checking}
 
 When implementing stencil operations, an immediate concern is what to do when
 the stencil ``falls off'' the edge of the array. For example,
@@ -872,7 +877,10 @@ With the array sizes typical of GPU programs, the border region represents only
 a tiny fraction of the entire array. A 512-pixel square image for example has
 less than one percent of its pixels along the edge. This fact implies that for
 optimal performance, we should avoid testing of the boundary each time we read
-an element from the source array.
+an element from the source array. For simple convolutions such as those used by
+Canny (\S\ref{sec:canny}), this adds significant
+overhead~\cite{Lippmeier:2011cd}. Separating computation of the border and
+internal region is left for future work.
 
 \note{tk: example showing performance of \code{map (+1)} versus the equivalent
 of using a stencil: extra addressing arithmetic should be significant. For fluid
@@ -890,6 +898,28 @@ for the 2D texture cache (and extra addressing modes?).}
 
 
 \section{Canny edge detection}
+\label{sec:canny}
+
+\begin{figure}[htbp]
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{images/sec-6/canny/canny}
+    \end{center}
+    \caption[Canny edge detection benchmarks]{Runtimes for the Canny edge
+        detection algorithm, comparing the Accelerate kernels and whole program
+        to sequential and parallel implementations. Note the log-log scale.}
+    \label{fig:canny}
+\end{figure}
+
+\begin{figure}[htbp]
+    \begin{center}
+        \includegraphics[width=0.45\textwidth]{images/sec-6/lena}
+        \includegraphics[width=0.45\textwidth]{images/sec-6/lena-edges}
+    \end{center}
+    \caption[Example of the Canny edge detection algorithm]{An example of the
+        Canny algorithm applied to the Lena standard test image (left) which
+        identifies edge pixels in the image (right).}
+    \label{fig:lena}
+\end{figure}
 
 The edge detection example applies the Canny algorithm to square images of
 various sizes. The overall algorithm consists of seven distinct phases, the
@@ -898,18 +928,49 @@ last phase uses a recursive algorithm to ``connect'' the pixels that make up the
 output lines. In our implementation this phase is performed on the CPU, which
 requires the image data to be transferred from the GPU back to the CPU for
 processing. In the figure, this final phase accounts for the non-linear slowdown
-visible with smaller image sizes. We also show the run time for just the first
-six data parallel phases, which exhibit linear speedup.
+visible with smaller image sizes. Also shown are the run times for just the
+first six data parallel phases, which exhibit linear speedup.
 
-Neglecting the final phase, we note that the data parallel phase is still
-slightly slower than in OpenCV. This is because the stencil kernels in
+Neglecting the final phase, note that the data parallel phase is still slightly
+slower than in OpenCV. As discussed previously
+(\S\ref{sec:stencil_bounds_checking}) this is because the stencil kernels in
 Accelerate currently make a test for every array access to see if the element is
 in bounds, or if it lies outside the array and needs to be handled specially,
 even though the vast majority of points in the array are far from the boundary.
-For simple convolutions such as those used by Canny, this adds significant
-overhead~\cite{BenLippmeier:2012cd}. To correct this infelicity we intend to
-separate computation of the border region which requires boundary checks, from
-the main internal region which does not, but leave this to future work.
+
+
+\subsection{Stencil fusion}
+
+Two of the data parallel stages of the Canny algorithm are the calculation of
+\marginnote{tk: this sort of went in a different direction?}
+the image intensity gradients by convolving the image with the $3\times3$
+kernels shown below. This convolution, known as the Sobel operator, is a
+discrete differentiation operator that computes an approximation of the
+horizontal and vertical image gradients.
+%
+\begin{equation*}
+    \text{Sobel}_x =
+        \begin{bmatrix*}[r]
+          -1 & 0 & 1 \\
+          -2 & 0 & 2 \\
+          -1 & 0 & 1
+        \end{bmatrix*}
+    \qquad
+    \text{Sobel}_y =
+        \begin{bmatrix*}[r]
+           1 &  2 &  1 \\
+           0 &  0 &  0 \\
+          -1 & -2 & -1
+        \end{bmatrix*}
+\end{equation*}
+
+There is a significant amount of sharing between these two kernels, in terms of
+the coefficients required to compute the derivative at each point. As with all
+shortcut fusion methods, the system presented here does not combine multiple
+passes over the same array into a single traversal that computes multiple
+results. We leave this for future work, for example, in the style of data flow
+fusion~\cite{Lippmeier:2013vz}.
+\note{tk: simpler, more motivating example?}
 
 
 \section{Radix sort}

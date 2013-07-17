@@ -890,11 +890,59 @@ arithmetic.}
 
 \subsection{Sharing}
 
-\note{tk: using shared memory. This is difficult because our stencils lack
-significant structure: i.e. they can be quite sparse, so reading all
-elements into shared memory (wlog, in itself tricky!) might be a waste. We avoid
-this issue and just use the texture cache. It might be worthwhile to specialise
-for the 2D texture cache (and extra addressing modes?).}
+\begin{figure}[htbp]
+    \begin{center}
+        \includegraphics[width=0.6\textwidth]{images/sec-6/stencil-sharing}
+    \end{center}
+    \caption[Overlapping elements in a $3\times3$ stencil]{Overlapping elements
+        in a dense $3\times3$ stencil. Computation of each element requires nine
+        reads from the source array. If the four elements cooperate to share the
+        source data, instead of $4 \times 9 = 36$ loads, we require only 18.}
+    \label{fig:stencil_sharing}
+\end{figure}
+
+Suppose we wish to apply a dense $3\times3$ stencil to a single internal point
+in the array, and that every point in the array is utilised. Application of the
+stencil requires at least nine elements of the array to be loaded, and one store
+for the result. Since the computations of any point in the array do not depend
+on any others, this is an embarrassingly parallel operation, and elements can be
+computed in any order.
+
+When evaluating on a GPU, however, for good absolute performance the thread
+block should evaluate elements that are adjacent in memory.
+Figure~\ref{fig:stencil_sharing} shows the evaluate of four horizontally
+adjacent points. If we evaluate these points independently, we would need
+$4 \times 9 = 36$ loads of the source array and four stores to the result.
+However if the four threads cooperate and share data from the source array, this
+requires only 18 loads, as well as the four stores.
+
+Sharing of stencil elements can be achieved by having the thread block first
+cooperatively read the stencil elements into shared memory (\S tk), and then
+each thread computes its stencil function using these shared values. In
+Accelerate, and the CUDA backend in particular, this is complicated by two
+factors:
+%
+\begin{enumerate}
+    \item Stencil patterns can be large: up to 9 elements in each dimension.
+        Since the shared memory region on the GPU is usually very small, this
+        can significantly limit the maximum thread block size. If the occupancy
+        of the device is too low, there may be insufficient parallelism to hide
+        global memory transfer latency.
+
+    \item A stencil function does not need to use all elements defined in the
+        pattern, so reading all elements into shared memory could waste more
+        bandwidth than it saves. The pattern also does not need to be square nor
+        symmetric, which complicates efficient cooperative loading of the
+        common elements into shared memory.
+\end{enumerate}
+
+The implementation currently ignores this issue and does not explicitly share
+elements between threads, instead relying on the cache. For older (compute 1.x)
+devices that lack a traditional cache mechanism, we read the source array using
+the texture cache (a holdover from the device's graphical heritage). It is left
+to future work to implement sharing of stencil elements between threads, in
+general or specialised for certain cases, such as those commonly used in image
+convolutions.
 
 
 \section{Canny edge detection}

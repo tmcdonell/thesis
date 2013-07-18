@@ -106,7 +106,7 @@ suffers because the \texttt{NDP2GPU} compiler uses the legacy NESL compiler for
 the front-end, which introduces redundant administrative operations that are not
 strictly needed when evaluating a dot product.
 
-\begin{figure}[htbp]
+\begin{figure}
     \begin{center}
         \includegraphics[width=0.8\textwidth]{images/sec-6/dotp/dotp}
     \end{center}
@@ -401,7 +401,7 @@ a single triple, and \code{blackscholes} maps it over a vector of triples such
 that all individual applications of the formula are executed in parallel.
 %
 \begin{lstlisting}[style=haskell
-    ,float=tbh
+    ,float
     ,label=lst:blackscholes
     ,caption={Black-Scholes option pricing in Accelerate}]
 horner :: Num a => [a] -> a -> a
@@ -444,7 +444,7 @@ Accelerate version is almost twenty times slower than the equivalent
 implementation in CUDA C. As \code{blackscholes} includes only one collective
 array operation, the problem can not be a lack of fusion.
 
-\begin{figure}[htbp]
+\begin{figure}
     \begin{center}
         \includegraphics[width=0.8\textwidth]{images/sec-6/black-scholes/black-scholes}
     \end{center}
@@ -727,7 +727,7 @@ an active area of research~\cite{Zhang:2010jc}.
 \section{N-body gravitational simulation}
 \label{sec:nbody}
 
-\begin{figure}[htbp]
+\begin{figure}
     \begin{center}
         \includegraphics[width=0.8\textwidth]{images/sec-6/nbody/nbody}
     \end{center}
@@ -748,11 +748,12 @@ of forces, which exhausts the memory of our device (4GB!) when using more than
 about five thousand bodies. With fusion, the reduction operation consumes each
 force value on-the-fly, so that the program only needs $\mathcal{O}\left( n
 \right)$ space to store the final force values. The core of the $n$-body
-simulation is shown below, where \code{accel} calculates the acceleration
-between two particles, and \code{(.+.)} component-wise sums the acceleration of
-a particle along each $x$, $y$ and $z$ axis.
+simulation is shown in Listing~\ref{lst:nbody}, where \code{accel} calculates
+the acceleration between two particles, and \code{(.+.)} component-wise sums the
+acceleration of a particle along each $x$, $y$ and $z$ axis.
 
 \begin{lstlisting}[style=haskell
+    ,float
     ,label=lst:nbody
     ,caption={$N$-body gravitational simulation in Accelerate}]
 calcAccels :: Exp Float -> Acc (Vector Body) -> Acc (Vector Accel)
@@ -795,7 +796,7 @@ algorithm~\cite{Stam:1999ey}, which is a fast approximate algorithm intended for
 animation and games, rather than accurate engineering simulation. An example
 sequence is shown in Figure~\ref{fig:fluid_steps}.
 
-\begin{figure}[htbp]
+\begin{figure}
     \begin{center}
         \includegraphics[width=0.3\textwidth]{images/sec-6/fluid/fluid-10}
         \includegraphics[width=0.3\textwidth]{images/sec-6/fluid/fluid-50}
@@ -822,7 +823,7 @@ time step and previous relaxation iteration, and $u''$ the current time step and
 iteration. The values $a$ and $c$ are constants chosen by the simulation
 parameters.
 
-\begin{figure}[htbp]
+\begin{figure}
     \begin{center}
         \includegraphics[width=0.8\textwidth]{images/sec-6/fluid/fluid}
     \end{center}
@@ -841,7 +842,7 @@ in Repa and running on the host CPU \cite{Lippmeier:2012gx}. The program is
 extremely memory intensive, performing approximately 160 convolutions of the
 grid per time step. Given the nature of the computation, we find that the raw
 bandwidth available on the CUDA device, which is much greater than that
-available to CPU, results in correspondingly shorter run times. Since the
+available to the CPU, results in correspondingly shorter run times. Since the
 program consists of a sequence of stencil operations, fusion does not apply to
 this program. Sharing recovery has a surprisingly minimal impact because the
 implementation of stencils always shares some parts of the computation: namely
@@ -948,17 +949,17 @@ convolutions.
 \section{Canny edge detection}
 \label{sec:canny}
 
-\begin{figure}[htbp]
-    \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/canny/canny}
-    \end{center}
-    \caption[Canny edge detection benchmarks]{Runtimes for the Canny edge
-        detection algorithm, comparing the Accelerate kernels and whole program
-        to sequential and parallel implementations. Note the log-log scale.}
-    \label{fig:canny}
-\end{figure}
+The edge detection example applies the Canny algorithm~\cite{Canny:1986et} to
+rectangular images of various sizes. The overall algorithm consists of seven
+distinct phases, the first six of which are naturally data parallel and are
+performed on the GPU. The last phase uses a recursive algorithm to ``connect''
+the pixels that make up the output lines. In our implementation this phase is
+performed on the CPU, which requires the image data to be transferred from the
+GPU back to the CPU for processing. In the figure, this final phase accounts for
+the non-linear slowdown visible with smaller image sizes. Also shown are the run
+times for just the first six data parallel phases, which exhibit linear speedup.
 
-\begin{figure}[htbp]
+\begin{figure}
     \begin{center}
         \includegraphics[width=0.45\textwidth]{images/sec-6/lena}
         \includegraphics[width=0.45\textwidth]{images/sec-6/lena-edges}
@@ -969,22 +970,22 @@ convolutions.
     \label{fig:lena}
 \end{figure}
 
-The edge detection example applies the Canny algorithm to square images of
-various sizes. The overall algorithm consists of seven distinct phases, the
-first six of which are naturally data parallel and are performed on the GPU. The
-last phase uses a recursive algorithm to ``connect'' the pixels that make up the
-output lines. In our implementation this phase is performed on the CPU, which
-requires the image data to be transferred from the GPU back to the CPU for
-processing. In the figure, this final phase accounts for the non-linear slowdown
-visible with smaller image sizes. Also shown are the run times for just the
-first six data parallel phases, which exhibit linear speedup.
-
 Neglecting the final phase, note that the data parallel phase is still slightly
-slower than in OpenCV. As discussed previously
-(\S\ref{sec:stencil_bounds_checking}) this is because the stencil kernels in
-Accelerate currently make a test for every array access to see if the element is
-in bounds, or if it lies outside the array and needs to be handled specially,
+slower than in OpenCV. As discussed in
+section~\ref{sec:stencil_bounds_checking}, this is because the stencil kernels
+in Accelerate currently make a test for every array access to see if the element
+is in bounds, or if it lies outside the array and needs to be handled specially,
 even though the vast majority of points in the array are far from the boundary.
+
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{images/sec-6/canny/canny}
+    \end{center}
+    \caption[Canny edge detection benchmarks]{Runtimes for the Canny edge
+        detection algorithm, comparing the Accelerate kernels and whole program
+        to sequential and parallel implementations. Note the log-log scale.}
+    \label{fig:canny}
+\end{figure}
 
 
 \subsection{Stencil fusion}
@@ -1016,7 +1017,7 @@ There is a significant amount of sharing between these two kernels, in terms of
 the coefficients required to compute the derivative at each point. As with all
 shortcut fusion methods, the system presented here does not combine multiple
 passes over the same array into a single traversal that computes multiple
-results. We leave this for future work, for example, in the style of data flow
+results. We leave this to future work, for example, in the style of data flow
 fusion~\cite{Lippmeier:2013vz}.
 \note{tk: simpler, more motivating example?}
 

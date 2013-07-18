@@ -1,8 +1,9 @@
+# vim: filetype=gnuplot
 
 set title "N-Body"
 
 set terminal pdf size 3,2.2
-set output "benchmarks/figs/nbody/nbody.pdf"
+set output "nbody.pdf"
 
 set key on
 set key left
@@ -17,15 +18,16 @@ set ylabel "Run Time (ms)"
 set logscale y
 set yrange [0.05:6000]
 
-plot    'benchmarks/figs/nbody/nbody-nofusionsharing.dat' using ($1):($2)      \
+plot    'nbody-nofusionsharing.dat' using ($1):($2)                     \
                 title "Accelerate -fusion -sharing"                     \
                 ls 7  lw 4 with linespoints,                            \
-        'benchmarks/figs/nbody/nbody-nofusion.dat' using ($1):($2)      \
+        'nbody-nofusion.dat' using ($1):($2)                            \
                 title "... -fusion +sharing"                            \
                 ls 2  lw 4 with linespoints,                            \
-        'benchmarks/figs/nbody/nbody.dat' using ($1):($2)               \
+        'nbody.dat' using ($1):($2)                                     \
                 title "... +fusion +sharing"                            \
-                ls 10  lw 4 with linespoints,                            \
-        'benchmarks/figs/nbody/nbody.dat' using ($1):($3)               \
+                ls 10  lw 4 with linespoints,                           \
+        'nbody.dat' using ($1):($3)                                     \
                 title "CUDA"                                            \
-                ls 1  lw 4 with linespoints                     
+                ls 1  lw 4 with linespoints
+

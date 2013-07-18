@@ -1,4 +1,4 @@
-%% Created using Papers on Wed, 17 Jul 2013.
+%% Created using Papers on Thu, 18 Jul 2013.
 %% http://papersapp.com/papers/
 
 @book{Altenkirch:2003kz,
@@ -2032,11 +2032,15 @@ publisher = {Springer-Verlag},
 annote = {Extend the flattening transform of Blelloch and Sabot to support user-defined recursive data types, which allows parallel tree structures to be defined. Previously, tree structures were mapped to vectors, requiring explicit index calculations to track parent-child relationships, and leading to suboptimal data distributions on distributed-memory machines.}
 }
 
-@techreport{Nikhil:1993,
-author = {Nikhil, Rishiyur S},
-title = {{An Overview of the Parallel Language Id (a foundation for pH, a parallel dialect of Haskell)}},
-year = {1993},
-address = {Cambridge Research Laboratory}
+@article{Merrill:2011bz,
+author = {Merrill, Duane and Grimshaw, Andrew},
+title = {{High Performance and Scalable Radix Sorting}},
+journal = {Parallel Processing Letters},
+year = {2011},
+volume = {21},
+number = {2},
+pages = {245--272},
+month = jun
 }
 
 @article{Claessen:2002,
@@ -2060,12 +2064,11 @@ address = {New York, NY, USA},
 annote = {Present an analysis of dense matrix-matrix multiplication, and find that even though the algorithm has regular data access patterns and highly parallel computational requirements, the lack of high bandwidth access to cached data will impair performance and limit the types of applications that will benefit from the computational power available from these architectures.}
 }
 
-@techreport{Blelloch:1995ut,
-author = {Blelloch, Guy E.},
-title = {{NESL: A Nested Data-Parallel Language}},
-year = {1995},
-number = {CMU-CS-95-170},
-month = sep
+@techreport{Nikhil:1993,
+author = {Nikhil, Rishiyur S},
+title = {{An Overview of the Parallel Language Id (a foundation for pH, a parallel dialect of Haskell)}},
+year = {1993},
+address = {Cambridge Research Laboratory}
 }
 
 @techreport{Bonachea:2006,
@@ -2091,12 +2094,12 @@ month = aug,
 url = {http://www.realworldtech.com/page.cfm?ArticleID=RWT090808195242}
 }
 
-@manual{NVIDIA:2012vj,
-title = {{Parallel Thread Execution ISA}},
-author = {{NVIDIA}},
-edition = {3.1},
-month = sep,
-year = {2012}
+@techreport{Blelloch:1995ut,
+author = {Blelloch, Guy E.},
+title = {{NESL: A Nested Data-Parallel Language}},
+year = {1995},
+number = {CMU-CS-95-170},
+month = sep
 }
 
 @inproceedings{Coutts:2007ia,
@@ -2108,12 +2111,12 @@ pages = {50--64},
 publisher = {Springer-Verlag}
 }
 
-@techreport{NVIDIA:2012wf,
+@manual{NVIDIA:2012vj,
+title = {{Parallel Thread Execution ISA}},
 author = {{NVIDIA}},
-title = {{CUDA C Programming Guide}},
-year = {2012},
-number = {PG-02829-001\_v5.0},
-month = oct
+edition = {3.1},
+month = sep,
+year = {2012}
 }
 
 @inproceedings{Seiler:2008,
@@ -2126,14 +2129,12 @@ publisher = {ACM},
 address = {New York, NY, USA}
 }
 
-@incollection{McBride:2005jv,
-author = {McBride, Conor},
-title = {{Epigram: Practical Programming with Dependent Types}},
-booktitle = {Lecture Notes in Computer Science},
-year = {2005},
-pages = {130--170},
-publisher = {Springer Berlin Heidelberg},
-address = {Berlin, Heidelberg}
+@techreport{NVIDIA:2012wf,
+author = {{NVIDIA}},
+title = {{CUDA C Programming Guide}},
+year = {2012},
+number = {PG-02829-001\_v5.0},
+month = oct
 }
 
 @book{Koelbel:1994,
@@ -2304,6 +2305,16 @@ volume = {21},
 number = {1},
 pages = {4--14},
 annote = {Implementation details of the NESL nested data-parallel language. c.f. Blelloch:1996 Performance comparison for a number of different hardware architectures. Achieves aim of concise description of parallel algorithms, relies on automatically flattening nested data. Demonstrates good performance and concise description for irregular data structures (a specific aim), although somewhat irrelevant now due to changing hardware (no vector/super computer architectures in large use anymore, no limitations for dynamic memory management as in F77).}
+}
+
+@incollection{McBride:2005jv,
+author = {McBride, Conor},
+title = {{Epigram: Practical Programming with Dependent Types}},
+booktitle = {Lecture Notes in Computer Science},
+year = {2005},
+pages = {130--170},
+publisher = {Springer Berlin Heidelberg},
+address = {Berlin, Heidelberg}
 }
 
 @booklet{Blelloch:1990a,

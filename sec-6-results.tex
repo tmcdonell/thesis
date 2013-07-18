@@ -1025,30 +1025,78 @@ fusion~\cite{Lippmeier:2013vz}.
 \section{Radix sort}
 
 The radix sort benchmark implements a simple parallel radix sort algorithm as
-described by \citet{Blelloch:1990vl} to sort an array of signed 32-bit integers.
-We compare our implementation of Blelloch's algorithm to one written in
-Nikola~\cite{Mainland:2010vj}, which is also an embedded language in Haskell for
-CUDA programming.\footnote{To be more specific, we estimate based on the results
-presented in the paper~\cite{Mainland:2010vj} as Nikola no longer compiles with
-recent versions of GHC, and the development version to replace it is not yet
-complete. Nevertheless, results are informative as the same GPU, a Tesla T10, is
-used in both cases.}
-%
+described by \citet{Blelloch:1990vl} to sort an array by an integral key. We
+compare our implementation of Blelloch's algorithm in Accelerate, shown in
+Listing~\ref{lst:radixsort}, to one written in Nikola~\cite{Mainland:2010vj},
+which is also an embedded language in Haskell for CUDA programming.%
+\footnote{To be more specific, we estimate based on the results presented in the
+paper~\cite{Mainland:2010vj} as Nikola no longer compiles with recent versions
+of GHC, and the development version to replace it is not yet complete.
+Nevertheless, results are informative as the same GPU, a Tesla T10, is used in
+both cases.}
 For this benchmark the Accelerate code is faster than Nikola, because Nikola is
 limited to single kernel programs so must transfer every intermediate result
 back to the host. Additionally, we are faster than a sequential radix sort
 implementation using \texttt{Data.Vector} for as few as $\sim256$ elements,
 whereas Nikola requires a dataset of about 32kB before the additional
-parallelism of the GPU outperforms the sequential version.
+parallelism of the GPU outperforms the sequential
+version~\cite{Mainland:2010vj}.
 
-Note that the absolute performance of this simple algorithm, which requires $b$
-iterations to sort an array of elements $b$-bits wide, is quite low.
-Implementations of radix sort optimised for the CUDA architecture, such as
-Thrust~\cite{Satish:2009kx}, make efficient use of memory bandwidth and on-chip
-shared memory and are approximately $10\times$ faster than Blelloch's algorithm
-in Accelerate. To address this we propose to implement a foreign function
-interface for Accelerate to take advantage of existing high-performance
-libraries. We leave this for future work.
+\begin{lstlisting}[style=haskell
+    ,float
+    ,label=lst:radixsort
+    ,caption={Radix sort algorithm in Accelerate}]
+class Elt e => Radix e where
+  passes :: e -> Int                            -- number of passes (bits) required to sort this key type
+  radix  :: Exp Int -> Exp e -> Exp Int         -- extract the $n^{th}$ bit of the key
+
+sortBy :: forall a r. (Elt a, Radix r)
+       => (Exp a -> Exp r)
+       -> Acc (Vector a)
+       -> Acc (Vector a)
+sortBy rdx arr = foldr1 (>->) (P.map radixPass [0..p-1]) arr    -- loop over bits of the key, low\ldots
+  where                                                         -- \ldots bit first to maintain sort order
+    p           = passes (undefined :: r)
+    deal f x    = let (a,b) = unlift x in (f ==* 0) ? (a,b)
+
+    radixPass k v =
+      let k'    = unit (constant k)                             -- to create reusable kernels
+          flags = A.map (radix (the k') . rdx) v                -- extract the sort key
+          idown = prescanl (+) 0 . A.map (xor 1)        $ flags -- move elements to the beginning\ldots
+          iup   = A.map (size v - 1 -) . prescanr (+) 0 $ flags -- \ldots end of the vector
+          index = A.zipWith deal flags (A.zip idown iup)
+      in
+      permute const v (\ix -> index1 (index!ix)) v              -- move elements to new position
+\end{lstlisting}
+
+The \code{radixPass} function sorts the vector \code{v} based on the value of
+bit \code{k}; moving elements with a zero at that bit to the beginning of the
+vector and those with a one bit to the end. This simple algorithm requires
+$b$ iterations to sort an array of elements whose keys are $b$-bits wide, and
+each pass requires multiple traversals of the array.
+
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{images/sec-6/radixsort/radixsort}
+    \end{center}
+    \caption[Radix sort kernel benchmarks]{Kernel runtimes for the radix sort benchmark
+        of signed 32-bit integers, comparing the Accelerate version to other
+        parallel implementations. Note the log-log scale.}
+    \label{fig:radixsort}
+\end{figure}
+
+As seen in Figure~\ref{fig:radixsort}, the absolute performance of this simple
+algorithm, which sorts the array by a single bit at a time, is quite low.
+Implementations of radix sort optimised for the CUDA
+architecture~\cite{Satish:2009kx,Merrill:2011bz,ThrustAParallelT:ub}, are
+approximately $10\times$ faster because they make efficient use of memory
+bandwidth and on-chip shared memory to sort keys by 8-bits at a time. Such
+implementations are, essentially, different algorithms than Blelloch's radix
+sort algorithm that we have implemented here, but serve to illustrate the
+absolute performance of the device. To address this we have implemented a
+foreign function interface for Accelerate to take advantage of existing
+high-performance libraries. The foreign function interface is orthogonal to the
+work presented here of optimising programs written in the Accelerate language.
 
 
 \section{Sparse-matrix vector multiplication}

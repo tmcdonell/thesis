@@ -40,6 +40,12 @@
 \lstlistoflistings\markboth{\lstlistlistingname}{\lstlistlistingname}
 \addtocontents{lol}{\vspace{10pt}}
 
+\cleardoublepage
+\phantomsection
+\renewcommand{\listtablename}{Tables}
+\addcontentsline{toc}{chapter}{\listtablename}
+\listoftables\markboth{\listtablename}{\listtablename}
+
 \include{sec-iii-abstract}
 \include{sec-iv-acknowledgements}
 

@@ -889,7 +889,7 @@ flow, the actual computation time (probably) greatly outweighs the extra
 arithmetic.}
 
 
-\subsection{Sharing}
+\subsection{Overlapping elements}
 
 \begin{figure}[htbp]
     \begin{center}
@@ -945,6 +945,11 @@ to future work to implement sharing of stencil elements between threads, in
 general or specialised for certain cases, such as those commonly used in image
 convolutions.
 
+\subsection{Stencil fusion}
+
+\note{Fusion of \code{stencil s . map f} may be beneficial if \code{f} is
+simple. Shares concerns with previous.}
+
 
 \section{Canny edge detection}
 \label{sec:canny}
@@ -988,10 +993,9 @@ even though the vast majority of points in the array are far from the boundary.
 \end{figure}
 
 
-\subsection{Stencil fusion}
+\subsection{Stencil merging}
 
 Two of the data parallel stages of the Canny algorithm are the calculation of
-\marginnote{tk: this sort of went in a different direction?}
 the image intensity gradients by convolving the image with the $3\times3$
 kernels shown below. This convolution, known as the Sobel operator, is a
 discrete differentiation operator that computes an approximation of the
@@ -1014,12 +1018,11 @@ horizontal and vertical image gradients.
 \end{equation*}
 
 There is a significant amount of sharing between these two kernels, in terms of
-the coefficients required to compute the derivative at each point. As with all
-shortcut fusion methods, the system presented here does not combine multiple
-passes over the same array into a single traversal that computes multiple
-results. We leave this to future work, for example, in the style of data flow
-fusion~\cite{Lippmeier:2013vz}.
-\note{tk: simpler, more motivating example?}
+the coefficients required to compute the derivative at each point, so it could
+be beneficial to merge these two stencils. As with all shortcut fusion methods,
+the system presented here does not combine multiple passes over the same array
+into a single traversal that computes multiple results. We leave this to future
+work, for example, in the style of data flow fusion~\cite{Lippmeier:2013vz}.
 
 
 \section{Radix sort}

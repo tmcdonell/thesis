@@ -304,6 +304,7 @@ the CUDA compiler as a 32-bit wide integer.
 
 
 \subsection{Non-neutral starting elements}
+\label{sec:non-neutral_starting_elements}
 
 For convenience, and to avoid possibly unexpected behaviour, Accelerate's
 \code{fold*} family of functions do not require the combination function and
@@ -1104,50 +1105,82 @@ work presented here of optimising programs written in the Accelerate language.
 
 \section{Sparse-matrix vector multiplication}
 
+\marginnote{tk: redo bechmarks}
 \begin{table}
 \centering
-\begin{tabular}{lrrrr}
+\begin{tabular}{lrrrrp{2in}}
 
 \textbf{Name}   & \parbox[b]{12ex}{\centering Non-zeros\\(nnz/row)}
                 & \multicolumn{1}{c}{\rotatebox{90}{CUSP}}
                 & \multicolumn{1}{c}{\rotatebox{90}{Accelerate}}
-                & \multicolumn{1}{c}{\begin{sideways}\parbox{9ex}
+                & \multicolumn{1}{c}{\begin{sideways}\parbox{10ex}
                         {\centering Accelerate\\no fusion}\end{sideways}}
+                & {\centering Description}
                 \\ \hline
 
-Dense                   & 4M (2K)       & 14.48 & 14.62 & 3.41  \\
-Protein                 & 4.3M (119)    & 13.55 & 13.65 & 0.26  \\
-FEM/Spheres             & 6M (72)       & 12.63 &  9.03 & 4.70  \\
-FEM/Cantilever          & 4M (65)       & 11.98 &  7.96 & 4.41  \\
-Wind Tunnel             & 11.6M (53)    & 11.98 &  7.33 & 4.62  \\
-FEM/Harbour             & 2.37M (50)    &  9.42 &  6.14 & 0.13  \\
-QCD                     & 1.9M (39)     &  7.79 &  4.66 & 0.13  \\
-FEM/Ship                & 3.98 (28)     & 12.28 &  6.60 & 4.47  \\
-Economics               & 1.27M (6)     &  4.59 &  0.90 & 1.06  \\
-Epidemiology            & 1.27M (4)     &  6.42 &  0.59 & 0.91  \\
-FEM/Accelerator         & 2.62M (22)    &  5.41 &  3.08 & 2.92  \\
-Circuit                 & 959k (6)      &  3.56 &  0.82 & 1.08  \\
-Webbase                 & 3.1M (3)      &  2.11 &  0.47 & 0.74  \\
-LP                      & 11.3M (2825)  &  5.22 &  5.04 & 2.41  \\
+Dense                   & 4M (2K)       & 14.48 & 14.62 & 3.41
+                        & Dense matrix in sparse format \\
+Protein                 & 4.3M (119)    & 13.55 & 13.65 & 0.26
+                        & Protein data bank 1HYS \\
+FEM/Spheres             & 6M (72)       & 12.63 &  9.03 & 4.70
+                        & FEM concentric spheres \\
+FEM/Cantilever          & 4M (65)       & 11.98 &  7.96 & 4.41
+                        & FEM cantilever \\
+Wind Tunnel             & 11.6M (53)    & 11.98 &  7.33 & 4.62
+                        & Pressurised wind tunnel \\
+FEM/Harbour             & 2.37M (50)    &  9.42 &  6.14 & 0.13
+                        & 3D CFD Charleston harbour \\
+QCD                     & 1.9M (39)     &  7.79 &  4.66 & 0.13
+                        & Quark propagators (QCD/LGT) \\
+FEM/Ship                & 3.98 (28)     & 12.28 &  6.60 & 4.47
+                        & FEM Ship section/detail \\
+Economics               & 1.27M (6)     &  4.59 &  0.90 & 1.06
+                        & Macroeconomics model \\
+Epidemiology            & 1.27M (4)     &  6.42 &  0.59 & 0.91
+                        & 2D Markov model of epidemic \\
+FEM/Accelerator         & 2.62M (22)    &  5.41 &  3.08 & 2.92
+                        & Accelerator cavity design \\
+Circuit                 & 959k (6)      &  3.56 &  0.82 & 1.08
+                        & Motorola circuit simulation \\
+Webbase                 & 3.1M (3)      &  2.11 &  0.47 & 0.74
+                        & Web connectivity matrix \\
+LP                      & 11.3M (2825)  &  5.22 &  5.04 & 2.41
+                        & Railways set cover constraint matrix \\
 
 \end{tabular}
-\caption{Overview of sparse matrices tested and results of the benchmark.
-Measurements are in GFLOPS/s (higher is better).}
-\label{tab:smvm-summary}
+\caption[Sparse-matrix vector multiplication benchmarks]{Overview of sparse
+matrices tested and results of the benchmark. Measurements are in GFLOPS/s
+(higher is better).}
+\label{tab:smvm_summary}
 \end{table}
-
 
 This benchmark considers the multiplication of sparse matrices in compressed row
 format (CSR)~\cite{Chatterjee:1990vj} with a dense vector. This matrix format
 consists of an array of the non-zero elements paired with their column index,
 together with a segment descriptor recording the number of non-zeros in each
-row.
-
-Table~\ref{tab:smvm-summary} compares Accelerate to the CUSP
-library~\cite{Bell:2009}; a special purpose library for sparse matrix
-operations. Using a 14 matrix corpus derived from a variety of application
-domains~\cite{Williams:2009cy}, we compare against the CUSP implementation for
+row. The corresponding Accelerate code is shown in Listing~\ref{lst:smvm}.
+Table~\ref{tab:smvm_summary} compares Accelerate to the CUSP
+library~\cite{Bell:2008wc,Bell:2009bl}; a special purpose library for sparse
+matrix operations. Using a 14 matrix corpus derived from a variety of
+application domains~\cite{Williams:2009cy}, we compare against CUSP for
 compressed row format matrices.
+
+\begin{lstlisting}[style=haskell
+    ,float
+    ,label=lst:smvm
+    ,caption={Sparse-matrix vector multiplication in Accelerate}]
+type SparseVector e = Vector (Int, e)                   -- column index and value
+type SparseMatrix e = (Segments Int, SparseVector e)    -- length of each row
+
+smvm :: (Elt a, IsNum a) => Acc (SparseMatrix a) -> Acc (Vector a) -> Acc (Vector a)
+smvm smat vec
+  = let (segd, svec)    = unlift smat
+        (inds, vals)    = A.unzip svec
+        vecVals         = gather inds vec
+        products        = A.zipWith (*) vecVals vals
+    in
+    foldSeg (+) 0 products segd
+\end{lstlisting}
 
 Compared to our previous work~\cite{Chakravarty:2011fr} the fusion
 transformation compresses the program into a single segmented reduction. As
@@ -1159,12 +1192,77 @@ long running and accesses to the source vector are contiguous and have high
 re-use. We see that Accelerate with array fusion not only achieves this expected
 performance limit, but is also slightly faster than the CUSP implementation.
 
-However, matrices such as FEM/Spheres, with few non-zeros per row ($\lesssim 2
-\times \text{warp size} = 64$) exhibit a drop in performance relative to CUSP.
-This may be related to the way the skeleton code ensures that the vector read of
-each row is coalesced and aligned to the warp boundary to maximise global memory
-throughput, but is then not able to amortize this extra startup cost over the
-row length. Matrices such as Epidemiology, with large vectors and few non-zeros
+\subsection{Segment startup}
+
+To maximise global memory throughput the skeleton code ensures that the vector
+read of each matrix row is coalesced and aligned to the warp boundary. Since
+Accelerate does not require the starting element of the reduction to be a
+neutral element, threads must also ensure they initialise their local sum from
+the input array (\ref{sec:non-neutral_starting_elements}).
+
+
+\begin{lstlisting}[style=cuda
+    ,float
+    ,firstnumber=44
+    ,label=lst:smvm_cuda
+    ,caption={Generated CUDA code for sparse-matrix vector multiplication}]
+if (num_elements > warpSize) {
+    ix = start - (start & warpSize - 1) + thread_lane;
+    if (ix >= start) {
+        const Int64 v3 = ix;
+        const int v4 = toIndex(shIn2, shape(v3));
+        const int v5 = toIndex(shIn1, shape((Int64) arrIn2_a1[v4]));
+        const int v6 = toIndex(shIn2, shape(v3));
+
+        y0 = arrIn1_a0[v5] * arrIn2_a0[v6];
+    }
+    if (ix + warpSize < end) {
+        const Int64 v3 = ix + warpSize;
+        const int v4 = toIndex(shIn2, shape(v3));
+        const int v5 = toIndex(shIn1, shape((Int64) arrIn2_a1[v4]));
+        const int v6 = toIndex(shIn2, shape(v3));
+
+        x0 = arrIn1_a0[v5] * arrIn2_a0[v6];
+        if (ix >= start) {
+            y0 = x0 + y0;
+        } else {
+            y0 = x0;
+        }
+    }
+    for (ix += 2 * warpSize; ix < end; ix += warpSize) {
+        const Int64 v3 = ix;
+        const int v4 = toIndex(shIn2, shape(v3));
+        const int v5 = toIndex(shIn1, shape((Int64) arrIn2_a1[v4]));
+        const int v6 = toIndex(shIn2, shape(v3));
+
+        x0 = arrIn1_a0[v5] * arrIn2_a0[v6];
+        y0 = x0 + y0;
+    }
+} else if (start + thread_lane < end) {
+    const Int64 v3 = start + thread_lane;
+    const int v4 = toIndex(shIn2, shape(v3));
+    const int v5 = toIndex(shIn1, shape((Int64) arrIn2_a1[v4]));
+    const int v6 = toIndex(shIn2, shape(v3));
+
+    y0 = arrIn1_a0[v5] * arrIn2_a0[v6];
+}
+\end{lstlisting}
+
+
+However, matrices such as FEM/Spheres, with few non-zero elements per row
+($\lesssim 2 \times \text{warp size} = 64$) exhibit a drop in performance
+relative to CUSP.
+
+
+This may be related to the way the skeleton code ensures that
+the vector read of each row is coalesced and aligned to the warp boundary to
+maximise global memory throughput, but is then not able to amortize this extra
+startup cost over the row length. Since Accelerate does not require the starting
+element of the reduction to be a neutral element (see
+\S\ref{sec:non-neutral_starting_elements})
+
+
+Matrices such as Epidemiology, with large vectors and few non-zeros
 per row, exhibit low flop:byte ratio and are poorly suited to the CSR format,
 with all implementations performing well below peak. The regression relative to
 our previous result will be investigated. Nevertheless, this highlights the

@@ -19,6 +19,7 @@ continuous: deps
 
 deps:$(SUBDIRS) $(MISCDEP)
 	@for x in $(SUBDIRS); do $(MAKE) -C $$x; done
+	@mkdir -p $(BUILDDIR)/sections
 
 %.tex: %.mng
 	ott $(OTT_FLAGS) -tex_filter $< $@ $(OTT_FILES)

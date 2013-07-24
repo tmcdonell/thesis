@@ -1,4 +1,4 @@
-%% Created using Papers on Thu, 18 Jul 2013.
+%% Created using Papers on Wed, 24 Jul 2013.
 %% http://papersapp.com/papers/
 
 @book{Altenkirch:2003kz,
@@ -1824,13 +1824,6 @@ month = mar,
 annote = {Describes the role and procedure of mass spectrometry-based proteomics as a tool for molecular and cellular biology. Compares commonly used methods/systems and their relative strengths and weaknesses.}
 }
 
-@book{Anonymous:2005vl,
-title = {{link.springer.com}},
-publisher = {Springer Berlin Heidelberg},
-year = {2005},
-address = {Berlin, Heidelberg}
-}
-
 @article{Blelloch:1993ts,
 author = {Blelloch, Guy E. and Heroux, Michael A. and Zagha, Marco},
 title = {{Segmented operations for sparse matrix computation on vector multiprocessors}},
@@ -1847,6 +1840,16 @@ month = nov,
 annote = {Similar to Jones:2008, draws together the work of many previous papers. Covers topics in more detail, instead of providing a large running example/motivation, and includes a discussion of stream fusion, omitted from the later work. Aims to describe the language and implementation of nested data parallelism in Haskell, with a broad high-level scope. Doesn't really discuss limitations of the system, as the goal is to present the current state of the implementation -- algorithm discussions can be found in the more detailed papers upon which the system is based.}
 }
 
+@inproceedings{Satish:2009kx,
+author = {Satish, Nadathur and Harris, Mark and Garland, Michael},
+title = {{Designing efficient sorting algorithms for manycore GPUs}},
+booktitle = {IPDPS '09: Proceedings of the 2009 IEEE International Symposium on Parallel{\&}Distributed Processing},
+year = {2009},
+pages = {1--10},
+publisher = { IEEE Computer Society},
+month = may
+}
+
 @inproceedings{Chakravarty:2001gz,
 author = {Chakravarty, Manuel M T and Keller, Gabriele and Leshtchinsky, Roman and Pfannenstiel, Wolf},
 title = {{Nepal -- Nested Data Parallelism in Haskell}},
@@ -1858,14 +1861,12 @@ publisher = {Springer-Verlag},
 annote = {Discusses a possible implementation of nested data-parallelism in Haskell (as an extension). Data parallelism restricts parallelism to the application of a single function to all elements of a collective structure. The authors argue that compared to control parallelism, this allows the programmer and compiler to better predict the parallel behaviour of a program, which ultimately allows for finer parallel granularity and allows for more radical compiler optimisations. The programming model is also closer to sequential programming, and arguably easier to understand. Extends NESL (Blelloch et. al.) to support user-defined recursive and sum types, and also benefits from other features of Haskell (I/O, type system, standardised language, etc...) Parallel and sequential structures are distinguished through the type system.}
 }
 
-@inproceedings{Satish:2009kx,
-author = {Satish, Nadathur and Harris, Mark and Garland, Michael},
-title = {{Designing efficient sorting algorithms for manycore GPUs}},
-booktitle = {IPDPS '09: Proceedings of the 2009 IEEE International Symposium on Parallel{\&}Distributed Processing},
-year = {2009},
-pages = {1--10},
-publisher = { IEEE Computer Society},
-month = may
+@inproceedings{Lippmeier:2013vz,
+author = {Lippmeier, Ben and Chakravarty, Manuel M T and Keller, Gabriele and Robinson, Amos},
+title = {{Data Flow Fusion with Series Expressions in Haskell}},
+booktitle = {Haskell '13: Proceedings of the 2013 symposium on Haskell},
+year = {2013},
+month = sep
 }
 
 @inproceedings{Harris:2007te,
@@ -1913,12 +1914,15 @@ pages = {325--335},
 annote = {A C\{\#} library of abstractions for data-parallel arrays and operations that allows programmers to combine operations for the CPU and GPU within a single application. To improve efficiency, the library uses a graph-based lazy evaluation strategy of data-parallel operations on the GPU. Evaluation is typically triggered by the explicit conversion of an array from a data-parallel to a serial representation.}
 }
 
-@inproceedings{Lippmeier:2013vz,
-author = {Lippmeier, Ben and Chakravarty, Manuel M T and Keller, Gabriele and Robinson, Amos},
-title = {{Data Flow Fusion with Series Expressions in Haskell}},
-booktitle = {Haskell '13: Proceedings of the 2013 symposium on Haskell},
-year = {2013},
-month = sep
+@article{Nickolls:2008io,
+author = {Nickolls, John and Buck, Ian and Garland, Michael and Skadron, Kevin},
+title = {{Scalable parallel programming with CUDA}},
+journal = {Queue},
+year = {2008},
+volume = {6},
+number = {2},
+pages = {40},
+month = mar
 }
 
 @book{Gibbons:1988,
@@ -1938,17 +1942,6 @@ month = aug,
 annote = {Comprehensive survey paper of the (then) current features and limitations of graphics hardware in the context of their use for general purpose computation. Discussion of the differences between CPU and GPU hardware and software programming models, and methods to improve flow control. Includes many examples of algorithms and applications which are well categorised, with evolution of algorithms/methods as additional programmability was introduced. GPGPU techniques discussed include: * stream operations (map, reduce, scatter/gather, sort, search, filter) * data structures (dense/sparse, static/dynamic) * Differential equations and linear algebra}
 }
 
-@article{Nickolls:2008io,
-author = {Nickolls, John and Buck, Ian and Garland, Michael and Skadron, Kevin},
-title = {{Scalable parallel programming with CUDA}},
-journal = {Queue},
-year = {2008},
-volume = {6},
-number = {2},
-pages = {40},
-month = mar
-}
-
 @article{Huet:1997ue,
 author = {Huet, Gerard},
 title = {{Functional Pearl: The Zipper}},
@@ -1958,6 +1951,16 @@ volume = {7},
 number = {5},
 pages = {549--554},
 month = sep
+}
+
+@inproceedings{Ma:2010ft,
+author = {Ma, Wenjing and Agrawal, Gagan},
+title = {{An integer programming framework for optimizing shared memory use on GPUs}},
+booktitle = {2010 International Conference on High Performance Computing (HiPC)},
+year = {2010},
+pages = {1--10},
+publisher = {IEEE},
+month = dec
 }
 
 @article{Wall:1991,
@@ -2001,6 +2004,11 @@ publisher = { ACM Press/Addison-Wesley Publishing Co.  Request Permissions},
 month = jul
 }
 
+@article{AnacondaAccelerate:2013vn,
+title = {{Anaconda Accelerate}},
+year = {2013}
+}
+
 @inproceedings{Sulzmann:2007ch,
 author = {Sulzmann, Martin and Chakravarty, Manuel M T and Jones, Simon Peyton and Donnelly, Kevin},
 title = {{System F with type equality coercions}},
@@ -2009,16 +2017,6 @@ year = {2007},
 pages = {53--66},
 publisher = {ACM},
 address = {New York, NY, USA}
-}
-
-@inproceedings{Ma:2010ft,
-author = {Ma, Wenjing and Agrawal, Gagan},
-title = {{An integer programming framework for optimizing shared memory use on GPUs}},
-booktitle = {2010 International Conference on High Performance Computing (HiPC)},
-year = {2010},
-pages = {1--10},
-publisher = {IEEE},
-month = dec
 }
 
 @inproceedings{Keller:1998fx,
@@ -2317,10 +2315,22 @@ publisher = {Springer Berlin Heidelberg},
 address = {Berlin, Heidelberg}
 }
 
-@booklet{Blelloch:1990a,
-title = {{Vector Models for Data-Parallel Computing}},
-year = {1990},
-annote = {Seminal paper for nested data parallelism. In the context of parallel computing, there are two kinds of time complexity: step complexity and work complexity. Step complexity is the number of parallel operations required to complete a computation given an infinite number of processors. Work complexity is the total numbor of operations on all processors. Ideally, a parallel algorithm has the same work complexity as a serial algorithm, however this is not possible even in theory for some algorithms, even if the step complexity is lower. Some problems are considered intrinsically serial, such as depth-first tree labeling.}
+@incollection{Matsuzaki:2011ew,
+author = {Matsuzaki, Kiminori and Emoto, Kento},
+title = {{Implementing Fusion-Equipped Parallel Skeletons by Expression Templates}},
+year = {2011},
+pages = {72--89},
+publisher = {Springer Berlin Heidelberg},
+address = {Berlin, Heidelberg}
+}
+
+@incollection{Sato:2009cq,
+author = {Sato, Shigeyuki and Iwasaki, Hideya},
+title = {{A Skeletal Parallel Framework with Fusion Optimizer for GPGPU Programming}},
+year = {2009},
+pages = {79--94},
+publisher = {Springer Berlin Heidelberg},
+address = {Berlin, Heidelberg}
 }
 
 @article{Esmaeilzadeh:2013bw,

@@ -45,59 +45,60 @@
 %  + Motivation
 %
 
+MMTC: Chapter 2 (Background): Don't bother introducing Haskell and things like parallelism vs concurrency etc. What you need to discuss is (1) data parallelism and (2) how GPGPU programming is data parallel programming. Then, (3) the idea of embedded languages and runtime code generation. However, don't go into too much details at this point. After all, much of this has been discussed in existing literature already. I'd suggest to pick 1-2 examples and use them to drive the explanations (and at the same time give people an idea for the feel of Accelerate programs).
+
+
 \begin{itemize}
-    \item Functional programming 101
-        \begin{itemize}
-            \item Haskell 101?
-            \item bulk programming; function composition
-            \item denotional semantics?
-        \end{itemize}
+\item Functional programming (3 days)
+    \begin{itemize}
+        \item Basic Haskell introduction
+        \item bulk programming style, function composition
+        %\item denotional semantics?
+    \end{itemize}
 
-    \item Parallel programming 101 (steal from literature review)
-        \begin{itemize}
-            \item parallel vs. concurrent
-            \item data parallelism
-                \begin{itemize}
-                    \item example parallel programming operators (fold, scan)
-                    \item parallel interpretation of ostensibly serial
-                        operations
-                \end{itemize}
-            \item evaluating parallel programs
-                \begin{itemize}
-                    \item work and depth complexity
-                    \item parallel speedup
-                    \item wall clock time!
-                \end{itemize}
-        \end{itemize}
+\item Parallel programming (1 week)
+    \begin{itemize}
+        \item parallel vs. concurrent (1 day)
+        \item data parallelism; examples (2 days)
+        \item evaluating parallel programs (3 days)
+            \begin{itemize}
+                \item work and depth complexity
+                \item parallel speedup
+                \item wall clock time
+                \item instruction vs. bandwidth limited programs
+            \end{itemize}
+    \end{itemize}
 
-    \item CUDA programming 101
-        \begin{itemize}
-            \item GPGPU programming
-                \begin{itemize}
-                    \item why bother?
-                    \item performance vs. development time
-                \end{itemize}
-            \item programming model
-                \begin{itemize}
-                    \item SIMD architecture
-                    \item kernels, thread blocks
-                    \item memory \& coalescing
-                \end{itemize}
-        \end{itemize}
+\item Parallel programming with CUDA (2 weeks)
+    \begin{itemize}
+        \item GPGPU programming (3 days)
+            \begin{itemize}
+                \item why bother?
+                \item performance vs. development time
+            \end{itemize}
+        \item CUDA programming model (1.5 weeks)
+            \begin{itemize}
+                \item programming model, SIMD architecture
+                \item execution model: kernels, warps, thread blocks
+                \item memory model, coalescing
+                \item execution control (host/device)
+            \end{itemize}
+    \end{itemize}
 
-    \item Embedded languages
-        \begin{itemize}
-            \item advantages: using tools/features of host language
-            \item deep vs. shallow. \url{http://skillsmatter.com/podcast/scala/making-edsls-fly}
-            \item DSLs in Haskell
-                \begin{itemize}
-                    \item simple (untyped) DSL
-                    \item GADTs to encode type safety / invariants
-                    \item type-safe evaluator
-                    \item itemize design requirements / goals of this language
-                \end{itemize}
-        \end{itemize}
-
+\item Embedded languages (1.5 weeks)
+    \begin{itemize}
+        \item dis/advantages: using tools/features of host language; recreating
+            functionality of the host compiler (optimisations)
+        \item deep (Accelerate) vs. shallow (Repa) embeddings
+            % \url{http://skillsmatter.com/podcast/scala/making-edsls-fly}
+        \item DSLs in Haskell (1 week)
+            \begin{itemize}
+                \item simple (untyped) DSL
+                \item GADTs to encode type safety / invariants
+                \item type-safe evaluator
+                \item itemize design requirements / goals of this language
+            \end{itemize}
+    \end{itemize}
 \end{itemize}
 
 

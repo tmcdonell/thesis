@@ -12,32 +12,40 @@
 \epigraph{You see a wile, you thwart. Am I right?}%
 {\textsc{---terry pratchett and neil gaiman}\\\textit{Good Omens}}
 
+MMTC: Chapter 3 (Design): Maybe you should call the chapter "Design and Related Work". It seems that you want to cover related work there and it is a good idea to make that easy to find.
+
+MMTC: More generally, there are two ways to do related work. Everything in one related work chapter or have a related work section at the end of each chapter. The latter works better if there is different sorts of related work for the different chapters. This may apply here as, eg, the related work for embedded languages and the related work for fusion has little overlap. (You can look at my thesis for an example of that style.)
+
+
 \begin{itemize}
-    \item design of a stratified language (steal from DAMP)
-        \begin{itemize}
-            \item using the type system to exclude nesting
-            \item richly typed terms; environments \& types
-            \item types $\Rightarrow$ correctness??
-            \item surface \& internal (core) languages
-            \item representing different constructs (c.f. nesting?)
-        \end{itemize}
+\item other significant parallel/GPGPU programming models/languages; limitations
+    to avoid/embrace and what features to steal (1.5 weeks)
+    \begin{itemize}
+        \item Repa \cite{Keller:2010er,Lippmeier:2011cd,Lippmeier:2012gx} (Haskell)
+        \item SkeTo \cite{Matsuzaki:2011ew} (C++)
+        \item list homomorphism based \cite{Sato:2009cq} (C++)
+        \item Delite/LMS \cite{Rompf:2013er} (Scala)
+        \item NDP2GPU \cite{Bergstrom:2012bi} (Haskell)
+        \item Nikola \cite{Mainland:2010vj} (Haskell)
+        \item Obsidian \cite{Svensson:2008a,Claessen:2012hl} (Haskell)
+        \item Baracuda \cite{Larsen:2011fa} (Haskell)
+        \item Jacket/ArrayFire \cite{AccelerEyes:vq} (Matlab)
+        \item Anaconda Accelerate \cite{AnacondaAccelerate:2013vn} (Python)
+    \end{itemize}
 
-    \item Related work, why it sucks
-        \begin{itemize}
-            \item open source: C/C++, Python, Haskell
-            \item commercial: Matlab (Jacket), ArrayFire
-        \end{itemize}
+    \item Why another parallel programming language? (1 day)
 
-    \item Why another parallel programming language?
+    \item Accelerate design (3 weeks)
         \begin{itemize}
-            \item expressiveness? (NDP \#fail \#sadface)
-            \item ease of use?
-        \end{itemize}
-
-    \item Accelerate \textit{design}
-        \begin{itemize}
+            \item rank-polymorphic array language of collective operations
             \item programming model
             \item algorithmic skeletons
+            \item stratified language: using the type system to exclude nesting
+            \item richly typed terms; environments \& types (type safe evaluator)
+            \item types help catch bugs in the compiler; important since
+                compilation happens at program \emph{runtime}
+            \item surface vs. internal (core) languages
+            %\item representing different constructs (c.f. nesting?)
             \item examples: operator expressiveness (application driven)
         \end{itemize}
 

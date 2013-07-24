@@ -3,6 +3,12 @@
 \epigraph{Relax. As usual, I will bore you with the details.}%
 {\textsc{---chris lee}}
 
+MMTC: Chapter 5: This set up where you put the related work for fusion in the middle of the chapter doesn't work IMO. Always lead with the interesting material (your contribution) and not with the boring stuff (previous work that expert readers already know anyway). Put the related work at the end of the chapter.
+Section 5.3 seems out of place. (You have got a remark to maybe move it to implementation. I'm not sure whether that is the right place, but the current place is definitely not good.)
+Section 5.4 \& 5.5 also seem like a distraction in the middle of explaining fusion. First you have the general fusion setup in 5.2 and then the details in 5.6. They should one straight after the other without any distraction inbetween. If you need 5.4 \& 5.5 for 5.6, then make sure you discuss this stuff earlier. Maybe it should be part of the background or the implementation chapter.
+
+MMTC: Section numbers with 4 parts (5.2.2.1 etc) look silly. Use unnumbered '\\paragraph's or revise your structure.
+
 The previous chapter discussed the architecture of the Accelerate language
 embedding and execution on CUDA hardware. Through a set of benchmarks, we
 identify the two most pressing performance limitations: operator fusion and data

@@ -4,6 +4,34 @@
 {\textsc{---herbert v. prochnow}}
 
 
+\begin{itemize}
+\item implementing parallel algorithms (20\%, 1 week)
+    \begin{itemize}
+        \item fold
+        \item scan
+        \item permute (atomic operations)
+        \item segmented/rank polymorphic operations
+    \end{itemize}
+
+\item skeleton-based code generation (2 weeks)
+    \begin{itemize}
+        \item device capabilities (free array variables, \code{umul24},
+            \code{shfl}, atomic operations, shared memory)
+        \item rank polymorphic operations
+    \end{itemize}
+
+\item runtime system (3 weeks)
+    \begin{itemize}
+        \item launching kernels (occupancy calculator)
+        \item caching compiled kernels (live \& persistent caches)
+        \item memory management (escaping the EDSL evaluator; weak pointers vs.
+            reference counting)
+        \item executing kernels (annotated AST)
+    \end{itemize}
+
+\end{itemize}
+
+
 The previous chapter described the design of the Accelerate language, an
 embedded DSL of operations over arrays, rich enough to express some interesting
 real-world problems. This chapter details the architecture of the embedding as

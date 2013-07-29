@@ -490,19 +490,20 @@ set of points forming the boundary of this relation forms the distinctive and
 easily recognisable fractal shape, as was seen in Figure~\ref{fig:mandelbrot}.
 
 \begin{table}
-    \centering
-    \small
-    \begin{tabular}{lrrrr}
+\centering
+\small
+\begin{tabu}{lrrrr}
+\toprule
 
-                        & \multicolumn{1}{c}{Time}
-                        & \multicolumn{1}{c}{Bandwidth}
-                        & \multicolumn{1}{c}{Step}
-                        & \multicolumn{1}{c}{Cumulative} \\
+                        & \multicolumn{1}{c}{\bf Time}
+                        & \multicolumn{1}{c}{\bf Bandwidth}
+                        & \multicolumn{1}{c}{\bf Step}
+                        & \multicolumn{1}{c}{\bf Cumulative} \\
 
-\textbf{Benchmark}      & \multicolumn{1}{c}{(ms)}
-                        & \multicolumn{1}{c}{(GB/s)}
-                        & \multicolumn{1}{c}{Speedup}
-                        & \multicolumn{1}{c}{Speedup} \\\hline
+\textbf{Benchmark}      & \multicolumn{1}{c}{\bf (ms)}
+                        & \multicolumn{1}{c}{\bf (GB/s)}
+                        & \multicolumn{1}{c}{\bf Speedup}
+                        & \multicolumn{1}{c}{\bf Speedup} \\\midrule
 
 Accelerate              &
                         &
@@ -540,11 +541,12 @@ CPU (avg)               & 1389
                         &
                         & \\
 
-    \end{tabular}
-    \caption[Mandelbrot fractal kernel benchmarks]{Mandelbrot fractal benchmarks
-        in Accelerate with and without optimisations, compared to a hand written
-        CUDA version. \note{tk: figure?}}
-    \label{tab:mandelbrot}
+\bottomrule
+\end{tabu}
+\caption[Mandelbrot fractal kernel benchmarks]{Mandelbrot fractal benchmarks in
+    Accelerate with and without optimisations, compared to a hand written CUDA
+    version. \note{tk: figure?}}
+\label{tab:mandelbrot}
 \end{table}
 
 As expected, Table~\ref{tab:mandelbrot} shows that without fusion performance is
@@ -1110,8 +1112,9 @@ work presented here of optimising programs written in the Accelerate language.
 
 \begin{table}
 \centering
-\begin{small}
-\begin{tabu}{X[-1cm]X[2lm]cX[-1cb]|rrr} \toprule
+\small
+\begin{tabu}{X[-1cm]X[2lm]cX[-1cb]rrr} \toprule
+
 \textbf{spyplot}
 & \textbf{Description}
 & \textbf{Dimensions}
@@ -1224,7 +1227,6 @@ work presented here of optimising programs written in the Accelerate language.
 
 \bottomrule
 \end{tabu}
-\end{small}
 \caption[Sparse-matrix vector multiplication benchmarks]{Overview of sparse
 matrices tested and results of the benchmark. Measurements are in GFLOPS/s
 (higher is better).}

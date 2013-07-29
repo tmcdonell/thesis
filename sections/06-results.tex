@@ -1122,7 +1122,7 @@ work presented here of optimising programs written in the Accelerate language.
 & \multicolumn{1}{c}{\rotatebox{90}{\textbf{Accelerate}}}
 & \multicolumn{1}{c}{\begin{sideways}%
     \parbox{\widthof{\bf Accelerate}}%
-    {\bf\centering Accelerate no fusion}%
+    {\centering\textbf{Accelerate no fusion}}%
     \end{sideways}}
 \\ \midrule
 
@@ -1274,11 +1274,15 @@ performance limit, but is also slightly faster than the CUSP implementation.
 \subsection{Segment startup}
 
 To maximise global memory throughput the skeleton code ensures that the vector
+\marginnote{this is very rough}
 read of each matrix row is coalesced and aligned to the warp boundary. Since
 Accelerate does not require the starting element of the reduction to be a
 neutral element, threads must also ensure they initialise their local sum from
 the input array (\ref{sec:non-neutral_starting_elements}).
-
+Listing~\ref{lst:smvm_cuda} shows the generated CUDA code for the first
+sequential phase of the cascaded tree-reduction algorithm (see
+\S\ref{sec:algorithm_cascading}). Figure~tk illustrates the different cases that
+must be considered.
 
 \begin{lstlisting}[style=cuda
     ,float
@@ -1286,8 +1290,8 @@ the input array (\ref{sec:non-neutral_starting_elements}).
     ,label=lst:smvm_cuda
     ,caption={Generated CUDA code for sparse-matrix vector multiplication}]
 if (num_elements > warpSize) {
-    ix = start - (start & warpSize - 1) + thread_lane;
-    if (ix >= start) {
+    ix = start - (start & warpSize - 1) + thread_lane;                  (@* \label{lst:smvm_cuda_boundary} *@)
+    if (ix >= start) {                                                  (@* \label{lst:smvm_cuda_warp_start} *@)
         const Int64 v3 = ix;
         const int v4 = toIndex(shIn2, shape(v3));
         const int v5 = toIndex(shIn1, shape((Int64) arrIn2_a1[v4]));
@@ -1295,20 +1299,20 @@ if (num_elements > warpSize) {
 
         y0 = arrIn1_a0[v5] * arrIn2_a0[v6];
     }
-    if (ix + warpSize < end) {
+    if (ix + warpSize < end) {                                          (@* \label{lst:smvm_cuda_warp_next} *@)
         const Int64 v3 = ix + warpSize;
         const int v4 = toIndex(shIn2, shape(v3));
         const int v5 = toIndex(shIn1, shape((Int64) arrIn2_a1[v4]));
         const int v6 = toIndex(shIn2, shape(v3));
 
         x0 = arrIn1_a0[v5] * arrIn2_a0[v6];
-        if (ix >= start) {
+        if (ix >= start) {                                              (@* \label{lst:smvm_cuda_branch} *@)
             y0 = x0 + y0;
         } else {
             y0 = x0;
         }
     }
-    for (ix += 2 * warpSize; ix < end; ix += warpSize) {
+    for (ix += 2 * warpSize; ix < end; ix += warpSize) {                (@* \label{lst:smvm_cuda_loop} *@)
         const Int64 v3 = ix;
         const int v4 = toIndex(shIn2, shape(v3));
         const int v5 = toIndex(shIn1, shape((Int64) arrIn2_a1[v4]));
@@ -1317,7 +1321,7 @@ if (num_elements > warpSize) {
         x0 = arrIn1_a0[v5] * arrIn2_a0[v6];
         y0 = x0 + y0;
     }
-} else if (start + thread_lane < end) {
+} else if (start + thread_lane < end) {                                 (@* \label{lst:smvm_cuda_unaligned} *@)
     const Int64 v3 = start + thread_lane;
     const int v4 = toIndex(shIn2, shape(v3));
     const int v5 = toIndex(shIn1, shape((Int64) arrIn2_a1[v4]));
@@ -1327,24 +1331,42 @@ if (num_elements > warpSize) {
 }
 \end{lstlisting}
 
+To initialise the warp-aligned read the location of the warp boundary before the
+start of the source vector is calculated (line~\ref{lst:smvm_cuda_boundary}),
+offset by this thread's warp lane index. If the thread lies within the source
+vector its starting value can be initialised
+(line~\ref{lst:smvm_cuda_warp_start}). Reading elements from the second warp
+(line~\ref{lst:smvm_cuda_warp_next}) is aligned and coalesced to the warp
+boundary so completes in a single global memory transfer, but requires a
+divergent branch (line~\ref{lst:smvm_cuda_branch}) depending on whether this is
+the first value read or not. Once all threads have initialised their local sum,
+the serial reduction phase completes (line~\ref{lst:smvm_cuda_loop}), which is
+the same as we saw in the dot product example (Listing~\ref{lst:dotp_cuda}). If
+there is less than a warp's worth of data to be reduced, the elements are simply
+read unaligned (line~\ref{lst:smvm_cuda_unaligned}). If we do not do this, the
+first threads of the warp may not have been initialised, which is a requirement
+for the second cooperative tree-reduction phase of the algorithm, as it combines
+values for indices $\left[0,n\right)$ into index zero.
 
-However, matrices such as FEM/Spheres, with few non-zero elements per row
-($\lesssim 2 \times \text{warp size} = 64$) exhibit a drop in performance
-relative to CUSP.
+Matrices such as FEM/Spheres, with few non-zero elements per row ($\lesssim 2
+\times \text{warp size} = 64$) exhibit a drop in performance relative to CUSP,
+because this extra startup cost necessary to align global memory reads to the
+warp boundary can not be amortised over the row length.
 
+Matrices such as Epidemiology, with large vectors and few non-zeros per row,
+exhibit low flop:byte ratio and are poorly suited to the CSR format, with all
+implementations performing well below peak. This highlights the nature of sparse
+computations and the reason the CUSP library supports several algorithms and
+matrix formats.
 
-This may be related to the way the skeleton code ensures that
-the vector read of each row is coalesced and aligned to the warp boundary to
-maximise global memory throughput, but is then not able to amortize this extra
-startup cost over the row length. Since Accelerate does not require the starting
-element of the reduction to be a neutral element (see
-\S\ref{sec:non-neutral_starting_elements})
-
-
-Matrices such as Epidemiology, with large vectors and few non-zeros
-per row, exhibit low flop:byte ratio and are poorly suited to the CSR format,
-with all implementations performing well below peak. The regression relative to
-our previous result will be investigated. Nevertheless, this highlights the
-nature of sparse computations and the reason the CUSP library supports several
-algorithms and matrix formats.
+% This may be related to the way the skeleton code ensures that
+% the vector read of each row is coalesced and aligned to the warp boundary to
+% maximise global memory throughput, but is then not able to amortize this extra
+% startup cost over the row length.
+% 
+% Since Accelerate does not require the starting element of the reduction to be a
+% neutral element (see \S\ref{sec:non-neutral_starting_elements})
+% 
+% The regression relative to
+% our previous result will be investigated. Nevertheless,
 

@@ -57,10 +57,17 @@
 \usepackage{xfrac}
 \usepackage{tabu}
 \usepackage{textcomp}
+\usepackage{tikz}
 
 \onehalfspacing
 %\doublespacing
 
+
+% Draw numbers in circles
+% ------------------------------------------------------------------------------
+
+\newcommand*\circled[1]{\tikz[baseline=(char.base)]{
+  \node[shape=circle,draw,inner sep=2pt] (char) {#1};}}
 
 % Use symbols instead of numbers for footnote marks
 % ------------------------------------------------------------------------------

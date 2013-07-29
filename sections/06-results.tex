@@ -1106,53 +1106,131 @@ work presented here of optimising programs written in the Accelerate language.
 \section{Sparse-matrix vector multiplication}
 
 \marginnote{tk: redo bechmarks}
+\newcommand\spyplot[1]{\parbox[c][1.1cm][c]{1.1cm}{\includegraphics[width=1cm]{images/sec-6/smvm/#1}}}
+
 \begin{table}
 \centering
-\begin{tabular}{lrrrrp{2in}}
+\begin{small}
+\begin{tabu}{X[-1cm]X[2lm]cX[-1cb]|rrr} \toprule
+\textbf{spyplot}
+& \textbf{Description}
+& \textbf{Dimensions}
+& \textbf{Nonzeros (nnz/row)}
+& \multicolumn{1}{c}{\rotatebox{90}{\textbf{CUSP}}}
+& \multicolumn{1}{c}{\rotatebox{90}{\textbf{Accelerate}}}
+& \multicolumn{1}{c}{\begin{sideways}%
+    \parbox{\widthof{\bf Accelerate}}%
+    {\bf\centering Accelerate no fusion}%
+    \end{sideways}}
+\\ \midrule
 
-\textbf{Name}   & \parbox[b]{12ex}{\centering Non-zeros\\(nnz/row)}
-                & \multicolumn{1}{c}{\rotatebox{90}{CUSP}}
-                & \multicolumn{1}{c}{\rotatebox{90}{Accelerate}}
-                & \multicolumn{1}{c}{\begin{sideways}\parbox{10ex}
-                        {\centering Accelerate\\no fusion}\end{sideways}}
-                & {\centering Description}
-                \\ \hline
+\spyplot{dense2} % Dense
+& Dense matrix in sparse format
+& 2K $\times$ 2K
+& 4.0M (2K)
+& 14.48 & 14.62 & 3.41
+\\
 
-Dense                   & 4M (2K)       & 14.48 & 14.62 & 3.41
-                        & Dense matrix in sparse format \\
-Protein                 & 4.3M (119)    & 13.55 & 13.65 & 0.26
-                        & Protein data bank 1HYS \\
-FEM/Spheres             & 6M (72)       & 12.63 &  9.03 & 4.70
-                        & FEM concentric spheres \\
-FEM/Cantilever          & 4M (65)       & 11.98 &  7.96 & 4.41
-                        & FEM cantilever \\
-Wind Tunnel             & 11.6M (53)    & 11.98 &  7.33 & 4.62
-                        & Pressurised wind tunnel \\
-FEM/Harbour             & 2.37M (50)    &  9.42 &  6.14 & 0.13
-                        & 3D CFD Charleston harbour \\
-QCD                     & 1.9M (39)     &  7.79 &  4.66 & 0.13
-                        & Quark propagators (QCD/LGT) \\
-FEM/Ship                & 3.98 (28)     & 12.28 &  6.60 & 4.47
-                        & FEM Ship section/detail \\
-Economics               & 1.27M (6)     &  4.59 &  0.90 & 1.06
-                        & Macroeconomics model \\
-Epidemiology            & 1.27M (4)     &  6.42 &  0.59 & 0.91
-                        & 2D Markov model of epidemic \\
-FEM/Accelerator         & 2.62M (22)    &  5.41 &  3.08 & 2.92
-                        & Accelerator cavity design \\
-Circuit                 & 959k (6)      &  3.56 &  0.82 & 1.08
-                        & Motorola circuit simulation \\
-Webbase                 & 3.1M (3)      &  2.11 &  0.47 & 0.74
-                        & Web connectivity matrix \\
-LP                      & 11.3M (2825)  &  5.22 &  5.04 & 2.41
-                        & Railways set cover constraint matrix \\
+\spyplot{pdb1HYS} % Protein
+& Protein data bank 1HYS
+& 36K $\times$ 36K
+& 4.3M (119)
+& 13.55 & 13.65 & 0.26
+\\
 
-\end{tabular}
+\spyplot{consph} % FEM / Spheres
+& FEM concentric spheres
+& 83K $\times$ 83K
+& 6M (72)
+& 12.63 & 9.03 & 4.70
+\\
+
+\spyplot{cant} % FEM / Cantilever
+& FEM cantilever
+& 62K $\times$ 62K
+& 4M (65)
+& 11.98 & 7.96 & 4.41
+\\
+
+\spyplot{pwtk} % Wind Tunnel
+& Pressurised wind tunnel
+& 128K $\times$ 128K
+& 11.6M (53)
+& 11.98 & 7.33 & 4.62
+\\
+
+\spyplot{rma10} % FEM/Harbour
+& 3D CFD of Charleston harbour
+& 47K $\times$ 47K
+& 2.37M (50)
+& 9.42 & 6.14 & 0.13
+\\
+
+\spyplot{qcd5_4} % QCD
+& Quark propagators (QCD/LGT)
+& 49K $\times$ 49K
+& 1.9M (39)
+& 7.79 & 4.66 & 0.13
+\\
+
+\spyplot{shipsec1} % FEM/Ship
+& FEM ship section/detail
+& 141K $\times$ 141K
+& 3.98 (28)
+& 12.28 & 6.60 & 4.47
+\\
+
+\spyplot{mac_econ_fwd500} % Economics
+& Macroeconomics model
+& 207K $\times$ 207K
+& 1.27M (6)
+& 4.59 & 0.90 & 1.06
+\\
+
+\spyplot{mc2dephi} % Epidemiology
+& 2D Markov model of epidemic
+& 526K $\times$ 526K
+& 1.27M (4)
+& 6.42 & 0.59 & 0.91
+\\
+
+\spyplot{cop20k_A} % FEM/Accelerator
+& Accelerator cavity design
+& 121K $\times$ 121K
+& 2.62M (22)
+& 5.41 & 3.08 & 2.92
+\\
+
+\spyplot{scircuit} % Circuit
+& Motorola circuit simulation
+& 171K $\times$ 171K
+& 959k (6)
+& 3.56 & 0.82 & 1.08
+\\
+
+\spyplot{webbase-1M} % Webbase
+& Web connectivity matrix
+& 1M $\times$ 1M
+& 3.1M (3)
+& 2.11 & 0.47 & 0.74
+\\
+
+\spyplot{rail4284} % LP
+& Railways set cover constraint matrix
+& 4K $\times$ 1.1M
+& 11.3M (2825)
+& 5.22 & 5.04 & 2.41
+\\
+
+\bottomrule
+\end{tabu}
+\end{small}
 \caption[Sparse-matrix vector multiplication benchmarks]{Overview of sparse
 matrices tested and results of the benchmark. Measurements are in GFLOPS/s
 (higher is better).}
 \label{tab:smvm_summary}
 \end{table}
+
 
 This benchmark considers the multiplication of sparse matrices in compressed row
 format (CSR)~\cite{Chatterjee:1990vj} with a dense vector. This matrix format

@@ -320,7 +320,6 @@ In the first phase of the reduction, threads must be sure to initialise
 their local sum \code{y0} with values from the input array before beginning the
 sequential loop show in Listing~\ref{lst:dotp_cuda}:
 %
-% tk: hacks in comment style below: check if changing the basic language style
 \begin{lstlisting}[style=cuda,firstnumber=12]
 if (ix < shapeSize) {
     const Int64 v2 = ix;

@@ -8,7 +8,7 @@
 \usepackage{ifpdf}
 \ifpdf
 \RequirePackage{hyperref}
-\hypersetup{
+\hypersetup{%
     pdftitle={\doctitle},
     pdfsubject={\docsubtitle},
     pdfauthor={Trevor L. McDonell},
@@ -175,7 +175,7 @@
 
 % Define the language styles we will use
 %
-\lstset{
+\lstset{%
     frame=single,
     rulecolor={\color[gray]{0.7}},
     numbers=left,
@@ -199,7 +199,7 @@
 
 \lstloadlanguages{Haskell}
 
-\lstdefinestyle{haskell}{
+\lstdefinestyle{haskell}{%
     language=Haskell,
     upquote=true,
     basicstyle=\scriptsize\sourcecodepro,
@@ -224,7 +224,7 @@
 %       {\ .\ }{{$\circ$}}2
 }
 
-\lstdefinestyle{cuda}{
+\lstdefinestyle{cuda}{%
     language=CUDA,
     basicstyle=\scriptsize\sourcecodepro,
     keywordstyle=[1]\color{ForestGreen},
@@ -235,14 +235,14 @@
     escapeinside={(@*}{*@)}
 }
 
-\lstdefinestyle{ptx}{
+\lstdefinestyle{ptx}{%
     language=CUDA,
     basicstyle=\scriptsize\sourcecodepro,
     mathescape=false,
     escapeinside={(@*}{*@)}
 }
 
-\lstdefinestyle{inline}{
+\lstdefinestyle{inline}{%
     style=haskell,
     frame=none,
     numbers=none,

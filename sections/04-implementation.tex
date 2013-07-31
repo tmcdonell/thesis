@@ -1,43 +1,102 @@
 
 \chapter{Implementation}
 \epigraph{The trouble with opportunity is that it always comes disguised as hard work.}%
-{\textsc{---herbert v. prochnow}}
+{\textsc{---herbert v.\ prochnow}}
 
 
-\begin{itemize}
-\item implementing parallel algorithms (20\%, 1 week)
-    \begin{itemize}
-        \item fold
-        \item scan
-        \item permute (atomic operations)
-        \item segmented/rank polymorphic operations
-    \end{itemize}
+%\begin{itemize}
+%\item implementing parallel algorithms (20\%, 1 week)
+%    \begin{itemize}
+%        \item fold
+%        \item scan
+%        \item permute (atomic operations)
+%        \item segmented/rank polymorphic operations
+%    \end{itemize}
+%
+%\item skeleton-based code generation (2 weeks)
+%    \begin{itemize}
+%        \item device capabilities (free array variables, \code{umul24},
+%            \code{shfl}, atomic operations, shared memory)
+%        \item rank polymorphic operations
+%    \end{itemize}
+%
+%\item runtime system (3 weeks)
+%    \begin{itemize}
+%        \item launching kernels (occupancy calculator)
+%        \item caching compiled kernels (live \& persistent caches)
+%        \item memory management (escaping the EDSL evaluator; weak pointers vs.
+%            reference counting)
+%        \item executing kernels (annotated AST)
+%    \end{itemize}
+%
+%\end{itemize}
 
-\item skeleton-based code generation (2 weeks)
-    \begin{itemize}
-        \item device capabilities (free array variables, \code{umul24},
-            \code{shfl}, atomic operations, shared memory)
-        \item rank polymorphic operations
-    \end{itemize}
+% {{{ \begin{itemize}
+%\item Accelerate frontend
+%    \begin{itemize}
+%        \item reification
+%            \begin{itemize}
+%                \item smart constructors for type classes
+%                \item explicit dictionaries (polymorphism)
+%                \item environments
+%                \item HOAS vs. de Bruijn
+%                \item representation types
+%            \end{itemize}
+%        \item surface \& internal (core) languages
+%            \begin{itemize}
+%                \item representing different constructs in surface/core
+%                \item surface nested $\rightarrow$ core flat ?? (fuuuuture)
+%            \end{itemize}
+%        \item sharing observation ( --> sec 5? not my work )
+%    \end{itemize}
+%
+%\item Accelerate CUDA backend
+%    \begin{itemize}
+%        \item code generation
+%            \begin{itemize}
+%                \item architecture sensitive JIT cross-compiler
+%                \item future work: types, Haskell compile time
+%            \end{itemize}
+%        \item external compilation
+%            \begin{itemize}
+%                \item annotating AST nodes
+%            \end{itemize}
+%        \item memory management
+%            \begin{itemize}
+%                \item weak pointers \& weak hash tables
+%                \item advantages to alternatives
+%            \end{itemize}
+%        \item execution
+%            \begin{itemize}
+%                \item occupancy analysis
+%                \item multi-pass kernels
+%            \end{itemize}
+%        \item performance
+%            \begin{itemize}
+%                \item amortizing overheads (how to quantise this?)
+%                \item of generated code
+%                \item runtime overheads
+%                \item w.r.t. CUDA memory subsystem (theoretical performance)
+%                \item examples! spot the infelicities! (dot product)
+%            \end{itemize}
+%    \end{itemize}
+%\end{itemize} }}}
 
-\item runtime system (3 weeks)
-    \begin{itemize}
-        \item launching kernels (occupancy calculator)
-        \item caching compiled kernels (live \& persistent caches)
-        \item memory management (escaping the EDSL evaluator; weak pointers vs.
-            reference counting)
-        \item executing kernels (annotated AST)
-    \end{itemize}
-
-\end{itemize}
-
+%Compilation has five phases:
+%\begin{itemize}
+%    \item Lexing
+%    \item Parsing
+%    \item Semantic analysis
+%    \item Optimisation
+%    \item Code Generation
+%\end{itemize}
 
 The previous chapter described the design of the Accelerate language, an
 embedded DSL of operations over arrays, rich enough to express some interesting
 real-world problems. This chapter details the architecture of the embedding as
 well as the implementation of a backend for parallel execution on CUDA hardware.
 
-\section{Accelerate CUDA Backend}
+\section{Implementing Parallel Algorithms}
 \subsection{Parallel Reduction}
 \label{sec:parallel_reduction}
 
@@ -120,67 +179,4 @@ This suggests, for example, that a block of 256 threads should sum a total of
 2048 elements. In practice it is beneficial to do even more sequential work per
 thread, since this reduces the number of levels in the recursive tree reduction
 and provides better latency hiding.
-
-
-
-%\begin{itemize}
-%    \item Accelerate frontend
-%        \begin{itemize}
-%            \item reification
-%                \begin{itemize}
-%                    \item smart constructors for type classes
-%                    \item explicit dictionaries (polymorphism)
-%                    \item environments
-%                    \item HOAS vs. de Bruijn
-%                    \item representation types
-%                \end{itemize}
-%            \item surface \& internal (core) languages
-%                \begin{itemize}
-%                    \item representing different constructs in surface/core
-%                    \item surface nested $\rightarrow$ core flat ?? (fuuuuture)
-%                \end{itemize}
-%            \item sharing observation ( --> sec 5? not my work )
-%        \end{itemize}
-%
-%    \item Accelerate CUDA backend
-%        \begin{itemize}
-%            \item code generation
-%                \begin{itemize}
-%                    \item architecture sensitive JIT cross-compiler
-%                    \item future work: types, Haskell compile time
-%                \end{itemize}
-%            \item external compilation
-%                \begin{itemize}
-%                    \item annotating AST nodes
-%                \end{itemize}
-%            \item memory management
-%                \begin{itemize}
-%                    \item weak pointers \& weak hash tables
-%                    \item advantages to alternatives
-%                \end{itemize}
-%            \item execution
-%                \begin{itemize}
-%                    \item occupancy analysis
-%                    \item multi-pass kernels
-%                \end{itemize}
-%            \item performance
-%                \begin{itemize}
-%                    \item amortizing overheads (how to quantise this?)
-%                    \item of generated code
-%                    \item runtime overheads
-%                    \item w.r.t. CUDA memory subsystem (theoretical performance)
-%                    \item examples! spot the infelicities! (dot product)
-%                \end{itemize}
-%        \end{itemize}
-%
-%\end{itemize}
-%
-%Compilation has five phases:
-%\begin{itemize}
-%    \item Lexing
-%    \item Parsing
-%    \item Semantic analysis
-%    \item Optimisation
-%    \item Code Generation
-%\end{itemize}
 

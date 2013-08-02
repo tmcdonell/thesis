@@ -183,7 +183,7 @@ thread, since this reduces the number of levels in the recursive tree reduction
 and provides better latency hiding.
 
 
-\subsection{Implementation}
+\subsection{Mapping to CUDA Threads}
 
 Reduction of a one dimensional array uses multiple thread blocks to
 cooperatively reduce the array, as described above. The number of thread blocks
@@ -206,11 +206,13 @@ each segment sequentially, each segment is reduced by a single thread block
 which operates independently of all other thread blocks. A consequence of this
 is that proper device utilisation depends on the shape of the array and not
 simply the total number of elements in the array. For example, reduction of an
-array with shape \code{(Z :. 2 :. n)} will use two thread blocks, no matter how
-large \code{n} is.\footnote{The number of multiprocessors on a device various
-between architecture generation and performance of a given card. For example a
-compute 1.x device will have 32 cores per multiprocessor, a compute 2.1 device
-48 cores per multiprocessor, and a compute 3.x device uses 192 cores per
-multiprocessor. This generally results in a fewer number of multiprocessors for
-later generation devices, even though the total core count is typically
-greater.}
+array with shape \code{(Z :. 1 :. n)} will use a single thread block, no matter how
+large \code{n} is. Clearly this is not ideal.\footnote{The number of
+multiprocessors on a device various between architecture generation and
+performance of a given card. For example, a Tesla T10 processor (compute
+compatability 1.3) has 240 cores split over 30 multiprocessors, while a Kepler
+K20X processor (compute capability 3.5) has 2688 cores split over only 14
+multiprocessors. A given architecture generation will have the same number of
+cores per multiprocessor, and lower performance processors in a generation are
+produced by incorporating (or activating) fewer multiprocessors, thereby
+reducing the total core count.}

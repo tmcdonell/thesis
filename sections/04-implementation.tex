@@ -260,6 +260,11 @@ have the same number of cores per multiprocessor, and lower performance
 processors in a generation are produced by incorporating (or activating) fewer
 multiprocessors, thereby reducing the total core count.}
 
+A segmented reduction uses a single warp to reduce each segment. Investigation
+of whether it is be better to utilise a thread block per segment instead, or
+convert the multidimensional reduction to this warp per segment strategy, is
+left for future work.
+
 
 \subsection{Scan}
 

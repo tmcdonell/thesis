@@ -93,10 +93,53 @@
 
 The previous chapter described the design of the Accelerate language, an
 embedded DSL of operations over arrays, rich enough to express some interesting
-real-world problems. This chapter details the architecture of the embedding as
-well as the implementation of a backend for parallel execution on CUDA hardware.
+real-world problems. This chapter details the architecture and implementation of
+a backend for parallel execution on CUDA hardware.
 
-\section{Implementing Parallel Algorithms}
+
+\section{Parallel Algorithms in CUDA}
+
+The CUDA\index{CUDA} architecture is a parallel computing platform and
+programming model created by NVIDIA and implemented by the graphics processing
+units (GPUs)\index{GPU|see {graphics processing unit}}\index{graphics processing
+unit} that they produce. Using CUDA, the GPU becomes accessible not just for
+graphics applications, but for computational tasks much like a CPU\@. Unlike
+CPUs, however, GPUs have a parallel throughput architecture that emphasises
+executing many concurrent threads slowly, rather than executing a single thread
+very quickly.
+% Unlike CPU cores, instructions are issued in order and there is no
+% branch prediction and no speculative execution.
+
+The CUDA hardware architecture is built around a scalable array of multithreaded
+\emph{streaming multiprocessors} (SMs).\index{SM|see {streaming
+multiprocessor}}\index{streaming multiprocessor} When a CUDA program on the host
+CPU invokes a \indexe{kernel} --- a function which executes on the GPU --- a
+\emph{grid} of thread \emph{blocks} is
+% \index{thread!grid} \index{thread!block}
+enumerated and distributed to the multiprocessors for execution, using a
+\emph{single-instruction, multiple thread} (SIMT) model.\index{SIMT|see {single
+instruction multiple thread}}\index{single instruction multiple thread} The
+multiprocessor creates, manages, schedules, and executes threads in groups of 32
+parallel threads call a \indexe{warp}. All threads in a warp share a single
+program address counter, so divergent threads within a warp are handled via
+predicated execution; for example the positive and negative cases of a branch
+are executed in sequence, with threads not on the current execution path made
+inactive (disabled). In essence, streaming multiprocessors replace the complex
+instruction scheduling logic of a CPU which increases single threaded
+performance --- namely out-of-order execution, branch prediction and speculative
+execution --- with many additional ALUs (arithmetic logic units, often referred
+to as CUDA cores) all executing the same instruction sequence in parallel in
+order to increase total instruction throughput. Details of the CUDA architecture
+can be found in the CUDA C programming guide~\cite{NVIDIA:2012wf}; we present
+only those features required for the discussion.
+
+Some collective operations such as \code{map} have an obvious mapping to the
+highly parallel CUDA architecture, so we elide discussion of their
+implementation. Other collective operations such as \code{scan}, where the value
+of each element depends on the value of the last, may at first seem to not admit
+a parallel interpretation at all. This section outlines the implementation of
+this second kind of collective operation, where efficient parallel
+implementation in CUDA may not be obvious.
 
 
 \subsection{Reduction}

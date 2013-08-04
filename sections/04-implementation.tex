@@ -259,3 +259,17 @@ cores split over only 14 multiprocessors. A given architecture generation will
 have the same number of cores per multiprocessor, and lower performance
 processors in a generation are produced by incorporating (or activating) fewer
 multiprocessors, thereby reducing the total core count.}
+
+
+\subsection{Scan}
+
+Parallel scan and segmented scan algorithms are a crucial building block for a
+great many data-parallel algorithms~\cite{Blelloch:1990ts,Chatterjee:1990vj}.
+They also form the basis for efficiently mapping nested data-parallel languages
+such as NESL~\cite{Blelloch:1995ut,Blelloch:1996jx} on to flat data-parallel
+machines. Because of their fundamental importance to many algorithms,
+implementing efficient scan operations in CUDA has received much
+attention~\cite{Sengupta:2007tc,Dotsenko:2008fo,Harris:2012fy}.
+
+A basic description (in pictures) of how the scan and segmented scan algorithms
+work.

@@ -355,20 +355,19 @@ histogram vec
     permute (+) zeros (\ix -> index1 (A.floor ((vec ! ix) / P.fromIntegral bins))) ones
 \end{lstlisting}
 
-Conceptually speaking, every result of the permutation is applied at the same
-time in a single parallel step. If multiple CUDA threads attempt a non-atomic
-write to the same memory location at the same time, the writes will be
-serialised but the thread which performs the final write is undefined, and so
-the final value at that memory slot is undefined~\cite{NVIDIA:2012wf}.
-
-To support non-injective permutation functions, which is required to evaluate
-the histogram program correctly, the atomic compare-and-swap operation is used
-to implement write combining.\footnote{The atomic compare-and-swap operation on
-32-bit values is only available for devices of compute capability 1.1 and
-higher, and for 64-bit values on devices of compute capability 1.2 and higher.}
-For a combination function \code{f} on elements of type \code{T}, the following
-atomically combines a value from the source array \code{x} with the value of the
-result array \code{y}.
+The semantics of the operation is that every permutation from source to result
+array is applied at the same time in a single parallel step. If multiple CUDA
+threads attempt a non-atomic write to the same memory location at the same time,
+the writes will be serialised but the thread which performs the final write is
+undefined, and so the final value at that memory slot is
+undefined~\cite{NVIDIA:2012wf}. To support non-injective permutation functions,
+which is required to evaluate the histogram program correctly, the atomic
+compare-and-swap operation is used to implement write combining.\footnote{The
+atomic compare-and-swap operation on 32-bit values is only available for devices
+of compute capability 1.1 and higher, and for 64-bit values on devices of
+compute capability 1.2 and higher.} For a combination function \code{f} on
+elements of type \code{T}, the following atomically combines a value from the
+source array \code{x} with the value of the result array \code{y}.
 
 \begin{lstlisting}[style=cuda]
     T x         = source[i];
@@ -378,9 +377,11 @@ result array \code{y}.
         old_y   = atomicCAS(&result[j], y, f x y);
     while (y != old_y);
 \end{lstlisting}
+%
+Any atomic operation on simple types can be implemented in terms of
+compare-and-swap in this manner. Types consisting of more than one primitive
+type, such as tuples, apply the procedure to each component separately.
+Utilising more specific atomic operations such as \code{atomicAdd} when
+available is left to future work.
 
-Any atomic operation can be implemented in terms of compare-and-swap. Types
-consisting of more than one primitive type, such as tuples, apply the procedure
-to each component separately. Utilising more specific atomic operations such as
-\code{atomicAdd} when available is left to future work.
 

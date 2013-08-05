@@ -278,3 +278,109 @@ attention~\cite{Sengupta:2007tc,Dotsenko:2008fo,Harris:2012fy}.
 
 A basic description (in pictures) of how the scan and segmented scan algorithms
 work.
+
+
+\subsection{Permute}
+
+The \code{permute} collective operation defines a forward permutation $f$ as an
+index mapping from one array $X$ onto the result array $Y$, which we can write
+as  $f : X \rightarrow Y$. Implementation of the permute function in Accelerate
+is complicated because we have not placed any particular restrictions on $f$,
+namely:
+%
+\begin{enumerate}
+    \item $f$ is not surjective: the range of $f$ may not cover the codomain
+        $Y$. For every $x$ in $X$, $f\left( x \right)$ need not yield every
+        index $y$ in $Y$. This means that the result array must first be
+        initialised with a set of default values.
+
+    \item $f$ is not injective: distinct elements of the domain may
+        map to the same element in the codomain. For all $x$ and $x'$ in $X$, if
+        $f\left( x \right) = f\left( x' \right)$, we may have that $x \ne x'$.
+        This means we require an associative combination function to combine
+        elements from the domain that map to the same index in the codomain.
+
+    \item $f$ is partial: elements of the domain may be ignored, and thus do
+        not map to elements in the codomain.
+\end{enumerate}
+
+That the permutation function admits partial functions in the index mapping is
+not particularly challenges for the implementation, and indeed is useful for
+implementing the \code{filter} operation, shown in Listing~\ref{lst:filter}. The
+special value \code{ignore} is used to drop elements of the input vector that do
+not satisfy the predicate, by not mapping those indices to an index in the
+codomain.
+%
+\begin{lstlisting}[style=haskell
+    ,label=lst:filter
+    ,caption={[Filter in Accelerate] Filtering returns only those elements of a
+    vector which satisfy a predicate. This operation is included as part of
+    Accelerate's standard prelude.}]
+filter :: Elt a => (Exp a -> Exp Bool) -> Acc (Vector a) -> Acc (Vector a)
+filter p vec
+  = let flags            = map (boolToInt . p) vec
+        (targetIdx, len) = scanl' (+) 0 flags
+        defaults         = backpermute (index1 $ the len) id vec
+    in
+    permute const defaults (\ix -> flags!ix ==* 0 ? (ignore, index1 $ targetIdx!ix)) vec
+\end{lstlisting}
+
+On the other hand, because we can not prove that \code{filter} is surjective, we
+require the result vector to be first initialised with default values. Since we
+do not know anything about the element type \code{a}, the only recourse is to
+copy elements from the input array \code{vec}. This is doubly wasteful, because
+we must first execute the \code{backpermute} kernel to compute the
+\code{defaults} array, and then copy those values into the results vector before
+executing the \code{permute} kernel, even though we know the initialised values
+will be completely overwritten.
+
+At a second example, Listing~\ref{lst:histogram} demonstrates the computation of
+a simple ten bin histogram from a vector of floating point elements in the range
+$\left[ 0, 100 \right)$. In this case the permutation function is neither
+surjective nor injective, as some bins may contain no elements and thus take the
+default value, while other bins may contain multiple elements which need to be
+combined (accumulated) correctly.
+%
+\begin{lstlisting}[style=haskell
+    ,label=lst:histogram
+    ,caption={[Simple histogram in Accelerate] A simple histogram written in
+    Accelerate. We assume the input vector contains elements in the range
+    $\left[0,100\right)$ and accumulate into ten equally sized bins.}]
+histogram :: Acc (Vector Float) -> Acc (Vector Int)
+histogram vec
+  = let bins      = 10
+        zeros     = fill (constant (Z :. bins)) 0
+        ones      = fill (shape vec)            1
+    in
+    permute (+) zeros (\ix -> index1 (A.floor ((vec ! ix) / P.fromIntegral bins))) ones
+\end{lstlisting}
+
+Conceptually speaking, every result of the permutation is applied at the same
+time in a single parallel step. If multiple CUDA threads attempt a non-atomic
+write to the same memory location at the same time, the writes will be
+serialised but the thread which performs the final write is undefined, and so
+the final value at that memory slot is undefined~\cite{NVIDIA:2012wf}.
+
+To support non-injective permutation functions, which is required to evaluate
+the histogram program correctly, the atomic compare-and-swap operation is used
+to implement write combining.\footnote{The atomic compare-and-swap operation on
+32-bit values is only available for devices of compute capability 1.1 and
+higher, and for 64-bit values on devices of compute capability 1.2 and higher.}
+For a combination function \code{f} on elements of type \code{T}, the following
+atomically combines a value from the source array \code{x} with the value of the
+result array \code{y}.
+
+\begin{lstlisting}[style=cuda]
+    T x         = source[i];
+    T y, old_y  = result[j];
+    do {
+        y       = old_y;
+        old_y   = atomicCAS(&result[j], y, f x y);
+    while (y != old_y);
+\end{lstlisting}
+
+Any atomic operation can be implemented in terms of compare-and-swap. Types
+consisting of more than one primitive type, such as tuples, apply the procedure
+to each component separately. Utilising more specific atomic operations such as
+\code{atomicAdd} when available is left to future work.
+

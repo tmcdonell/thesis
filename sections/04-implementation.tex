@@ -114,7 +114,7 @@ The CUDA hardware architecture is built around a scalable array of multithreaded
 \emph{streaming multiprocessors} (SMs).\index{SM|see {streaming
 multiprocessor}}\index{streaming multiprocessor} When a CUDA program on the host
 CPU invokes a \indexe{kernel} --- a function which executes on the GPU --- a
-\emph{grid} of thread \emph{blocks} is
+\emph{grid} of threads grouped into equally sized \emph{blocks} is
 % \index{thread!grid} \index{thread!block}
 enumerated and distributed to the multiprocessors for execution, using a
 \emph{single-instruction, multiple thread} (SIMT) model.\index{SIMT|see {single
@@ -232,8 +232,8 @@ Reduction of a one dimensional array uses multiple thread blocks to
 cooperatively reduce the array, as described above. The number of thread blocks
 is limited to the maximum number of blocks that can be simultaneously resident
 on the current device, which requires that blocks each do a larger amount of
-sequential work before being the cooperative reduction phase. This limits the
-total kernel startup cost associated with launching thread blocks. Since the
+sequential work before beginning the cooperative reduction phase. This limits
+the total kernel startup cost associated with launching thread blocks. Since the
 maximum number of resident blocks is typically much less than the number of
 threads in a block, the reduction will typically require at most two kernel
 invocations.\footnote{Accelerate selects the thread block size in order to
@@ -375,7 +375,7 @@ source array \code{x} with the value of the result array \code{y}.
     do {
         y       = old_y;
         old_y   = atomicCAS(&result[j], y, f x y);
-    while (y != old_y);
+    } while (y != old_y);
 \end{lstlisting}
 %
 Any atomic operation on simple types can be implemented in terms of
@@ -384,4 +384,213 @@ type, such as tuples, apply the procedure to each component separately.
 Utilising more specific atomic operations such as \code{atomicAdd} when
 available is left to future work.
 
+\subsection{Stencil}
+
+
+\section{Memory Management}
+% Weak hash tables. Hijacking the storage manager. Reducing the allocation rate.
+
+In a standard Haskell program, memory is managed entirely automatically by the
+runtime system. This relieves a large burden from the programmer and eliminates
+a source of potential runtime errors. In contrast, in the CUDA programming model
+all memory management is explicit and handled by the programmer. Indeed, CUDA
+devices typically have their own memory, physically separate from the memory of
+the host CPU, which data must be explicitly transferred to and from.
+
+In order to keep Accelerate programs as close to idiomatic Haskell as possible,
+the Accelerate runtime system should do the job of managing the CUDA memory
+space. Moreover, host-device data transfers are expensive, given the relatively
+high latency and low bandwidth of the PCI-E bus, so minimising data transfer is
+an important pressure point for achieving high performance.
+
+% The question is (a) when should data be transferred to and from the host, to be
+% made available for CPU and GPU computations respectively; and (b) when should
+% arrays on the GPU be allocated and deallocated.
+
+
+\subsection{Device-to-host transfers}
+
+Evaluating Accelerate expressions is done with the following function, which
+encapsulates the entire process of compiling and executing a program on the GPU
+(\S tk):
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+    run :: Arrays a => Acc a -> a
+\end{lstlisting}
+%
+The result of evaluating this program is made available for use in vanilla
+Haskell, so \code{run} must copy the final array result back to the host.
+However, any intermediate results computed during evaluation of the program are
+\emph{not} copied back to the host.
+
+
+\subsection{Host-to-device transfers}
+
+Accelerate distinguishes between vanilla Haskell arrays (in CPU host memory)
+from embedded arrays (in GPU device memory). The function \code{use} embeds a
+Haskell array into an embedded array computation, and thus implies
+host-to-device data transfer:
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+    use :: Arrays arrays => arrays -> Acc arrays
+\end{lstlisting}
+%
+% The \code{Arrays} class constrains the type to either a single array of type
+% \code{Array sh e}, where \code{sh} and \code{e} characterise the types that may
+% be used as array indices and elements respectively, or a tuple of arrays (see \S
+% tk).
+
+At a first approximation, we simply copy the data to the GPU as soon as we
+encounter the \code{Use} node in an expression. This occurs during the first
+phase of program execution, and is done asynchronously so that it may overlap
+code generation and compilation (\S\ref{sec:dynamic_compilation}).
+
+Consider the following example, where we \code{use} a single array twice. Since
+Accelerate operations are pure and thus do not mutate arrays, the device arrays
+can be safely shared. This reduces the amount of memory required to store the
+data as well as reducing memory traffic.\footnote{Why doesn't sharing recovery
+(\S\ref{sec:sharing_observation}) notice that the two uses of \footcode{xs} are
+the same and combine them? The sharing recovery algorithm observes the sharing
+of \emph{Accelerate} terms, and because we have called \footcode{use} twice, we
+are effectively constructing two separate \footcode{Use} nodes. Furthermore,
+since GHC does not do common subexpression elimination, as it can affect the
+strictness/laziness of the program and potentially introduce space leaks, these
+common subexpressions are not combined, two separate values are created on the
+heap, and there is no sharing to be observed.}
+%
+\begin{lstlisting}[style=haskell]
+square :: (Elt e, IsNum e, Shape sh) => Array sh e -> Acc (Array sh e)
+square xs = zipWith (*) (use xs) (use xs)
+\end{lstlisting}
+
+At a second example, consider the following program fragment, which given an
+array describing the particle density \code{df} and direction \& magnitude of
+the velocity field \code{vf} at each point, computes how the density and
+velocity fields evolve under advection and diffusion:
+%
+\begin{lstlisting}[style=haskell]
+fluid :: Timestep                               -- time to evolve the simulation
+      -> Viscosity                              -- viscous damping factor
+      -> Diffusion                              -- mass diffusion rate
+      -> Acc DensityField                       -- particle densitey at each point in the field
+      -> Acc VelocityField                      -- velocity at each point in the field
+      -> Acc (DensityField, VelocityField)
+fluid dt dp dn df vf =
+  let vf'       = velocity steps dt dp vf       -- dampen velocity field
+      df'       = density  steps dt dn vf' df   -- move particles based on forces
+  in
+  A.lift (df', vf')
+\end{lstlisting}
+%
+This is the entry function to the program that implements Jos Stam's stable
+fluid algorithm~\cite{Stam:1999ey} (\S\ref{sec:fluid}). As is typical with
+numerical simulations, to evolve the simulation over a period of time the
+function is called repeatedly over small time steps, with the output of each
+step of the simulation forming the input to the next. Thus, the results
+\code{df'} and \code{vf'} will be the inputs \code{df} and \code{vf}
+respectively, when the program is evaluated to compute the next step of the
+simulation. Since these arrays were just copied \emph{from} the GPU, we should
+avoid immediately copying the \emph{same data} back again.
+
+To be able to avoid this redundant transfer, the Accelerate memory manager needs
+to operate over the lifetime of the entire Haskell program, and not be
+constrained to work within the evaluation of a single Accelerate computation.
+Thus, localised memory management techniques such as reference counting or
+syntax directed allocations within a single \code{run} invocation are
+insufficient.
+
+The key observation is that the Haskell runtime system knows when objects are no
+longer required and can be garbage collected, so
+finalisers~\cite{PeytonJones:2000ks} are attached to each array which deallocate
+the foreign memory at the same time the Haskell heap object is garbage
+collected. To be precise, since the CUDA backend uses a hash table to associate
+each array on the host to the corresponding memory on the GPU, we construct a
+weak hash table / memo table~\cite{PeytonJones:2000ks}, so that both entries can
+deallocate the device memory and remove themselves from the hash table when the
+array is garbage collected, and all finalisers can be initiated immediately if
+the hash table is itself is collected.
+
+
+% \endinput
+% 
+% 
+% 
+% The first task is accomplished simply by coping data to the GPU as soon as we
+% encounter the \code{Use} node in an expression. 
+% 
+% There are several approaches that could be used to solve the second problem of
+% when to deallocate memory, and some alternative approaches are described briefly
+% below (\S\ref{sec:memory_management_alternatives}). However, none of those
+% approaches are able to share arrays \emph{across} computations.
+% 
+% 
+% 
+% 
+% Here \code{f} is an Accelerate program that evaluates to an array \code{xs}. The
+% array \code{xs} must be copied to the host after evaluating the expression to be
+% made available for use in vanilla Haskell. Following this, the computation of
+% the array \code{ys} involves evaluating the program of one array argument
+% \code{g} using the first result \code{xs} as input, which is re-injected into
+% the embedded language with \code{use}. Since \code{xs} was just copied
+% \emph{from} the device after 
+% 
+% 
+% eliminate redundant
+% data transfers between separate computations.
+% 
+% 
+% \subsection{Alternative approaches}
+% \label{sec:memory_management_alternatives}
+% 
+% There are several approaches that could be used to manage the CUDA memory space.
+% %
+% \begin{itemize}
+% \item Reference counting can be used to count the number of times an array is
+%     referenced within the GPU computation, and deallocate the array after the
+%     final use. This approach is fragile and error, because it must be reassessed
+%     each time the core language changes, but results in the shortest array
+%     lifetimes.
+% 
+% \item A simpler alternative is a syntax directed approach. Since any array used
+%     multiple times in an expression will be let-bound
+%     (\S\ref{sec:sharing_observation}), the bound array can be deallocated after
+%     evaluating the body of the let binding.
+% 
+% \end{itemize}
+
+
+
+\endinput
+\section{EDSL Basics}
+
+% http://www.haskell.org/haskellwiki/Embedded_domain_specific_language
+% http://www.haskell.org/haskellwiki/Research_papers/Domain_specific_languages
+
+There are two major degrees of embedded languages:
+
+\begin{description}
+\item[Shallow:] Operations immediately translate into the target language.
+
+\item[Deep:] Operations build a data-structure that reflects the expression to
+    be evaluated. This structure allows the expression to be transformed before
+    being translated into the target language; for example by applying
+    optimisations.
+\end{description}
+
+Sharing and recursion are common problems when implementing embedded domain
+specific languages.
+
+\section{Surface vs.\ Representation types}
+
+\section{Dynamic Compilation}
+\label{sec:dynamic_compilation}
+
+\subsection{Algorithmic Skeletons}
+
+\subsection{Caching and reuse}
+floyd-warshall might require the improvements to caching / code generation re.
+free variable indices.
+
+\section{Amortising Overheads}
+Annotating the AST, tying the recursive knot.
 

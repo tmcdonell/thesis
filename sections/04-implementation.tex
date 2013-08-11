@@ -445,23 +445,35 @@ encounter the \code{Use} node in an expression. This occurs during the first
 phase of program execution, and is done asynchronously so that it may overlap
 code generation and compilation (\S\ref{sec:dynamic_compilation}).
 
+\subsubsection{Intra-expression sharing}
+
 Consider the following example, where we \code{use} a single array twice. Since
 Accelerate operations are pure and thus do not mutate arrays, the device arrays
-can be safely shared. This reduces the amount of memory required to store the
-data as well as reducing memory traffic.\footnote{Why doesn't sharing recovery
+can be safely shared. Thus, we would like these two arrays to refer to the same
+data in GPU memory. This reduces the amount of memory required to store the data
+as well as reducing memory traffic.\footnote{Why doesn't sharing recovery
 (\S\ref{sec:sharing_observation}) notice that the two uses of \footcode{xs} are
 the same and combine them? The sharing recovery algorithm observes the sharing
 of \emph{Accelerate} terms, and because we have called \footcode{use} twice, we
-are effectively constructing two separate \footcode{Use} nodes. Furthermore,
-since GHC does not do common subexpression elimination, as it can affect the
-strictness/laziness of the program and potentially introduce space leaks, these
-common subexpressions are not combined, two separate values are created on the
-heap, and there is no sharing to be observed.}
+are effectively constructing two \emph{separate} Accelerate terms
+(\footcode{Use} nodes). Furthermore, since GHC does not do common subexpression
+elimination as it can affect the strictness/laziness of the program and
+potentially introduce space leaks
+(\url{http://ghc.haskell.org/trac/ghc/ticket/701}), these common subexpressions
+are not combined, two separate values are created on the heap, and there is no
+sharing to be observed.}
 %
 \begin{lstlisting}[style=haskell]
 square :: (Elt e, IsNum e, Shape sh) => Array sh e -> Acc (Array sh e)
 square xs = zipWith (*) (use xs) (use xs)
 \end{lstlisting}
+
+Every array on the GPU is uniquely associated to an array on the host. This
+defines where data is copied when data is transferred between the host and
+device. Since the two \code{use} nodes refer to the same array on the heap, they
+will share the same array in GPU memory, and thus the data is only copied once.
+
+\subsubsection{Inter-expression sharing}
 
 At a second example, consider the following program fragment, which given an
 array describing the particle density \code{df} and direction \& magnitude of
@@ -494,70 +506,51 @@ avoid immediately copying the \emph{same data} back again.
 
 To be able to avoid this redundant transfer, the Accelerate memory manager needs
 to operate over the lifetime of the entire Haskell program, and not be
-constrained to work within the evaluation of a single Accelerate computation.
-Thus, localised memory management techniques such as reference counting or
-syntax directed allocations within a single \code{run} invocation are
-insufficient.
+constrained to work within the evaluation of a single Accelerate expression.
+Otherwise, all memory on the device needs to be deallocated after evaluating an
+expression or the program will leak memory. Thus, localised memory management
+techniques such as reference counting or syntax directed allocations within a
+single \code{run} invocation are insufficient.
 
-The key observation is that the Haskell runtime system knows when objects are no
-longer required and can be garbage collected, so
-finalisers~\cite{PeytonJones:2000ks} are attached to each array which deallocate
-the foreign memory at the same time the Haskell heap object is garbage
-collected. To be precise, since the CUDA backend uses a hash table to associate
-each array on the host to the corresponding memory on the GPU, we construct a
-weak hash table / memo table~\cite{PeytonJones:2000ks}, so that both entries can
-deallocate the device memory and remove themselves from the hash table when the
-array is garbage collected, and all finalisers can be initiated immediately if
+The key observation is that the Haskell runtime system knows when objects will
+be reused (such as \code{df'} in the second step as \code{df}), and when they
+are no longer required and can be garbage collected (\code{df'} after the second
+step). Since every array in GPU memory is uniquely associated with array on the
+host, which managed by the Haskell runtime system, we attach
+finalisers~\cite{PeytonJones:2000ks} to the host array which deallocate the GPU
+memory at the same time the Haskell heap object is garbage collected. To be
+precise, since the CUDA backend uses a hash table to record the associations
+between host and device arrays, we construct a weak hash
+table~\cite{PeytonJones:2000ks}, so that entries can both deallocate the device
+memory as well as remove themselves from the association table when the array is
+garbage collected, and so that all finalisers can be initiated immediately if
 the hash table is itself is collected.
 
+\note{This section was very handwavey. Introduce actual types/code for the core
+memory table operations.}
 
-% \endinput
-% 
-% 
-% 
-% The first task is accomplished simply by coping data to the GPU as soon as we
-% encounter the \code{Use} node in an expression. 
-% 
-% There are several approaches that could be used to solve the second problem of
-% when to deallocate memory, and some alternative approaches are described briefly
-% below (\S\ref{sec:memory_management_alternatives}). However, none of those
-% approaches are able to share arrays \emph{across} computations.
-% 
-% 
-% 
-% 
-% Here \code{f} is an Accelerate program that evaluates to an array \code{xs}. The
-% array \code{xs} must be copied to the host after evaluating the expression to be
-% made available for use in vanilla Haskell. Following this, the computation of
-% the array \code{ys} involves evaluating the program of one array argument
-% \code{g} using the first result \code{xs} as input, which is re-injected into
-% the embedded language with \code{use}. Since \code{xs} was just copied
-% \emph{from} the device after 
-% 
-% 
-% eliminate redundant
-% data transfers between separate computations.
-% 
-% 
-% \subsection{Alternative approaches}
-% \label{sec:memory_management_alternatives}
-% 
-% There are several approaches that could be used to manage the CUDA memory space.
-% %
-% \begin{itemize}
-% \item Reference counting can be used to count the number of times an array is
-%     referenced within the GPU computation, and deallocate the array after the
-%     final use. This approach is fragile and error, because it must be reassessed
-%     each time the core language changes, but results in the shortest array
-%     lifetimes.
-% 
-% \item A simpler alternative is a syntax directed approach. Since any array used
-%     multiple times in an expression will be let-bound
-%     (\S\ref{sec:sharing_observation}), the bound array can be deallocated after
-%     evaluating the body of the let binding.
-% 
-% \end{itemize}
 
+\subsection{Allocation \& Deallocation}
+
+The Accelerate language defines only pure operations on arrays, so every kernel
+stores its result into a fresh device array. This style of programming results
+in a very high memory allocation and deallocation rate. For programs that
+execute many kernels, such as the fluid simulator (\S tk), this can have a
+significant contribution to overall performance.
+
+Instead of immediately deallocating device memory when an arrays is garbage
+collected, we instead keep a reference to this data in the \indexe{nursery},
+which is simply a finite mapping from array sizes to a chuck of memory of that
+size. When a new array is allocated, we first check if a block of the
+appropriate size is available in the nursery; if so that pointer is returned,
+else fresh memory is allocated.
+
+\begin{lstlisting}[style=haskell]
+type NRS        = IORef ( HashTable (Context, Int) (FullList () (DevicePtr ())))
+type Nursery    = Nursery NRS (Weak NRS)
+\end{lstlisting}
+
+\subsection{Conclusion}
 
 
 \endinput

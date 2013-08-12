@@ -401,7 +401,8 @@ In order to keep Accelerate programs as close to idiomatic Haskell as possible,
 the Accelerate runtime system should do the job of managing the CUDA memory
 space. Moreover, host-device data transfers are expensive, given the relatively
 high latency and low bandwidth of the PCI-E bus, so minimising data transfer is
-an important pressure point for achieving high performance.
+an important pressure point for achieving high performance. There are several
+considerations in order to realise this.
 
 % The question is (a) when should data be transferred to and from the host, to be
 % made available for CPU and GPU computations respectively; and (b) when should
@@ -427,8 +428,10 @@ However, any intermediate results computed during evaluation of the program are
 \subsection{Host-to-device transfers}
 
 Accelerate distinguishes between vanilla Haskell arrays (in CPU host memory)
-from embedded arrays (in GPU device memory). The function \code{use} embeds a
-Haskell array into an embedded array computation, and thus implies
+from embedded arrays (in GPU device memory). Every array on the host is uniquely
+associated to an array on the device, which defines where data is copied when
+data is transferred between the host and device. The function \code{use} embeds
+a Haskell array into an embedded array computation, and thus implies
 host-to-device data transfer:
 %
 \begin{lstlisting}[style=haskell,numbers=none]
@@ -443,7 +446,8 @@ host-to-device data transfer:
 At a first approximation, we simply copy the data to the GPU as soon as we
 encounter the \code{Use} node in an expression. This occurs during the first
 phase of program execution, and is done asynchronously so that it may overlap
-code generation and compilation (\S\ref{sec:dynamic_compilation}).
+code generation and compilation (\S\ref{sec:dynamic_compilation}). However, we
+can do better.
 
 \subsubsection{Intra-expression sharing}
 
@@ -457,7 +461,7 @@ the same and combine them? The sharing recovery algorithm observes the sharing
 of \emph{Accelerate} terms, and because we have called \footcode{use} twice, we
 are effectively constructing two \emph{separate} Accelerate terms
 (\footcode{Use} nodes). Furthermore, since GHC does not do common subexpression
-elimination as it can affect the strictness/laziness of the program and
+elimination, as it can affect the strictness/laziness of the program and
 potentially introduce space leaks
 (\url{http://ghc.haskell.org/trac/ghc/ticket/701}), these common subexpressions
 are not combined, two separate values are created on the heap, and there is no
@@ -468,16 +472,16 @@ square :: (Elt e, IsNum e, Shape sh) => Array sh e -> Acc (Array sh e)
 square xs = zipWith (*) (use xs) (use xs)
 \end{lstlisting}
 
-Every array on the GPU is uniquely associated to an array on the host. This
-defines where data is copied when data is transferred between the host and
-device. Since the two \code{use} nodes refer to the same array on the heap, they
-will share the same array in GPU memory, and thus the data is only copied once.
+Since the two \code{use} nodes refer to the same array on the heap, they will
+share the same array in GPU memory, and thus the data is only copied once. This
+is a happy consequence of way we uniquely associate host and device arrays.
+
 
 \subsubsection{Inter-expression sharing}
 
 At a second example, consider the following program fragment, which given an
-array describing the particle density \code{df} and direction \& magnitude of
-the velocity field \code{vf} at each point, computes how the density and
+array describing the particle density \code{df} and the direction and magnitude
+of the velocity field \code{vf} at each point, computes how the density and
 velocity fields evolve under advection and diffusion:
 %
 \begin{lstlisting}[style=haskell]
@@ -498,36 +502,48 @@ This is the entry function to the program that implements Jos Stam's stable
 fluid algorithm~\cite{Stam:1999ey} (\S\ref{sec:fluid}). As is typical with
 numerical simulations, to evolve the simulation over a period of time the
 function is called repeatedly over small time steps, with the output of each
-step of the simulation forming the input to the next. Thus, the results
-\code{df'} and \code{vf'} will be the inputs \code{df} and \code{vf}
-respectively, when the program is evaluated to compute the next step of the
-simulation. Since these arrays were just copied \emph{from} the GPU, we should
-avoid immediately copying the \emph{same data} back again.
+step of the simulation forming the input to the next. That is, given some
+initial values \code{df0} and \code{vf0} the simulation proceeds as:
+%
+\begin{lstlisting}[style=haskell]
+simulation dt dp dn df0 vf0 =
+  let (df1, vf1)        = run $ fluid dt dp dn df0 vf0  -- first step using initial conditions
+      (df2, vf2)        = run $ fluid dt dp dn df1 vf1  -- second step progresses result of the first
+      (df3, vf3)        = run $ fluid dt dp dn df2 vf2  -- \ldots and so on
+      ...
+\end{lstlisting}
+%
+Thus, the results of the first step \code{df1} and \code{vf1} will be the inputs
+to the second step of the simulation, and so on. Since these arrays were just
+copied \emph{from} the GPU, we should avoid immediately copying the \emph{same
+data} back again in the subsequent step.
 
 To be able to avoid this redundant transfer, the Accelerate memory manager needs
 to operate over the lifetime of the entire Haskell program, and not be
-constrained to work within the evaluation of a single Accelerate expression.
-Otherwise, all memory on the device needs to be deallocated after evaluating an
-expression or the program will leak memory. Thus, localised memory management
-techniques such as reference counting or syntax directed allocations within a
-single \code{run} invocation are insufficient.
+constrained to work within a single \code{run} invocation. Otherwise, all device
+memory needs to be deallocated after evaluating the expression, or the program
+will leak memory. Thus, localised memory management techniques such as reference
+counting or syntax directed allocations are insufficient.
 
 The key observation is that the Haskell runtime system knows when objects will
-be reused (such as \code{df'} in the second step as \code{df}), and when they
-are no longer required and can be garbage collected (\code{df'} after the second
-step). Since every array in GPU memory is uniquely associated with array on the
-host, which managed by the Haskell runtime system, we attach
+be reused (the result of the first step \code{df1} is used in the second step),
+and when they are no longer required and can be garbage collected (\code{df1} is
+no longer needed after evaluating the second step and can be safely
+deallocated). Since every array in GPU memory is uniquely associated with an
+array on the host, which is managed by the Haskell runtime system, we attach
 finalisers~\cite{PeytonJones:2000ks} to the host array which deallocate the GPU
-memory at the same time the Haskell heap object is garbage collected. To be
-precise, since the CUDA backend uses a hash table to record the associations
-between host and device arrays, we construct a weak hash
-table~\cite{PeytonJones:2000ks}, so that entries can both deallocate the device
-memory as well as remove themselves from the association table when the array is
-garbage collected, and so that all finalisers can be initiated immediately if
-the hash table is itself is collected.
+memory at the same time the Haskell heap object is garbage collected.
 
-\note{This section was very handwavey. Introduce actual types/code for the core
-memory table operations.}
+% To be
+% precise, since the CUDA backend uses a hash table to record the associations
+% between host and device arrays, we construct a weak hash
+% table~\cite{PeytonJones:2000ks}, so that entries can both deallocate the device
+% memory as well as remove themselves from the association table when the array is
+% garbage collected, and so that all finalisers can be initiated immediately if
+% the hash table is itself is garbage collected.
+% 
+% \note{This section was very handwavey. Introduce actual types/code for the core
+% memory table operations.}
 
 
 \subsection{Allocation \& Deallocation}
@@ -535,20 +551,188 @@ memory table operations.}
 The Accelerate language defines only pure operations on arrays, so every kernel
 stores its result into a fresh device array. This style of programming results
 in a very high memory allocation and deallocation rate. For programs that
-execute many kernels, such as the fluid simulator (\S tk), this can have a
-significant contribution to overall performance.
+execute many kernels, such as the fluid simulator, this can have a
+significant contribution to overall performance (\S\ref{sec:fluid}).
 
-Instead of immediately deallocating device memory when an arrays is garbage
-collected, we instead keep a reference to this data in the \indexe{nursery},
-which is simply a finite mapping from array sizes to a chuck of memory of that
-size. When a new array is allocated, we first check if a block of the
-appropriate size is available in the nursery; if so that pointer is returned,
+Instead of immediately deallocating device memory when an array is garbage
+collected, we instead remove its association to a specific host array but retain
+a reference to the device memory for later reuse. This memory area is the
+\indexe{nursery}, which is simply a finite mapping from array sizes to a chuck
+of memory of that size. When a new array is allocated, we first check if a block
+of the appropriate size is available in the nursery; if so that block is reused,
 else fresh memory is allocated.
 
+% To increase the hit rate of the nursery, allocations for fresh arrays are
+% rounded up to a set chunk size, rather than being sized to exactly fit the
+% required number of elements. If an allocation for fresh data fails due to
+% insufficient memory, data held by the nursery is immediately deallocated and the
+% fresh allocation reattempted.
+% 
+% \begin{lstlisting}[style=haskell]
+% type NRS        = IORef ( HashTable (Context, Int) (FullList () (DevicePtr ())))
+% type Nursery    = Nursery NRS (Weak NRS)
+% \end{lstlisting}
+
+\subsection{Memory manager implementation}
+
+The memory management system is implemented over several modules:
+%
+\begin{description}
+\item[Data] Defines operations on the surface \code{Array} data type, in
+    particular applying operations to each member of the struct-of-array
+    representation.
+
+\item[Prim] Interface to the CUDA API for operations on arrays of primitive
+    type, for example to initiate data transfers to and from the device. Queries
+    the memory table functions to retrieve the raw pointers for device arrays.
+
+\item[Table] Maps host arrays to the corresponding array in device memory, and
+    sets up finalisers so device arrays can be moved into the nursery when the
+    host array is garbage collected.
+
+\item[Nursery] Handles allocation and deallocation of device memory, and
+    manages unused blocks of memory that can be reused instead of allocating
+    fresh data.
+\end{description}
+
+Implementation of the Data and Prim modules is not extraordinary, but it is
+worthwhile mentioning that care should be taken with the implementation of
+transferring an array to the device via \code{use}. In particular, that the
+array data is only transferred on the first \code{use} attempt, when a fresh
+device array was allocated. If the \code{use} operation is separated into its
+constituent \code{malloc} and \code{poke} operations, this is easily overlooked
+resulting in the array data being needlessly transferred every time \code{use}
+is called.
+
+The memory table records the association between host and device arrays.
+Implemented as a weak hash table~\cite{PeytonJones:2000ks}, the table can purge
+itself of unneeded key/value pairs, releasing the device memory at the same time
+by moving it to the nursery. Furthermore the table will also release itself when
+no longer required, initialising the finalisers for all key/value pairs as it
+goes.
+%
 \begin{lstlisting}[style=haskell]
-type NRS        = IORef ( HashTable (Context, Int) (FullList () (DevicePtr ())))
-type Nursery    = Nursery NRS (Weak NRS)
+type MT                 = IORef ( HashTable HostArray DeviceArray )
+data MemoryTable        = MemoryTable MT (Weak MT) Nursery
+
+data HostArray where
+  HostArray   :: exists e. Typeable e
+              => Int                            -- unique ID to the device execution context
+              -> StableName (ArrayData e)       -- array data on the host CPU
+              -> HostArray
+
+data DeviceArray where
+  DeviceArray :: exists e. Typeable e
+              => Weak (DevicePtr e)             -- data on the GPU
+              -> DeviceArray
 \end{lstlisting}
+%
+The key and value parts of the hash table are packaged into untyped containers
+so that all arrays are tracked using a single memory table. The \code{Typeable}
+constraint permits a type-safe cast to later recover the existentially
+quantified array type. Furthermore the host arrays are tagged with a integer
+identifier, which is used to support mapping the host array to multiple devices
+and execution contexts. The implementation of the lookup operation follows
+closely that of \citet{PeytonJones:2000ks}.
+
+Similarly, the nursery is a hash table from array sizes to a non-empty list of
+pointers to arrays of that size. Keys are additionally tagged with the device
+execution context within which they are allocated.
+%
+\begin{lstlisting}[style=haskell]
+type NRS        = IORef ( HashTable (CUDA.Context, Int) (FullList () (DevicePtr ())) )
+data Nursery    = Nursery NRS (Weak NRS)
+\end{lstlisting}
+%
+Querying the nursery returns a pointer to an array of the given size if one is
+available, removing it from the nursery. If no suitably sized chunks are
+available, fresh memory needs to be allocated instead.
+%
+\begin{lstlisting}[style=haskell]
+malloc :: forall a b. (Typeable a, Typeable b, Storable b)
+       => Context
+       -> MemoryTable
+       -> ArrayData a
+       -> Int
+       -> IO (DevicePtr b)
+malloc ctx mt@(MemoryTable _ _ !nursery) !ad !n = do
+  let multiple x f      = floor ((x + (f-1)) / f :: Double)             -- (1)
+      chunk             = 1024
+      n'                = chunk * multiple (fromIntegral n) (fromIntegral chunk)
+      bytes             = n' * sizeOf (undefined :: b)
+  --
+  mp  <- Nursery.malloc bytes (deviceContext ctx) nursery               -- (2)
+  ptr <- case mp of
+           Just p       -> return (CUDA.castDevPtr p)
+           Nothing      ->
+             CUDA.mallocArray n' `catch` \(e :: CUDAException) ->       -- (3)
+               case e of
+                 ExitCode OutOfMemory -> reclaim mt >> CUDA.mallocArray n'
+                 _                    -> throwIO e
+  insert ctx mt ad ptr bytes                                            -- (4)
+  return ptr
+\end{lstlisting}
+%
+\begin{enumerate}
+\item Instead of allocating the array size to be exactly as many elements as
+    needed, round up to the next highest multiple of a set chunk size. This
+    improves the reuse rate for the nursery.
+
+\item Check the nursery if a block of the right size can be reused. This avoids
+    calling out to the CUDA API to allocate fresh data, which must pause until
+    any currently executing kernels complete.
+
+\item If nothing is available from the nursery, allocate a new array. If this
+    fails, attempt to recover any free memory by running any pending finalisers
+    and clearing the nursery, then try again.
+
+\item Update the memory table with this new host/device array association.
+
+\end{enumerate}
+
+Finally we present the finaliser that is invoked when the host array is garbage
+collected by the Haskell runtime. The finaliser refers to its surrounding
+execution context via weak pointers, otherwise these values will be kept alive
+until all keys have become unreachable.
+%
+\begin{lstlisting}[style=haskell]
+finalizer :: Weak CUDA.Context          -- execution context this array is allocated in
+          -> Weak MT                    -- memory table
+          -> Weak NRS                   -- nursery
+          -> HostArray -> DevicePtr b   -- key/value pair
+          -> Int                        -- array size in bytes
+          -> IO ()
+finalizer weak_ctx weak_tbl weak_nrs key ptr bytes = do
+  mr <- deRefWeak weak_tbl                              -- (1)
+  case mr of
+    Nothing  -> return ()
+    Just tbl -> withIORef tbl (`HashTable.delete` key)
+
+  mc <- deRefWeak weak_ctx                              -- (2)
+  case mc of
+    Nothing  -> return ()
+    Just ctx -> do
+
+      mn <- deRefWeak weak_nrs                          -- (3)
+      case mn of
+        Nothing  -> bracket_ (CUDA.push ctx) CUDA.pop (CUDA.free ptr)
+        Just nrs -> Nursery.stash bytes ctx nrs ptr
+\end{lstlisting}
+%
+\begin{enumerate}
+\item If the memory table is still alive, remove this association between host
+    and device arrays.
+
+\item If the CUDA execution context has been garbage collected, then the device
+    memory has implicitly been deallocated already and there is nothing further
+    to do.
+
+\item Otherwise, if the nursery is still active stash the array there for
+    possible later reuse, otherwise deallocate it immediately. Note that since
+    the finaliser might run at any time, we need to reactivate this specific
+    context for the duration of the deallocation.
+\end{enumerate}
+
 
 \subsection{Conclusion}
 

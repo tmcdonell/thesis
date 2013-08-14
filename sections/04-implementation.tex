@@ -617,7 +617,7 @@ data MemoryTable        = MemoryTable MT (Weak MT) Nursery
 
 data HostArray where
   HostArray   :: exists e. Typeable e
-              => Int                            -- unique ID to the device execution context
+              => CUDA.Context                   -- a specific device execution context
               -> StableName (ArrayData e)       -- array data on the host CPU
               -> HostArray
 
@@ -630,10 +630,10 @@ data DeviceArray where
 The key and value parts of the hash table are packaged into untyped containers
 so that all arrays are tracked using a single memory table. The \code{Typeable}
 constraint permits a type-safe cast to later recover the existentially
-quantified array type. Furthermore the host arrays are tagged with a integer
-identifier, which is used to support mapping the host array to multiple devices
-and execution contexts. The implementation of the lookup operation follows
-closely that of \citet{PeytonJones:2000ks}.
+quantified array type. Furthermore the host arrays are tagged with a specific
+CUDA context, which is used to support mapping the host array to multiple
+devices and execution contexts. The implementation of the lookup operation
+follows closely that of \citet{PeytonJones:2000ks}.
 
 Similarly, the nursery is a hash table from array sizes to a non-empty list of
 pointers to arrays of that size. Keys are additionally tagged with the device
@@ -655,7 +655,7 @@ malloc :: forall a b. (Typeable a, Typeable b, Storable b)
        -> ArrayData a
        -> Int
        -> IO (DevicePtr b)
-malloc ctx mt@(MemoryTable _ _ !nursery) !ad !n = do
+malloc ctx mt@(MemoryTable _ _ nursery) ad n = do
   let multiple x f      = floor ((x + (f-1)) / f :: Double)             -- (1)
       chunk             = 1024
       n'                = chunk * multiple (fromIntegral n) (fromIntegral chunk)
@@ -735,6 +735,25 @@ finalizer weak_ctx weak_tbl weak_nrs key ptr bytes = do
 
 
 \subsection{Conclusion}
+
+The Accelerate runtime automatically manages the CUDA memory space through the
+use of finalisers to hook in into the garbage collector of the runtime system of
+the host program. The system is able to avoid several types of redundant data
+transfer between the host CPU and attached GPU, which is important for achieving
+high performance.
+
+The amount of memory available on the device often limits the size of problems
+that the GPU can be used to solve. The current system is designed to minimise
+host-device memory transfers, which can increase the lifetime of arrays stored
+on the device. Future work could improve handling of programs which exceed the
+available memory, for example in the case where this is due to the use of many
+intermediate or input arrays, but where individual sub-problems fit within the
+available memory. In this case arrays that are not required for the current
+calculation can be evacuated from the device by transferring back to the
+associated host-side array, and transferred back to the device only once
+required.
+
+
 
 
 \endinput

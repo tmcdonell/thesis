@@ -10,11 +10,11 @@ Section 5.4 \& 5.5 also seem like a distraction in the middle of explaining fusi
 MMTC: Section numbers with 4 parts (5.2.2.1 etc) look silly. Use unnumbered '\\paragraph's or revise your structure.
 
 The previous chapter discussed the architecture of the Accelerate language
-embedding and execution on CUDA hardware. Through a set of benchmarks, we
+embedding and execution on \CUDA\ hardware. Through a set of benchmarks, we
 identify the two most pressing performance limitations: operator fusion and data
 sharing. This chapter describes the method used to overcome these issues,
 focusing primarily on the approach to operator fusion in the context of the
-stratified Accelerate language and skeleton-based implementation of the CUDA
+stratified Accelerate language and skeleton-based implementation of the \CUDA\
 backend.
 
 It should be noted that ``optimisation'' is a misnomer; only rarely does
@@ -461,10 +461,10 @@ DPH\index{data-parallel Haskell} is not helpful. Although fused operations are
 split into sequential and parallel subcomputations, the granularity of the
 parallel operations is rather coarse and the sequential component again consists
 of tail-recursive loops, both of which are ill suited for a massively parallel
-target such as \index{GPU}GPUs. Accelerate compiles massively parallel array
-combinators to \indext{CUDA} code via template skeleton instantiation, so any
-fusion system must preserve the combinator representation of the intermediate
-code.
+target such as GPUs\index{graphics processing unit}. Accelerate compiles
+massively parallel array combinators to \CUDA\ code via template skeleton
+instantiation, so any fusion system must preserve the combinator representation
+of the intermediate code.
 
 \paragraph{Sharing:} \index{fusion!short-cut}Short-cut fusion transforms rely on
 inlining to move producer and consumer expressions next to each other, which
@@ -574,11 +574,11 @@ stencil     :: Stencil sh a stencil => (stencil -> Exp b) -> Boundary a       %\
 Listing~\ref{lst:operations} summarises the collective array operations that we
 support. In a parallel context, producers are much more pleasant to deal with
 because independent element-wise operations have an obvious mapping to massively
-parallel processors such as GPUs\index{GPU}. Consumers are a different story, as
-we need to know exactly how the elements depend on each other in order to
-implement them efficiently in parallel. For example, a parallel fold (with
-associative operator) can be implemented efficiently in parallel as a tree
-reduction, but a parallel scan requires two distinct phases
+parallel processors such as GPUs\index{graphics processing unit}. Consumers are
+a different story, as we need to know exactly how the elements depend on each
+other in order to implement them efficiently in parallel. For example, a
+parallel fold (with associative operator) can be implemented efficiently in
+parallel as a tree reduction, but a parallel scan requires two distinct phases
 \cite{Chatterjee:1990vj,Sengupta:2007tc}. Unfortunately, this is the sort of
 information that is obfuscated by most fusion techniques
 (\S\ref{sec:fusion_related_work}). To support the different properties of
@@ -1385,7 +1385,7 @@ This consists of two collective operations: the first multiplies values from the
 two input arrays element-wise, and the second sums this result. The fusion
 system should translate this into a single collective operation, in much the
 same way as a human would write if working directly in a low-level language such
-as C or CUDA.
+as C or \CUDA.
 
 The basic idea is to pass producers encoded in the \code{Cunctation}
 representation directly to consumers, and implementation of the consumer can

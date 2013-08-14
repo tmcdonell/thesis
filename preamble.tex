@@ -124,14 +124,6 @@
 %\setcounter{lofdepth}{2}
 
 
-% Index
-% ------------------------------------------------------------------------------
-
-\makeindex
-\providecommand{\indexe}[1]{\index{#1}\emph{#1}}
-\providecommand{\indext}[1]{\index{#1}#1}
-
-
 % Citations
 % ------------------------------------------------------------------------------
 
@@ -276,4 +268,19 @@
     {4pt}%
     {\filleft\titlerule[0.8pt]\vspace{1pt}\titlerule\vspace{2ex}}%
     [\vspace{2ex}{\titlerule[0.8pt]}\vspace{1pt}\titlerule]
+
+
+% Index
+% ------------------------------------------------------------------------------
+
+\makeindex
+\providecommand{\indexe}[1]{\index{#1}\emph{#1}}
+\providecommand{\indext}[1]{\index{#1}#1}
+
+% Macros for commonly used terms
+
+\newcommand\AST{AST\index{abstract-syntax tree}}
+\newcommand\CUDA{\indext{CUDA}}
+\newcommand\GPU{GPU\index{graphics processing unit}}
+\newcommand\HOAS{HOAS\index{higher-order abstract syntax}}
 

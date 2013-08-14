@@ -94,15 +94,15 @@
 The previous chapter described the design of the Accelerate language, an
 embedded DSL of operations over arrays, rich enough to express some interesting
 real-world problems. This chapter details the architecture and implementation of
-a backend for parallel execution on CUDA hardware.
+a backend for parallel execution on \CUDA\ hardware.
 
 
 \section{Parallel Algorithms in CUDA}
 
-The CUDA\index{CUDA} architecture is a parallel computing platform and
+The \CUDA\ architecture is a parallel computing platform and
 programming model created by NVIDIA and implemented by the graphics processing
 units (GPUs)\index{GPU|see {graphics processing unit}}\index{graphics processing
-unit} that they produce. Using CUDA, the GPU becomes accessible not just for
+unit} that they produce. Using \CUDA, the \GPU\ becomes accessible not just for
 graphics applications, but for computational tasks much like a CPU\@. Unlike
 CPUs, however, GPUs have a parallel throughput architecture that emphasises
 executing many concurrent threads slowly, rather than executing a single thread
@@ -110,11 +110,11 @@ very quickly.
 % Unlike CPU cores, instructions are issued in order and there is no
 % branch prediction and no speculative execution.
 
-The CUDA hardware architecture is built around a scalable array of multithreaded
-\emph{streaming multiprocessors} (SMs).\index{SM|see {streaming
-multiprocessor}}\index{streaming multiprocessor} When a CUDA program on the host
-CPU invokes a \indexe{kernel} --- a function which executes on the GPU --- a
-\emph{grid} of threads grouped into equally sized \emph{blocks} is
+The \CUDA\ hardware architecture is built around a scalable array of
+multithreaded \emph{streaming multiprocessors} (SMs).\index{SM|see {streaming
+multiprocessor}}\index{streaming multiprocessor} When a \CUDA\ program on the
+host CPU invokes a \indexe{kernel} --- a function which executes on the \GPU\
+--- a \emph{grid} of threads grouped into equally sized \emph{blocks} is
 % \index{thread!grid} \index{thread!block}
 enumerated and distributed to the multiprocessors for execution, using a
 \emph{single-instruction, multiple thread} (SIMT) model.\index{SIMT|see {single
@@ -128,18 +128,19 @@ inactive (disabled). In essence, streaming multiprocessors replace the complex
 instruction scheduling logic of a CPU which increases single threaded
 performance --- namely out-of-order execution, branch prediction and speculative
 execution --- with many additional ALUs (arithmetic logic units, often referred
-to as CUDA cores) all executing the same instruction sequence in parallel in
-order to increase total instruction throughput. Details of the CUDA architecture
-can be found in the CUDA C programming guide~\cite{NVIDIA:2012wf}; we present
-only those features required for the discussion.
+to as \CUDA\ cores) all executing the same instruction sequence in parallel in
+order to increase total instruction throughput. Details of the \CUDA\
+architecture can be found in the \CUDA\ C programming
+guide~\cite{NVIDIA:2012wf}; we present only those features required for the
+discussion.
 
 Some collective operations such as \code{map} have an obvious mapping to the
-highly parallel CUDA architecture, so we elide discussion of their
+highly parallel \CUDA\ architecture, so we elide discussion of their
 implementation. Other collective operations such as \code{scan}, where the value
 of each element depends on the value of the last, may at first seem to not admit
 a parallel interpretation at all. This section outlines the implementation of
 this second kind of collective operation, where efficient parallel
-implementation in CUDA may not be obvious.
+implementation in \CUDA\ may not be obvious.
 
 
 \subsection{Reduction}
@@ -149,7 +150,7 @@ Reductions are a common and important data-parallel primitive.
 Figure~\ref{fig:tree_reduction} illustrates the basic strategy of a tree
 reduction: within each thread block a tree-based approach is used to reduce
 elements to a single value, and multiple thread blocks each process a portion of
-the array in parallel. There is no global synchronisation primitive in CUDA,
+the array in parallel. There is no global synchronisation primitive in \CUDA,
 because (a) it would be expensive to build in hardware for large numbers of
 multiprocessors, and (b) would be difficult for programmers to use without
 introducing sources of deadlock. Instead, kernel launches serve as a global
@@ -237,7 +238,7 @@ the total kernel startup cost associated with launching thread blocks. Since the
 maximum number of resident blocks is typically much less than the number of
 threads in a block, the reduction will typically require at most two kernel
 invocations.\footnote{Accelerate selects the thread block size in order to
-maximise thread occupancy. As this depends on both the specific GPU being used
+maximise thread occupancy. As this depends on both the specific \GPU\ being used
 as well as the user function the array is reduced with, an upper bound of two
 parallel steps can not be guaranteed.}
 
@@ -273,7 +274,7 @@ great many data-parallel algorithms~\cite{Blelloch:1990ts,Chatterjee:1990vj}.
 They also form the basis for efficiently mapping nested data-parallel languages
 such as NESL~\cite{Blelloch:1995ut,Blelloch:1996jx} on to flat data-parallel
 machines. Because of their fundamental importance to many algorithms,
-implementing efficient scan operations in CUDA has received much
+implementing efficient scan operations in \CUDA\ has received much
 attention~\cite{Sengupta:2007tc,Dotsenko:2008fo,Harris:2012fy}.
 
 A basic description (in pictures) of how the scan and segmented scan algorithms
@@ -356,7 +357,7 @@ histogram vec
 \end{lstlisting}
 
 The semantics of the operation is that every permutation from source to result
-array is applied at the same time in a single parallel step. If multiple CUDA
+array is applied at the same time in a single parallel step. If multiple \CUDA\
 threads attempt a non-atomic write to the same memory location at the same time,
 the writes will be serialised but the thread which performs the final write is
 undefined, and so the final value at that memory slot is
@@ -392,13 +393,13 @@ available is left to future work.
 
 In a standard Haskell program, memory is managed entirely automatically by the
 runtime system. This relieves a large burden from the programmer and eliminates
-a source of potential runtime errors. In contrast, in the CUDA programming model
-all memory management is explicit and handled by the programmer. Indeed, CUDA
+a source of potential runtime errors. In contrast, in the \CUDA\ programming model
+all memory management is explicit and handled by the programmer. Indeed, \CUDA\
 devices typically have their own memory, physically separate from the memory of
 the host CPU, which data must be explicitly transferred to and from.
 
 In order to keep Accelerate programs as close to idiomatic Haskell as possible,
-the Accelerate runtime system should do the job of managing the CUDA memory
+the Accelerate runtime system should do the job of managing the \CUDA\ memory
 space. Moreover, host-device data transfers are expensive, given the relatively
 high latency and low bandwidth of the PCI-E bus, so minimising data transfer is
 an important pressure point for achieving high performance. There are several
@@ -412,8 +413,8 @@ considerations in order to realise this.
 \subsection{Device-to-host transfers}
 
 Evaluating Accelerate expressions is done with the following function, which
-encapsulates the entire process of compiling and executing a program on the GPU
-(\S tk):
+encapsulates the entire process of compiling and executing a program on the
+\GPU\ (\S tk):
 %
 \begin{lstlisting}[style=haskell,numbers=none]
     run :: Arrays a => Acc a -> a
@@ -428,11 +429,11 @@ However, any intermediate results computed during evaluation of the program are
 \subsection{Host-to-device transfers}
 
 Accelerate distinguishes between vanilla Haskell arrays (in CPU host memory)
-from embedded arrays (in GPU device memory). Every array on the host is uniquely
-associated to an array on the device, which defines where data is copied when
-data is transferred between the host and device. The function \code{use} embeds
-a Haskell array into an embedded array computation, and thus implies
-host-to-device data transfer:
+from embedded arrays (in \GPU\ device memory). Every array on the host is
+uniquely associated to an array on the device, which defines where data is
+copied when data is transferred between the host and device. The function
+\code{use} embeds a Haskell array into an embedded array computation, and thus
+implies host-to-device data transfer:
 %
 \begin{lstlisting}[style=haskell,numbers=none]
     use :: Arrays arrays => arrays -> Acc arrays
@@ -443,7 +444,7 @@ host-to-device data transfer:
 % be used as array indices and elements respectively, or a tuple of arrays (see \S
 % tk).
 
-At a first approximation, we simply copy the data to the GPU as soon as we
+At a first approximation, we simply copy the data to the \GPU\ as soon as we
 encounter the \code{Use} node in an expression. This occurs during the first
 phase of program execution, and is done asynchronously so that it may overlap
 code generation and compilation (\S\ref{sec:dynamic_compilation}). However, we
@@ -454,8 +455,8 @@ can do better.
 Consider the following example, where we \code{use} a single array twice. Since
 Accelerate operations are pure and thus do not mutate arrays, the device arrays
 can be safely shared. Thus, we would like these two arrays to refer to the same
-data in GPU memory. This reduces the amount of memory required to store the data
-as well as reducing memory traffic.\footnote{Why doesn't sharing recovery
+data in \GPU\ memory. This reduces the amount of memory required to store the
+data as well as reducing memory traffic.\footnote{Why doesn't sharing recovery
 (\S\ref{sec:sharing_observation}) notice that the two uses of \footcode{xs} are
 the same and combine them? The sharing recovery algorithm observes the sharing
 of \emph{Accelerate} terms, and because we have called \footcode{use} twice, we
@@ -473,8 +474,8 @@ square xs = zipWith (*) (use xs) (use xs)
 \end{lstlisting}
 
 Since the two \code{use} nodes refer to the same array on the heap, they will
-share the same array in GPU memory, and thus the data is only copied once. This
-is a happy consequence of way we uniquely associate host and device arrays.
+share the same array in \GPU\ memory, and thus the data is only copied once.
+This is a happy consequence of way we uniquely associate host and device arrays.
 
 
 \subsubsection{Inter-expression sharing}
@@ -515,7 +516,7 @@ simulation dt dp dn df0 vf0 =
 %
 Thus, the results of the first step \code{df1} and \code{vf1} will be the inputs
 to the second step of the simulation, and so on. Since these arrays were just
-copied \emph{from} the GPU, we should avoid immediately copying the \emph{same
+copied \emph{from} the \GPU, we should avoid immediately copying the \emph{same
 data} back again in the subsequent step.
 
 To be able to avoid this redundant transfer, the Accelerate memory manager needs
@@ -529,10 +530,10 @@ The key observation is that the Haskell runtime system knows when objects will
 be reused (the result of the first step \code{df1} is used in the second step),
 and when they are no longer required and can be garbage collected (\code{df1} is
 no longer needed after evaluating the second step and can be safely
-deallocated). Since every array in GPU memory is uniquely associated with an
+deallocated). Since every array in \GPU\ memory is uniquely associated with an
 array on the host, which is managed by the Haskell runtime system, we attach
-finalisers~\cite{PeytonJones:2000ks} to the host array which deallocate the GPU
-memory at the same time the Haskell heap object is garbage collected.
+finalisers~\cite{PeytonJones:2000ks} to the host array which deallocate the
+\GPU\ memory at the same time the Haskell heap object is garbage collected.
 
 % To be
 % precise, since the CUDA backend uses a hash table to record the associations
@@ -582,7 +583,7 @@ The memory management system is implemented over several modules:
     particular applying operations to each member of the struct-of-array
     representation.
 
-\item[Prim] Interface to the CUDA API for operations on arrays of primitive
+\item[Prim] Interface to the \CUDA\ API for operations on arrays of primitive
     type, for example to initiate data transfers to and from the device. Queries
     the memory table functions to retrieve the raw pointers for device arrays.
 
@@ -631,7 +632,7 @@ The key and value parts of the hash table are packaged into untyped containers
 so that all arrays are tracked using a single memory table. The \code{Typeable}
 constraint permits a type-safe cast to later recover the existentially
 quantified array type. Furthermore the host arrays are tagged with a specific
-CUDA context, which is used to support mapping the host array to multiple
+\CUDA\ context, which is used to support mapping the host array to multiple
 devices and execution contexts. Looking up an array in the memory table
 demonstrates the procedure for working with weak pointers.
 % The implementation of the lookup operation follows closely that of
@@ -721,7 +722,7 @@ malloc ctx mt@(MemoryTable _ _ nursery) ad n = do
     improves the reuse rate for the nursery.
 
 \item Check the nursery if a block of the right size can be reused. This avoids
-    calling out to the CUDA API to allocate fresh data, which must pause until
+    calling out to the \CUDA\ API to allocate fresh data, which must pause until
     any currently executing kernels complete.
 
 \item If nothing is available from the nursery, allocate a new array. If this
@@ -764,9 +765,9 @@ finalizer weak_ctx weak_tbl weak_nrs key ptr bytes = do
 \item If the memory table is still alive, remove this association between host
     and device arrays.
 
-\item If the CUDA execution context has been garbage collected, then the device
-    memory has implicitly been deallocated already and there is nothing further
-    to do.
+\item If the \CUDA\ execution context has been garbage collected, then the
+    device memory has implicitly been deallocated already and there is nothing
+    further to do.
 
 \item Otherwise, if the nursery is still active stash the array there for
     possible later reuse, otherwise deallocate it immediately. Note that since
@@ -777,14 +778,14 @@ finalizer weak_ctx weak_tbl weak_nrs key ptr bytes = do
 
 \subsection{Conclusion}
 
-The Accelerate runtime automatically manages the CUDA memory space through the
+The Accelerate runtime automatically manages the \CUDA\ memory space through the
 use of finalisers to hook in into the garbage collector of the runtime system of
 the host program. The system is able to avoid several types of redundant data
-transfer between the host CPU and attached GPU, which is important for achieving
-high performance.
+transfer between the host CPU and attached \GPU\, which is important for
+achieving high performance.
 
 The amount of memory available on the device often limits the size of problems
-that the GPU can be used to solve. The current system is designed to minimise
+that the \GPU\ can be used to solve. The current system is designed to minimise
 host-device memory transfers, which can increase the lifetime of arrays stored
 on the device. Future work could improve handling of programs which exceed the
 available memory, for example in the case where this is due to the use of many
@@ -795,15 +796,24 @@ associated host-side array, and transferred back to the device only once
 required.
 
 
+\section{Skeleton-based code generation}
+\label{sec:code_generation}
+
+\subsection{Scalar code}
+\subsection{Shapes}
+\subsection{Tuples}
+\subsection{Array references in scalar code}
+
+
 \section{Dynamic Compilation}
 \label{sec:dynamic_compilation}
 
 When you write a program in Accelerate, what you are really doing is writing a
-Haskell program that \emph{generates} a CUDA program, that is compiled, loaded,
-and executed on the GPU\@. Thus, one major difference between using Accelerate
-for general purpose GPU programming compared to programming in CUDA directly, is
-that kernels are generated dynamically, at application \emph{runtime}, whereas
-plan CUDA code is pre-compiled.
+Haskell program that \emph{generates} a \CUDA\ program, that is compiled,
+loaded, and executed on the \GPU\@. Thus, one major difference between using
+Accelerate for general purpose \GPU\ programming compared to programming in
+\CUDA\ directly, is that kernels are generated dynamically, at application
+\emph{runtime}, whereas plan \CUDA\ code is pre-compiled.
 
 Dynamic code generation has significant advantages, especially for embedded
 languages. In particular, the code generator can query the capabilities of the
@@ -811,20 +821,18 @@ hardware on which the code will be executed, and optimise the generated program
 accordingly, as well as specialise the code to the available input data. The
 host program can also be used to generate the embedded program.
 
-The main drawback of dynamically generating and compiling GPU kernels is the
+The main drawback of dynamically generating and compiling \GPU\ kernels is the
 additional execution time required to do so, so attempts must be made to
-mitigate these overheads. In general purpose GPU programming, it is only
-worthwhile to offload computations to the GPU if they are compute-intensive.
+mitigate these overheads. In general purpose \GPU\ programming, it is only
+worthwhile to offload computations to the \GPU\ if they are compute-intensive.
 This implies a significant runtime and usually also the use of significant
-amount of input and output data. Hence, the overhead of dynamic kernel
+amount of input and/or output data. Hence, the overhead of dynamic kernel
 compilation is not necessarily problematic in the face of long kernel runtimes
 and long data-transfer times between host and device memory, especially if those
 kernels are compiled once and executed on multiple data sets.
 
-
-\subsection{Skeleton-based code generation}
-
 \subsection{External compilation}
+
 
 \subsection{Caching compiled kernels}
 

@@ -389,7 +389,7 @@ available is left to future work.
 
 
 \section{Memory Management}
-% Weak hash tables. Hijacking the storage manager. Reducing the allocation rate.
+\label{sec:memory_management}
 
 In a standard Haskell program, memory is managed entirely automatically by the
 runtime system. This relieves a large burden from the programmer and eliminates
@@ -427,6 +427,7 @@ However, any intermediate results computed during evaluation of the program are
 
 
 \subsection{Host-to-device transfers}
+\label{sec:host_device_transfers}
 
 Accelerate distinguishes between vanilla Haskell arrays (in CPU host memory)
 from embedded arrays (in \GPU\ device memory). Every array on the host is
@@ -446,9 +447,11 @@ implies host-to-device data transfer:
 
 At a first approximation, we simply copy the data to the \GPU\ as soon as we
 encounter the \code{Use} node in an expression. This occurs during the first
-phase of program execution, and is done asynchronously so that it may overlap
-code generation and compilation (\S\ref{sec:dynamic_compilation}). However, we
-can do better.
+phase of program execution, and is done asynchronously\footnote{Testing reveals
+that the data transfer does not in fact occur asynchronously, and fixing this is
+left for future work. See \S\ref{sec:memory_management_conclusion}.}
+so that it may overlap code generation and compilation
+(\S\ref{sec:dynamic_compilation}). However, we can do better.
 
 \subsubsection{Intra-expression sharing}
 
@@ -605,7 +608,7 @@ constituent \code{malloc} and \code{poke} operations, this is easily overlooked
 resulting in the array data being needlessly transferred every time \code{use}
 is called.
 
-The memory table records the association between host and device arrays.
+The \emph{memory table} records the association between host and device arrays.
 Implemented as a weak hash table~\cite{PeytonJones:2000ks}, the table can purge
 itself of unneeded key/value pairs, releasing the device memory at the same time
 by moving it to the nursery. Furthermore the table will also release itself when
@@ -777,6 +780,7 @@ finalizer weak_ctx weak_tbl weak_nrs key ptr bytes = do
 
 
 \subsection{Conclusion}
+\label{sec:memory_management_conclusion}
 
 The Accelerate runtime automatically manages the \CUDA\ memory space through the
 use of finalisers to hook in into the garbage collector of the runtime system of
@@ -794,6 +798,31 @@ available memory. In this case arrays that are not required for the current
 calculation can be evacuated from the device by transferring back to the
 associated host-side array, and transferred back to the device only once
 required.
+
+While it is possible to overlap memory transfers with both kernel executions and
+tasks such as compilation and optimisation, the current implementation does not
+completely implement this. To support asynchronous memory transfer requires the
+use of non-default streams and event waiting, the same as required for
+concurrent kernel execution (\S tk). Additionally, the array on the host needs
+to be \emph{page-locked} or \emph{pinned} so that it can be accessed directly by
+the \GPU\ using direct memory access (DMA). Regular memory allocations are
+\emph{pageable} by default, which means the host operating system is free to
+change the physical location of the data, such as moving the data to disk in
+order to free up memory for other applications. Since the location of pageable
+memory can change, and may not exist in physical RAM at all, this memory can not
+be directly accessed by the \GPU\@. Instead when copying data to the \GPU\ from
+pageable memory, the \CUDA\ library must first copy the data to a staging area
+allocated using pinned memory, and then transfer the data to the device from the
+staging area. Only the second step of this process proceeds asynchronously.
+Allocations on the host are currently handled by the core Accelerate package,
+which contains no \CUDA\ specific operations such as using pinned\footnote{The
+memory allocated by Accelerate is pinned only with respect to the Haskell
+garbage collector, not with respect to the host operating kernel. Regardless,
+the \CUDA\ runtime maintains its own notion of pinned memory separate from the
+kernel notion of pinned memory as specified using \footcode{mlock()}.} memory.
+Note that page-locked memory is a scarce resource and reduces the amount of
+physical memory available to the operating system, so consuming too much
+page-locked memory can reduce overall system performance~\cite{NVIDIA:2012wf}.
 
 
 \section{Skeleton-based code generation}

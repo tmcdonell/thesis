@@ -842,7 +842,7 @@ Haskell program that \emph{generates} a \CUDA\ program, that is compiled,
 loaded, and executed on the \GPU\@. Thus, one major difference between using
 Accelerate for general purpose \GPU\ programming compared to programming in
 \CUDA\ directly, is that kernels are generated dynamically, at application
-\emph{runtime}, whereas plan \CUDA\ code is pre-compiled.
+\emph{runtime}, whereas plain \CUDA\ code is pre-compiled.
 
 Dynamic code generation has significant advantages, especially for embedded
 languages. In particular, the code generator can query the capabilities of the
@@ -853,12 +853,12 @@ host program can also be used to generate the embedded program.
 The main drawback of dynamically generating and compiling \GPU\ kernels is the
 additional execution time required to do so, so attempts must be made to
 mitigate these overheads. In general purpose \GPU\ programming, it is only
-worthwhile to offload computations to the \GPU\ if they are compute-intensive.
-This implies a significant runtime and usually also the use of significant
-amount of input and/or output data. Hence, the overhead of dynamic kernel
-compilation is not necessarily problematic in the face of long kernel runtimes
-and long data-transfer times between host and device memory, especially if those
-kernels are compiled once and executed on multiple data sets.
+worthwhile to offload computations to the \GPU\ if they are computationally
+intensive. This implies a significant runtime and usually also the use of
+significant amount of input and/or output data. Hence, the overhead of dynamic
+kernel compilation is not necessarily problematic in the face of long kernel
+runtimes and long data-transfer times between host and device memory, especially
+if those kernels are compiled once and executed on multiple data sets.
 
 \subsection{External compilation}
 

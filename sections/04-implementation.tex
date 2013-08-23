@@ -862,6 +862,76 @@ if those kernels are compiled once and executed on multiple data sets.
 
 \subsection{External compilation}
 
+In unison with the \AST\ traversal that extracts \code{Use} subterms to initiate
+data transfers (\S\ref{sec:host_device_transfers}), the \CUDA\ backend initiates
+code generation for each collective array operation it encounters via skeleton
+instantiation (\S\ref{sec:code_generation}). After the \CUDA\ code is generated,
+it must be compiled with the external \texttt{nvcc} tool-chain to produce binary
+object code for the kernels implementing each collective operation.
+
+As with data transfer, the compilation of the generated \CUDA\ code proceeds
+asynchronously, and linking of the compiled code is deferred until it is needed
+during execution. For each generated kernel, the \CUDA\ compiler is invoked by
+spawning an external process that executes the raw system command. However, if
+the program requires the compilation of many kernels, carelessly spawning a new
+process for every instantiated skeleton can cause the IO bus to become
+saturated, further increasing compilation time, or exhaust the host operating
+system's available process handles. To counter this problem, a worker pool is
+created that will be used to process jobs in first-in first-out (FIFO) order:
+%
+\begin{lstlisting}[style=haskell]
+{-# NOINLINE worker #-}
+worker :: Queue.MSem Int
+worker = unsafePerformIO $ Queue.new =<< getNumProcessors
+\end{lstlisting}
+
+The worker pool is defined as the Haskell equivalent of a global
+variable\footnote{The idiom popularly known as ``the unsafePerformIO hack''.}
+and is initialised once per program execution. The number of slots in the queue
+is set to the number of physical CPU cores present in the host
+system\footnote{Note that this is not limited by the RTS option \texttt{-N} that
+specifies the number of processors to use.} which specifies the maximum number
+of kernels to compile concurrently. Instead of initiating the compilation
+process directly, it is instead added to the work queue:
+%
+\begin{lstlisting}[style=haskell,firstnumber=last]
+enqueueProcess :: FilePath -> [String] -> IO (MVar ())
+enqueueProcess nvcc flags = do
+  mvar  <- newEmptyMVar                                         -- (2)
+  _     <- forkIO $ do                                          -- (1)
+    Queue.with worker $ do                                      -- (3)
+        (_,_,_,pid)     <- createProcess (proc nvcc flags)
+        waitFor pid
+    --
+    putMVar mvar ()                                             -- (4)
+  --
+  return mvar
+\end{lstlisting}
+
+\begin{enumerate}
+\item The process is spawned from a separate thread so that the thread can block
+    waiting for both the worker queue and the external process, without
+    interrupting the main thread. Thus compilation proceeds asynchronously with
+    outer host processing tasks.
+
+\item An empty \code{MVar} is created that will act as a signal to the main
+    thread that the external process has completed. Since \code{takeMVar} on an
+    empty \code{MVar} blocks until that \code{MVar} is filled, the main thread
+    can wait for the external process to complete if the compiled code is not
+    yet available by the time it is required during the execution phase.
+
+\item The thread waits for a worker to become available from the queue. Blocked
+    threads are woken up by the runtime system and are serviced in a first-in
+    first-out order; that is, threads do not actively poll the queue continually
+    testing for an open slot. Once a worker becomes available, the external
+    process is launched and the thread once again blocks until that process
+    completes.
+
+\item Once the process completes the worker is returned to the queue where it
+    can be assigned to handle any further tasks. Finally, the thread fills the
+    \code{MVar} to signal the main thread that the compilation has completed.
+\end{enumerate}
+
 
 \subsection{Caching compiled kernels}
 

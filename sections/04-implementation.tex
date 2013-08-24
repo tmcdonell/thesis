@@ -861,6 +861,7 @@ runtimes and long data-transfer times between host and device memory, especially
 if those kernels are compiled once and executed on multiple data sets.
 
 \subsection{External compilation}
+\label{sec:external_compilation}
 
 In unison with the \AST\ traversal that extracts \code{Use} subterms to initiate
 data transfers (\S\ref{sec:host_device_transfers}), the \CUDA\ backend initiates
@@ -934,6 +935,134 @@ enqueueProcess nvcc flags = do
 
 
 \subsection{Caching compiled kernels}
+
+The \CUDA\ backend associates each \CUDA\ binary with the skeleton instantiation
+whose computation that binary implements. Furthermore, the binary object code is
+keyed on a skeleton and the parameters of its instantiation, not to the specific
+AST node used to instantiate the skeleton. As a result, compiled binaries are
+reusable when the same skeleton instantiation is required again, whether that is
+in the same Accelerate computation applied to a different set of input arrays,
+or an entirely different computation. For example, operations such as
+\code{scanl (+) 0} are common, and it would be wasteful to dynamically generate
+and compile the same code multiple times.
+
+\begin{lstlisting}[style=haskell,numbers=none]
+type ProgramCache = HashTable KernelKey KernelEntry
+
+type KernelKey = (CUDA.Compute, ByteString)
+data KernelEntry
+    = CompileProcess FilePath (MVar ())                                 -- (1)
+    | KernelObject ByteString (FullList CUDA.Context CUDA.Module)       -- (2)
+\end{lstlisting}
+
+The cache is a hash table which is keyed by an MD5~\cite{Rivest:1992va} digest
+of the generated \CUDA\ code which instantiates the skeleton, as well as the
+compute capability the generated code was specialised and compiled for. The hash
+table value can either refer to:
+%
+\begin{enumerate}
+\item A currently compiling external process. This records the path of the file
+    currently being compiled, which will be rooted in a temporary directory, as
+    well as the \code{MVar} that will signal when the external process has
+    completed (\S\ref{sec:external_compilation}). If a kernel is requested that
+    is currently compiling, the thread blocks on the \code{MVar} until the
+    result is available and then updates the hash table with;
+
+\item The raw compiled data with a non-empty list of \CUDA\ contexts that the
+    object code has been linked into. The entry may have been added to the cache
+    by an alternate context of the same compute capability, for example on a
+    system with multiple \CUDA\ devices, so the code simply needs to be
+    re-linked for the current context.
+\end{enumerate}
+
+This scheme effectively caches kernels both within the same Accelerate
+computation and across different Accelerate expressions. However, it must be
+regenerated ever time the program is executed, which increases program startup
+time. Once a kernel is compiled, the binary object code is saved in the user's
+home directory so that it is available across separate runs of the program, or
+indeed different programs. This information is stored in a persistent cache:
+%
+\begin{lstlisting}[style=haskell,numbers=none]
+type PersistentCache = HashTable KernelKey ()
+\end{lstlisting}
+
+The persistent cache is a hash table indexed by the same key used by the
+in-memory cache described above, but without a value component. Instead, the
+presence of a key in the persistent cache indicates that the compiled binary
+represented by that key is available to be loaded from disk. The location of the
+object code is determined from the MD5 digest by creating a ASCII representation
+of the digest, replacing special characters with z-encoded strings.
+%
+\begin{lstlisting}[style=haskell]
+encode_ch :: Char -> String
+encode_ch c | unencodedChar c = [c]             -- regular characters except `z' and `Z'
+encode_ch '('  = "ZL"                           -- punctuation using two-character sequences
+encode_ch ')'  = "ZR"
+  ...
+encode_ch c    = encode_as_unicode_char c       -- other characters using hexadecimal
+\end{lstlisting}
+
+Initialising the persistent cache populates the hash table by reading an index
+file from disk, which is simply a binary file containing the number of entries
+at the start of the file, followed by the keys.
+%
+\begin{lstlisting}[style=haskell]
+restore :: FilePath -> IO PersistentCache
+restore db = do
+  exist <- doesFileExist db
+  case exist of
+    False       -> encodeFile db (0::Int) >> HashTable.new
+    True        -> do
+      store         <- L.readFile db
+      let (n,rest,_) = runGetState get store 0
+      pt            <- HashTable.newSized n
+      --
+      let go []      = return ()
+          go (!k:xs) = HashTable.insert pt k () >> go xs
+      --
+      go (runGet (getMany n) rest)
+\end{lstlisting}
+
+The \texttt{binary} package is used to deserialise the data from file. Note that
+the implementation for serialising lists of elements provided by that preserves
+the order of elements in the list, which requires creating the entire list
+structure in memory.\footnote{A tail-recursive loop that accumulates the list
+structure as the file is read sequentially from disk produces list elements in
+reverse order. Thus, the list must be reversed before being returned, making the
+structure spine-strict and preventing elements being consumed as they are read
+from file.} Since we do not require this property, we provide our own
+deserialisation routine that allows the elements to be lazily consumed and added
+directly to the hash table as they are read from file.
+
+\begin{lstlisting}[style=haskell]
+getMany :: Binary a => Int -> Get [a]
+getMany n = go n []
+  where
+    go 0 xs = return xs
+    go i xs = do x <- get
+                 go (i-1) (x:xs)
+\end{lstlisting}
+
+Finally, we present the entire \emph{kernel table} data structure used to cache
+compiled kernels, consisting of in-memory kernels tracked by the program cache
+as well as the on-disk kernels tracked by the persistent cache.
+
+\begin{lstlisting}[style=haskell]
+data KernelTable = KT ProgramCache      -- first level, in-memory cache
+                      PersistentCache   -- second level, on-disk cache
+\end{lstlisting}
+
+Looking for entries in the kernel table entails first search the in-memory
+program cache, which represents kernels that are (a) currently compiling; (b)
+compiled, but not linked into the current context; or (c) compiled and linked
+into the current context. If the kernel is not available in the program cache,
+the persistent cache is searched. If found, the associated object file is linked
+into the current context, and the program cache is updated to include this
+entry. Conversely, the persistent cache must be explicitly updated after each
+new kernel is compiled; the current behaviour for adding entries to the kernel
+table only updates the in-memory cache, and does not attempt to keep the two
+caches synchronised.
+
 
 \subsection{Annotating programs}
 Annotating the AST, tying the recursive knot.

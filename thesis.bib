@@ -1,4 +1,4 @@
-%% Created using Papers on Wed, 31 Jul 2013.
+%% Created using Papers on Fri, 23 Aug 2013.
 %% http://papersapp.com/papers/
 
 @book{Altenkirch:2003kz,
@@ -1272,16 +1272,6 @@ month = oct,
 annote = {Collection-oriented languages are characterised by the use of operations on aggregate data structures (arrays, vectors, lists, sets...) that manipulate the structure as a whole. This work focuses on techniques for mapping nested parallel constructs onto flat parallel execution models, and forms the basis for NDP.}
 }
 
-@article{Kennedy:2007vo,
-author = {Kennedy, Andrew},
-title = {{Compiling with continuations, continued}},
-journal = {ACM SIGPLAN NOTICES},
-year = {2007},
-volume = {42},
-number = {9},
-pages = {177}
-}
-
 @article{Callahan:2004,
 author = {Callahan, David and Carr, Steve and Kennedy, Ken},
 title = {{Improving register allocation for subscripted variables}},
@@ -2129,12 +2119,11 @@ publisher = {ACM},
 address = {New York, NY, USA}
 }
 
-@techreport{Ghuloum:2007,
-author = {Ghuloum, Anwar and Sprangle, Eric and Fang, Jesse},
-title = {{Flexible Parallel Programming for Terascale Architectures with Ct}},
-year = {2007},
-month = apr,
-annote = {Data-parallel programming platform under development by Intel that targets x86 multicore CPUs. Supports the SPMD stream programming model and uses an embedded C++ interface. Includes an implementation of segmented collectives, which are especially useful for algorithms using nested data parallelism.}
+@article{Glew:2013vg,
+author = {Glew, Neal and Sweeney, Tim and Petersen, Leaf},
+title = {{Formalisation of the lambda aleph Runtime}},
+year = {2013},
+month = jul
 }
 
 @book{Koelbel:1994,
@@ -2176,10 +2165,14 @@ publisher = {ACM},
 address = {New York, NY, USA}
 }
 
-@techreport{HLSL:2009,
-author = {{Microsoft Corporation}},
-title = {{DirectX High--Level Shading Language, v10}},
-year = {2009}
+@inproceedings{Fluet:2001fa,
+author = {Fluet, Matthew and Weeks, Stephen},
+title = {{Contification Using Dominators}},
+booktitle = {ACM SIGPLAN Notices},
+year = {2001},
+pages = {2--13},
+publisher = {ICFP '01: Proceedings of the sixth ACM SIGPLAN international conference on Functional programming},
+month = oct
 }
 
 @inproceedings{Charles:2005,
@@ -2290,10 +2283,14 @@ number = {6},
 pages = {679--698}
 }
 
-@techreport{CUDA:2008,
-author = {{NVIDIA}},
-title = {{CUDA: Compute Unified Device Architecture, v2.0}},
-year = {2008}
+@inproceedings{Leijen:2000fv,
+author = {Leijen, Daan and Meijer, Erik and Leijen, Daan and Meijer, Erik},
+title = {{Domain specific embedded compilers}},
+booktitle = {ACM SIGPLAN Notices},
+year = {2000},
+pages = {109--122},
+publisher = {DSL '99: Proceedings of the 2nd conference on Domain-specific languages},
+month = jan
 }
 
 @article{Blelloch:1994vc,
@@ -2305,6 +2302,37 @@ volume = {21},
 number = {1},
 pages = {4--14},
 annote = {Implementation details of the NESL nested data-parallel language. c.f. Blelloch:1996 Performance comparison for a number of different hardware architectures. Achieves aim of concise description of parallel algorithms, relies on automatically flattening nested data. Demonstrates good performance and concise description for irregular data structures (a specific aim), although somewhat irrelevant now due to changing hardware (no vector/super computer architectures in large use anymore, no limitations for dynamic memory management as in F77).}
+}
+
+@article{Elliott:2003hw,
+author = {Elliott, Conal and Finne, Sigbj{\o}rn and Moor, Oege de},
+title = {{Compiling embedded languages}},
+journal = {Journal of Functional Programming},
+year = {2003},
+volume = {13},
+number = {3},
+pages = {455--481},
+month = may
+}
+
+@techreport{Ghuloum:2007,
+author = {Ghuloum, Anwar and Sprangle, Eric and Fang, Jesse},
+title = {{Flexible Parallel Programming for Terascale Architectures with Ct}},
+year = {2007},
+month = apr,
+annote = {Data-parallel programming platform under development by Intel that targets x86 multicore CPUs. Supports the SPMD stream programming model and uses an embedded C++ interface. Includes an implementation of segmented collectives, which are especially useful for algorithms using nested data parallelism.}
+}
+
+@techreport{HLSL:2009,
+author = {{Microsoft Corporation}},
+title = {{DirectX High--Level Shading Language, v10}},
+year = {2009}
+}
+
+@techreport{CUDA:2008,
+author = {{NVIDIA}},
+title = {{CUDA: Compute Unified Device Architecture, v2.0}},
+year = {2008}
 }
 
 @techreport{Blelloch:1995ut,
@@ -2339,6 +2367,13 @@ number = {NVR-2013-002},
 month = jul
 }
 
+@misc{Rivest:1992va,
+title = {{The MD5 Message-Digest Algorithm}},
+author = {Rivest, Ronald},
+month = apr,
+year = {1992}
+}
+
 @incollection{McBride:2005jv,
 author = {McBride, Conor},
 title = {{Epigram: Practical Programming with Dependent Types}},
@@ -2367,16 +2402,6 @@ publisher = {Springer Berlin Heidelberg},
 address = {Berlin, Heidelberg}
 }
 
-@incollection{Harris:2012fy,
-author = {Harris, Mark and Garland, Michael},
-title = {{Optimizing Parallel Prefix Operations for the Fermi Architecture}},
-booktitle = {GPU Computing Gems: Jade Edition},
-year = {2012},
-pages = {29--38},
-publisher = {Morgan Kaufmann},
-month = oct
-}
-
 @article{Esmaeilzadeh:2013bw,
 author = {Esmaeilzadeh, Hadi and Blem, Emily and Amant, Ren{\'e}e St and Sankaralingam, Karthikeyan and Burger, Doug},
 title = {{Power challenges may end the multicore era}},
@@ -2396,6 +2421,16 @@ year = {1989},
 volume = {38},
 number = {11},
 pages = {1526--1538}
+}
+
+@incollection{Harris:2012fy,
+author = {Harris, Mark and Garland, Michael},
+title = {{Optimizing Parallel Prefix Operations for the Fermi Architecture}},
+booktitle = {GPU Computing Gems: Jade Edition},
+year = {2012},
+pages = {29--38},
+publisher = {Morgan Kaufmann},
+month = oct
 }
 
 @article{Filipovic:_b2q1-zX,

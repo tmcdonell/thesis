@@ -933,8 +933,11 @@ enqueueProcess nvcc flags = do
     \code{MVar} to signal the main thread that the compilation has completed.
 \end{enumerate}
 
+linking in the result?
+
 
 \subsection{Caching compiled kernels}
+\label{sec:caching_compiled_kernels}
 
 The \CUDA\ backend associates each \CUDA\ binary with the skeleton instantiation
 whose computation that binary implements. Furthermore, the binary object code is
@@ -1064,10 +1067,173 @@ table only updates the in-memory cache, and does not attempt to keep the two
 caches synchronised.
 
 
-\subsection{Annotating programs}
-Annotating the AST, tying the recursive knot.
+\subsection{Executing programs}
+\label{sec:executing_programs}
 
-\subsection{Conclusion}
+The previous sections discuss how to implement asynchronous compilation as well
+as kernel caching in order to reduce the overheads of dynamic compilation. When
+we wish to execute a collective array operation, we query the kernel cache for
+object code instantiated to that skeleton; if no appropriate kernel is found
+then new code is generated and compiled, asynchronously to other operations such
+as transferring input data to the device. These tasks occur during the first
+pass over the program AST.
+
+Once code generation and array transfer have completed, the \CUDA\ backend
+traverses the program AST once more, evaluating the entire program by executing
+the generated GPU kernel(s) for each collective array operation of the AST
+bottom-up. In order to do this efficiently, the first phase outputs a new AST
+where each node is decorated with all of the information required to executed
+that collective operation.% How is this achieved?
+
+% BEGIN ASIDE {
+Recall that terms in the Accelerate core language are defined non-recursively.
+At an example, consider this definition of a binary tree, which store all data
+at the leaves of the tree and is parameterised by the type of the leaf element:
+%
+\begin{lstlisting}[style=haskell]
+data Tree a
+    = Leaf a                            -- Leaves of the tree hold the data
+    | Node (Tree a) (Tree a)            -- Internal nodes record only left and right branches
+\end{lstlisting}
+%
+Note that the internal \code{Node}s of the \code{Tree} are defined in terms of
+itself, recursively. Instead, the tree can be parameterised by the recursive
+step:
+%
+\begin{lstlisting}[style=haskell,name=pretree]
+data PreTree tree a
+    | Leaf a
+    | Node (tree a) (tree a)
+\end{lstlisting}
+%
+and the original tree can be recovered from this definition, albeit with the
+need to unwrap the \code{Tree} constructor before exposing the \code{Leaf} and
+\code{Node} constructors of the tree itself:
+%
+\begin{lstlisting}[style=haskell,name=pretree]
+data Tree a = Tree (PreTree Tree a)
+\end{lstlisting}
+
+This distinction is important because it allows us to use the same basic tree
+definition, but include additional information as part of each recursive step.
+For example, we can define a new binary tree type that records the size of the
+subtree at each point, and any existing functions operating over the basic
+\code{PreTree} structure can still be used:
+%
+\begin{lstlisting}[style=haskell,name=pretree]
+data SizedTree a = SizedTree Int (PreTree SizedTree a)
+\end{lstlisting}
+% END ASIDE }
+
+Accelerate uses this technique to decorate each node of the AST with all of the
+information required to execute the skeleton(s) implementing that node.
+Following the fusion transformation (\S\ref{sec:fusion}), the recursive step of
+nodes in the AST are parameterised as either \code{Manifest} or \code{Delayed},
+representing computations that will be instantiated to \CUDA\ code and executed,
+and computations that have been fused (embedded) into other kernels
+respectively. To execute a computation in the second phase, the former requires
+information of the kernels implementing the computation as well as any free
+variables, while the latter requires only the shape of the computation that was
+embedded within the consumer. The following data structure is used to tie the
+recursive knot in the program AST to represent this information:
+%
+\begin{lstlisting}[style=haskell]
+data ExecOpenAcc aenv a where
+  ExecAcc   :: FL.FullList () (AccKernel a)             -- (1)
+            -> Gamma aenv                               -- (2)
+            -> PreOpenAcc ExecOpenAcc aenv a
+            -> ExecOpenAcc aenv a
+
+  EmbedAcc  :: (Shape sh, Elt e)
+            => PreExp ExecOpenAcc aenv sh               -- (3)
+            -> ExecOpenAcc aenv (Array sh e)
+\end{lstlisting}
+%
+\begin{enumerate}
+\item A non-empty list of the kernels required to execute this node of the
+    computation (see below).
+
+\item The free array variables required to execute the kernel. In particular,
+    this maps environment indexes (de Bruijn indices) to some token identifying
+    that array in the generated code. Rather than using the de Bruijn index
+    directly in the generated code, the extra indirection results in generating
+    code that is less sensitive to the placement of let bindings, ultimately
+    leading to better kernel caching.
+
+\item The size of the input array that was embedded into the consumer, which is
+    often required when executing a kernel.
+\end{enumerate}
+
+In order to execute a single kernel the following data is required:
+%
+\begin{lstlisting}[style=haskell]
+data AccKernel a where
+  AccKernel :: String                                   -- (1)
+            -> CUDA.Fun
+            -> CUDA.Module
+            -> CUDA.Occupancy                           -- (2)
+            -> Int -> Int
+            -> (Int -> Int)                             -- (3)
+            -> AccKernel a
+\end{lstlisting}
+%
+\begin{enumerate}
+\item The name of the \code{\_\_global\_\_} kernel function that the function
+    object (second parameter) implements. The compiled object code is linked
+    into the \CUDA\ context as part of the binary module (third parameter).
+
+    % The results of \CUDA\ thread occupancy calculation.
+\item Once the kernel is compiled, details such as the number of registers
+    required for each thread can be used to determine the optimal launch
+    configuration of the kernel. In particular, the configuration is chosen in
+    order to maximum \indexe{thread occupancy}, which is the ratio of active
+    warps (i.e.\ warps that could run) to the maximum possible number of active
+    warps. While higher occupancy does not always equate to higher performance,
+    low occupancy always interferes with the ability to hide memory and
+    instruction latency, resulting in sub-optimal performance. This analysis
+    (fourth parameter) determines the optimal number of threads per block to use
+    (fifth parameter) together with the number of bytes of shared memory
+    required when initiating the kernel launch (sixth parameter).
+
+\item A function that computes the number of thread blocks to launch the kernel
+    with given the size of the computation, which is generally only known at
+    program runtime. How this function is used exactly depends on the kernel
+    being executed, but for example may take as input the size of the input
+    array.
+\end{enumerate}
+
+This formulation does not require searching the kernel tables during the
+execution phase in order to locate binary code; any kernels required to execute
+a computation are attached directly to the computation they instantiate. For
+Accelerate programs that are executed on multiple data sets, this is an
+important optimisation, and is further exploited when executing embedded
+Accelerate programs using the \code{run1} operator (see \S tk).
+
+Note that there is a subtle tension here: the task of the compilation phase is
+to produce an annotated AST carrying all of the information required to execute
+the computation, but that in turn requires the \emph{compiled} kernel modules,
+so how can compilation proceed asynchronously? We use a clever trick and take
+advantage of Haskell's non-strict execution semantics: once the external
+compilation has been initiated in a separate thread, \code{unsafePerformIO} is
+used (in a safe manner) to delay waiting for the external process to complete
+and linking of the binary object until it is demanded by the running program.
+%
+\begin{lstlisting}[style=haskell]
+build1 :: DelayedOpenAcc aenv a -> CIO (AccKernel a)
+build1 acc = do
+  ...
+  (entry, key)  <- compile code
+  let (cta, blocks, smem)       = launchConfig acc occ
+      (mdl, fun, occ)           = unsafePerformIO $ do  -- delay linking until actually required
+        m       <- link key
+        f       <- CUDA.getFun m entry
+        o       <- determineOccupancy acc device f
+        return (m, f, o)
+  --
+  return $ AccKernel entry fun mdl occ cta smem blocks
+\end{lstlisting}
+
+
 
 \endinput
 \section{EDSL Basics}

@@ -933,7 +933,8 @@ enqueueProcess nvcc flags = do
     \code{MVar} to signal the main thread that the compilation has completed.
 \end{enumerate}
 
-linking in the result?
+We return to the question of linking in the compiled code below, when we discuss
+the process of executing the program.
 
 
 \subsection{Caching compiled kernels}
@@ -1168,11 +1169,8 @@ In order to execute a single kernel the following data is required:
 %
 \begin{lstlisting}[style=haskell]
 data AccKernel a where
-  AccKernel :: String                                   -- (1)
-            -> CUDA.Fun
-            -> CUDA.Module
-            -> CUDA.Occupancy                           -- (2)
-            -> Int -> Int
+  AccKernel :: String -> CUDA.Fun -> CUDA.Module        -- (1)
+            -> CUDA.Occupancy -> Int -> Int             -- (2)
             -> (Int -> Int)                             -- (3)
             -> AccKernel a
 \end{lstlisting}
@@ -1222,16 +1220,30 @@ and linking of the binary object until it is demanded by the running program.
 build1 :: DelayedOpenAcc aenv a -> CIO (AccKernel a)
 build1 acc = do
   ...
-  (entry, key)  <- compile code
+  (name, key)   <- compile code                         -- initiate external compilation
   let (cta, blocks, smem)       = launchConfig acc occ
       (mdl, fun, occ)           = unsafePerformIO $ do  -- delay linking until actually required
         m       <- link key
-        f       <- CUDA.getFun m entry
+        f       <- CUDA.getFun m name
         o       <- determineOccupancy acc device f
         return (m, f, o)
   --
-  return $ AccKernel entry fun mdl occ cta smem blocks
+  return $ AccKernel name fun mdl occ cta smem blocks
 \end{lstlisting}
+
+
+\subsection{Conclusion}
+
+This section discusses the implementation of a dynamic compilation system for an
+embedded language. To make such a system practicable, much attention must be
+paid to amortising the additional overheads of runtime code generation and
+compilation. In the Accelerate CUDA backend, this is achieved through a system
+of (a) kernel caching, which eliminates duplicate compilations; (b) asynchronous
+compilation, which compiles multiple kernels simultaneously and overlaps
+compilation with other execution tasks; and (c) a method of annotating the
+Accelerate program which associates each collective operation in the program
+with the compiled kernels which will be used to implement the operation.
+
 
 
 
@@ -1263,7 +1275,4 @@ specific languages.
 \subsection{Caching and reuse}
 floyd-warshall might require the improvements to caching / code generation re.
 free variable indices.
-
-\section{Amortising Overheads}
-Annotating the AST, tying the recursive knot.
 

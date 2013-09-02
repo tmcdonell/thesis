@@ -1113,7 +1113,7 @@ data Cunctation acc aenv a where
         -> Cunctation acc aenv (Array sh' b)
 \end{lstlisting}
 %
-The representation\footnote{
+The representation\footnote{%
 cunc$\cdot$ta$\cdot$tion
 \textcolor{gray}{|
 k\textipa{@}NGk\textquotesingle t\={a}SH\textipa{@}n
@@ -1144,9 +1144,9 @@ ensure that the argument array is manifest. Thus the definition of
 allows the representation to be (later) embedded within producer terms
 (\ref{sec:producer_consumer_fusion}) with the guarantee that an embedded scalar
 computation will not invoke further parallel computations.%
-\footnote{While scalar expression terms are mutually recursive in \code{acc},
-we are guaranteed that these terms will consist only of free array variables
-(\code{Idx}).}
+\footnote{While scalar expression terms are mutually recursive in
+\footcode{acc}, we are guaranteed that these terms will consist only of free
+array variables (\footcode{Idx}).}
 
 In order to bring additional array terms into scope, which may be required for
 \code{Done} and \code{Step}, we combine this representation of producer

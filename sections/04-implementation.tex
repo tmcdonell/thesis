@@ -819,19 +819,207 @@ which contains no \CUDA\ specific operations such as using pinned\footnote{The
 memory allocated by Accelerate is pinned only with respect to the Haskell
 garbage collector, not with respect to the host operating kernel. Regardless,
 the \CUDA\ runtime maintains its own notion of pinned memory separate from the
-kernel notion of pinned memory as specified using \footcode{mlock()}.} memory.
-Note that page-locked memory is a scarce resource and reduces the amount of
-physical memory available to the operating system, so consuming too much
+kernel notion of pinned memory as specified using \footcode{mlock()}, since DMA
+requires not only the virtual address but physical address to remain constant.}
+memory. Note that page-locked memory is a scarce resource and reduces the amount
+of physical memory available to the operating system, so consuming too much
 page-locked memory can reduce overall system performance~\cite{NVIDIA:2012wf}.
 
 
 \section{Skeleton-based code generation}
 \label{sec:code_generation}
 
-\subsection{Scalar code}
+The Accelerate \CUDA\ backend is based on the idea of \emph{algorithmic
+skeletons}~\cite{Cole:1989vr}, where a parallel program is composed from one or
+more parameterised skeletons, or templates, encapsulating specific parallel
+behaviour. In our case, the various collective operations in Accelerate
+constitute skeletons that are parameterised by types and scalar embedded
+expressions to be injected at predefined points. The skeletons for collective
+operations are hand-tuned to ensure efficient global-memory access and use of
+fast on-chip shared memory for intra-block communication, all of which is
+necessary to ensure good performance on the \GPU~\cite{NVIDIA:2012wf}.
+
+\subsection{Algorithmic Skeletons}
+
+The code generator includes \CUDA\ code skeletons implementing each of the
+collective operations in Accelerate in such a manner that the code generator can
+instantiate each skeleton with a set of concrete parameters.
+Listing~\ref{lst:map_skeleton} shows the skeleton code for the \code{map}
+operation. The skeleton implements the \CUDA\ kernel~\cite{NVIDIA:2012wf} that
+encodes the behaviour of each thread for this computational pattern, fixing the
+parallel algorithmic structure of the operation, and contains place holders for
+the element types of the input and output arrays, as well as the function to
+apply at each element.
+
+% The \code{map()} function in Listing~\ref{lst:map_skeleton} uses the
+% quasiquoting facility of the \texttt{language-c-quote}
+% library~\cite{Mainland:2007bl}. Quasiquotation allows a program to use the
+% \emph{concrete syntax} of a language to construct program fragments in that
+% language. Of particular importance, however, is that 
+
+The \code{map} function in Listing~\ref{lst:map_skeleton} uses
+quasiquotation~\cite{Mainland:2007bl} in order to construct the \emph{abstract}
+syntax representing the program fragment using the \emph{concrete} syntax of the
+target language, in this case \CUDA\@. Since quasiquoters are run at Haskell
+compile time, any parsing errors or errors in generated Haskell abstract syntax
+are therefore also caught at compile time, ensuring that the skeleton which is
+instantiated at runtime will be syntactically correct.
+% . In contrast to generating concrete
+% syntax as strings, this statically ensures that all generated \CUDA\ code is
+% syntactically correct (assuming the abstract syntax is pretty-printed as valid
+% concrete syntax).
+Furthermore, an expression such as \code{\$exp:(threadIdx dev)} is an
+\emph{antiquotation} that causes, at program runtime, the value of evaluating
+the Haskell function \code{threadIdx} with input \code{dev} to be spliced into
+the abstract syntax tree for the quasiquoted \CUDA\ \code{map} skeleton.
+
+\begin{lstlisting}[style=haskell,
+    float,
+    name=map_skeleton,
+    label=lst:map_skeleton,
+    caption={CUDA skeleton for the \code{map} operation}]
+[cunit|
+    $esc:("#include <accelerate_cuda.h>")
+    $edecls:texIn
+
+    extern "C" __global__ void
+    map
+    (
+        $params:argIn,
+        $params:argOut
+    ){
+        const int shapeSize     = size(shOut);
+        const int gridSize      = $exp:(gridSize dev);
+              int ix;
+
+        for ( ix =  $exp:(threadIdx dev); ix < shapeSize; ix += gridSize )
+        {
+            $items:(dce x       .=. get ix)
+            $items:(setOut "ix" .=. f x)
+        }
+    }
+  |]
+\end{lstlisting}
+
+In order to instantiate the \code{map} skeleton, the code generator needs to
+generate concrete parameters for all of the holes in the skeleton template. In
+particular:
+%
+\begin{enumerate}
+\item The types of the input and output arrays \code{argIn} and \code{argOut},
+    respectively.
+
+\item The function \code{get}, which retrieves or generates the appropriate
+    input array element for array index \code{ix}.
+
+\item The function \code{f} which is applied to that element.
+\end{enumerate}
+
+For the most part, translating Accelerate scalar expressions to plain \CUDA\ C
+code is a straightforward syntactic translation of the \indext{de Bruijn} \AST\
+to C. The quasiquoting library \texttt{language-c-quote}%
+\footnote{\url{http://hackage.haskell.org/package/language-c-quote}} furthermore
+allows the \CUDA\ \AST\ can be constructed using concrete syntax.
+% , which can later be pretty printed to file for external compilation
+% (\S\ref{sec:external_compilation}).
+The following features of code generation deserve particular attention: (1)
+lambda abstractions; (2) let bindings; (3) shapes; (4) array references; and (5)
+tuples.
+
+\subsection{Let bindings}
+
+
+\subsection{Lambda abstractions}
+
+dead code elimination!
+
 \subsection{Shapes}
-\subsection{Tuples}
+
+Accelerate directly supports collective operations on multidimensional arrays.
+In C, we represent multidimensional shapes and indices as a \code{struct}:
+%
+\begin{lstlisting}[style=cuda]
+typedef Int32                                     Ix;
+typedef void*                                     DIM0;
+typedef Ix                                        DIM1;
+typedef struct { Ix a1,a0; }                      DIM2;
+typedef struct { Ix a2,a1,a0; }                   DIM3;
+  (@*$\langle$ and so on $\rangle$*@)
+\end{lstlisting}
+%
+Note we have set the type of each component of the shape in C to a 32-bit
+integer, whereas indices in Haskell are represented using \code{Int}. Depending
+on the architecture of the host Haskell compiler, this int might be either 32-
+or 64-bits. This entails additional conversions when marshalling shapes from
+Haskell, but can result in higher performance code, because \CUDA\ devices are
+natively 32-bit processors incur a significant performance penalty when
+executing 64-bit arithmetic.
+
+As \CUDA\ supports the use of C++ features, such as templates and function
+overload, we simplify code generation by overloading functions which operate on
+indices for the various index types. That is, we have the following family of
+functions:
+%
+\begin{lstlisting}[style=cuda,mathescape]
+int  dim(DIM$n$ sh);                          // number of dimensions in a shape
+int  size(DIM$n$ sh);                         // total number of elements in a shape
+Ix   toIndex(DIM$n$ sh, DIM$n$ ix);              // index into a linear row-major format array
+DIM$n$ fromIndex(DIM$n$ sh, Ix ix);              // inverse of `toIndex'
+\end{lstlisting}
+
+The major advantage of this approach is that the \CUDA\ skeletons are ad-hoc
+polymorphic; i.e., we have a single skeleton that during \emph{instantiation} is
+specialised to a particular array element type and dimensionality.
+
+That the underlying representation as a C \code{struct} is only relevant when
+accessing shape data that was marshalled as a parameter to the kernel, in which
+case field accessors must be generated. In all other circumstances however, the
+shape can be treated as a tuple structure. Tuples are explained in further
+detail below.
+
+
 \subsection{Array references in scalar code}
+
+\subsection{Tuples}
+
+\subsection{Delayed Arrays}
+
+Accelerate captures the appropriate idioms of GPU programming as collective
+array operations, which we regard as algorithmic skeletons. The code generator
+instantiates \CUDA\ implementations of the skeleton templates to execute
+embedded array programs. Thus, each template instantiation implies the execution
+of separate program on the \GPU\@. This is inefficient, and often we want to
+fuse two skeletons into a single operation, avoiding the creation and traversal
+of an intermediate array. This is the task of the fusion optimisation: to
+combine networks of collective operations into a single operation
+(\S\ref{sec:fusion}).
+
+Following the fusion transformation, the program \AST\ is annotated such that it
+describes how each array term in the program is to be represented. As shown in
+Listing~\ref{lst:DelayedOpenAcc}, an array is either a standard array of
+\code{Manifest} data, or it is a \code{Delayed} array, represented as functions
+that are to be embedded into the consumer of that array data so that elements
+can be generated and consumed on-the-fly. In particular, we must generate
+skeleton instantiations for input arrays that appear in the delayed state:
+
+\begin{lstlisting}[style=haskell]
+  Delayed               :: (Shape sh, Elt e) =>
+    { extentD           :: PreExp DelayedOpenAcc aenv sh
+    , indexD            :: PreFun DelayedOpenAcc aenv (sh  -> e)
+    , linearIndexD      :: PreFun DelayedOpenAcc aenv (Int -> e)
+    }                   -> DelayedOpenAcc aenv (Array sh e)
+\end{lstlisting}
+
+\endinput
+
+Our code generator is also amenable to generating code that
+results from fusing networks of skeletons, which we describe
+separately~\cite{McDonell:acc-optim}. Instead of a manifest array of raw data,
+following the fusion by the frontend the @map@ operation instead takes a
+description of how to generate input array data. In
+Listing~\ref{lst:map_skeleton}, the expression @get ix@ splices into the
+skeleton the code necessary to produce the value from the input arrays at index
+@ix@, and assigns that value to the local variable @x@.
 
 
 \section{Dynamic Compilation}
@@ -1245,9 +1433,6 @@ Accelerate program which associates each collective operation in the program
 with the compiled kernels which will be used to implement the operation.
 
 
-
-
-\endinput
 \section{EDSL Basics}
 
 % http://www.haskell.org/haskellwiki/Embedded_domain_specific_language

@@ -156,7 +156,7 @@ multiprocessors, and (b) would be difficult for programmers to use without
 introducing sources of deadlock. Instead, kernel launches serve as a global
 synchronisation point, so thread blocks instead communicate their partial
 results by committing them to memory, and the kernel is launched recursively
-until the final reduction is computed.
+until the final reduction value is computed.
 
 \begin{figure}[htbp]
     \begin{center}
@@ -164,23 +164,25 @@ until the final reduction is computed.
     \end{center}
     \caption[A parallel tree reduction]{Illustration of a tree reduction,
         performed in two steps. In the first step 8 thread blocks in parallel
-        reduce 8 elements to a single value. The thread blocks synchronise by
-        writing their result to memory, and the kernel is called recursively
-        until the final result is computed.}
+        reduce eight segments of the array to a single element each. The thread
+        blocks synchronise by writing their result to memory, and the kernel is
+    called recursively until the final scalar result is computed.}
     \label{fig:tree_reduction}
 \end{figure}
 
-For a fused dot product kernel, only the first line of reductions at level zero
-perform the element wise multiplication. All subsequent reductions in that
-kernel, as well as the recursive steps at level one and beyond, are pure
-reductions. Thus, the fused operation requires compilation of two separate
-kernels. % We focus on the level zero kernel, which is more interesting.
+If we wish to fuse other operations into the fold kernel, such as an element
+wise multiplication from a dot product operation (\S\ref{sec:dotp}), only the
+first line of reductions at level zero perform the element wise multiplication.
+All subsequent reductions in that kernel, as well as the recursive steps at
+level one and beyond, are pure reductions. Thus, the fused operation requires
+compilation of two separate kernels. % We focus on the level zero kernel, which
+is more interesting.
 
 \subsubsection{Parallel Reduction Complexity}
 \label{sec:parallel_reduction_complexity}
 
 If each thread combines two elements at a time, then a vector of length $N$ will
-\marginnote{tk: for power-of-2 n, add upper/lower bounds symbols}
+\marginnote{tk: for non power-of-2 n, add upper/lower bounds symbols}
 be reduced in $\mathcal{O}\left( \log N \right)$ parallel steps. Each step $S$
 does $\sfrac{N}{S^2}$ independent operations, so the \emph{step
 complexity}\index{complexity!step} of the algorithm is:
@@ -262,9 +264,9 @@ processors in a generation are produced by incorporating (or activating) fewer
 multiprocessors, thereby reducing the total core count.}
 
 A segmented reduction uses a single warp to reduce each segment. Investigation
-of whether it is be better to utilise a thread block per segment instead, or
-convert the multidimensional reduction to this warp per segment strategy, is
-left for future work.
+of whether it is be better to convert the multidimensional reduction to a warp
+per segment strategy, rather than mapping one thread block per segment as is
+done currently, is left for future work.
 
 
 \subsection{Scan}
@@ -277,8 +279,8 @@ machines. Because of their fundamental importance to many algorithms,
 implementing efficient scan operations in \CUDA\ has received much
 attention~\cite{Sengupta:2007tc,Dotsenko:2008fo,Harris:2012fy}.
 
-A basic description (in pictures) of how the scan and segmented scan algorithms
-work.
+TK: A basic description (in pictures) of how the scan and segmented scan
+algorithms work.
 
 
 \subsection{Permute}
@@ -360,15 +362,16 @@ The semantics of the operation is that every permutation from source to result
 array is applied at the same time in a single parallel step. If multiple \CUDA\
 threads attempt a non-atomic write to the same memory location at the same time,
 the writes will be serialised but the thread which performs the final write is
-undefined, and so the final value at that memory slot is
+undefined, and so the final value at that memory slot is also
 undefined~\cite{NVIDIA:2012wf}. To support non-injective permutation functions,
-which is required to evaluate the histogram program correctly, the atomic
+which are required to evaluate the histogram program correctly, the atomic
 compare-and-swap operation is used to implement write combining.\footnote{The
-atomic compare-and-swap operation on 32-bit values is only available for devices
-of compute capability 1.1 and higher, and for 64-bit values on devices of
-compute capability 1.2 and higher.} For a combination function \code{f} on
-elements of type \code{T}, the following atomically combines a value from the
-source array \code{x} with the value of the result array \code{y}.
+atomic compare-and-swap operation on 32-bit values into global memory is only
+available for devices of compute capability 1.1 and higher, and for 64-bit
+values on devices of compute capability 1.2 and higher.} For a combination
+function \code{f} on elements of type \code{T}, the following atomically
+combines a value from the source array \code{x} with the value of the result
+array \code{y}.
 
 \begin{lstlisting}[style=cuda]
     T x         = source[i];
@@ -387,6 +390,8 @@ available is left to future work.
 
 \subsection{Stencil}
 
+TK: stencil
+
 
 \section{Memory Management}
 \label{sec:memory_management}
@@ -394,12 +399,12 @@ available is left to future work.
 In a standard Haskell program, memory is managed entirely automatically by the
 runtime system. This relieves a large burden from the programmer and eliminates
 a source of potential runtime errors. In contrast, in the \CUDA\ programming model
-all memory management is explicit and handled by the programmer. Indeed, \CUDA\
-devices typically have their own memory, physically separate from the memory of
-the host CPU, which data must be explicitly transferred to and from.
+all memory management is explicit and handled by the programmer. \CUDA\ devices
+typically have their own memory, physically separate from the memory of the host
+CPU, which data must be explicitly transferred to and from.
 
 In order to keep Accelerate programs as close to idiomatic Haskell as possible,
-the Accelerate runtime system should do the job of managing the \CUDA\ memory
+the Accelerate runtime system must do the job of managing the \CUDA\ memory
 space. Moreover, host-device data transfers are expensive, given the relatively
 high latency and low bandwidth of the PCI-E bus, so minimising data transfer is
 an important pressure point for achieving high performance. There are several
@@ -478,7 +483,8 @@ square xs = zipWith (*) (use xs) (use xs)
 
 Since the two \code{use} nodes refer to the same array on the heap, they will
 share the same array in \GPU\ memory, and thus the data is only copied once.
-This is a happy consequence of way we uniquely associate host and device arrays.
+This is a happy consequence of the method we use to uniquely associate host and
+device arrays.
 
 
 \subsubsection{Inter-expression sharing}
@@ -506,8 +512,8 @@ This is the entry function to the program that implements Jos Stam's stable
 fluid algorithm~\cite{Stam:1999ey} (\S\ref{sec:fluid}). As is typical with
 numerical simulations, to evolve the simulation over a period of time the
 function is called repeatedly over small time steps, with the output of each
-step of the simulation forming the input to the next. That is, given some
-initial values \code{df0} and \code{vf0} the simulation proceeds as:
+step of the simulation forming the input to the next in the sequence. That is,
+given some initial values \code{df0} and \code{vf0} the simulation proceeds as:
 %
 \begin{lstlisting}[style=haskell]
 simulation dt dp dn df0 vf0 =
@@ -556,7 +562,8 @@ The Accelerate language defines only pure operations on arrays, so every kernel
 stores its result into a fresh device array. This style of programming results
 in a very high memory allocation and deallocation rate. For programs that
 execute many kernels, such as the fluid simulator, this can have a
-significant contribution to overall performance (\S\ref{sec:fluid}).
+significant contribution to overall performance (\S\ref{sec:fluid}) because
+allocations cause a device synchronisation.
 
 Instead of immediately deallocating device memory when an array is garbage
 collected, we instead remove its association to a specific host array but retain
@@ -606,17 +613,21 @@ array data is only transferred on the first \code{use} attempt, when a fresh
 device array was allocated. If the \code{use} operation is separated into its
 constituent \code{malloc} and \code{poke} operations, this is easily overlooked
 resulting in the array data being needlessly transferred every time \code{use}
-is called.
+is called. As explained in section~\ref{sec:host_device_transfers}, the mapping
+of host to device arrays ensures that the memory allocation will only ever be
+performed once, so we simply ensure that the data for a \code{use} operation is
+only transferred to the device at the time of first allocation.
 
 The \emph{memory table} records the association between host and device arrays.
 Implemented as a weak hash table~\cite{PeytonJones:2000ks}, the table can purge
 itself of unneeded key/value pairs, releasing the device memory at the same time
-by moving it to the nursery. Furthermore the table will also release itself when
-no longer required, initialising the finalisers for all key/value pairs as it
-goes.
+by moving it to the nursery. The table will also release itself when no longer
+required, initialising the finalisers for all remaining key/value pairs as it
+goes. Furthermore, the memory table is wrapped in an \code{MVar}, so that it can
+be shared between several Accelerate operations evaluated in parallel.
 %
 \begin{lstlisting}[style=haskell]
-type MT                 = IORef ( HashTable HostArray DeviceArray )
+type MT                 = MVar ( HashTable HostArray DeviceArray )
 data MemoryTable        = MemoryTable MT (Weak MT) Nursery
 
 data HostArray where
@@ -667,23 +678,25 @@ lookup ctx (MemoryTable ref _ _) arr = do
     weak pointer to the corresponding device array of a given context.
 
 \item If the lookup is successful, we can attempt to dereference the weak
-    pointer to find the actual value. On success, A type-safe cast is used to
+    pointer to find the actual value. On success, a type-safe cast is used to
     recover the existentially quantified type of the array data.
 
 \item However there is an awkward race condition here, because at the moment
     \code{deRefWeak} is called there might, conceivably, be no further
     references to the host array \code{arr}. If that is so, and a garbage
-    collection intervenes, the weak pointer might be tombstoned before
-    \code{deRefWeak} gets to it. In this unusual case we throw an error, but in
-    doing so this makes \code{arr} reachable in the continuation of
-    \code{deRefWeak}, and thus ensures \code{deRefWeak} will always succeed.
-    This sort of weirdness, typical of the world of weak pointers, is why we can
-    not reuse the stable name \code{sa} computed above in the error message.
+    collection intervenes, the weak pointer might be tombstoned (made
+    unreachable) before \code{deRefWeak} gets to it. In this unusual case we
+    throw an error, but in doing so this makes \code{arr} reachable in the
+    continuation of \code{deRefWeak}, and thus ensures \code{deRefWeak} will
+    always succeed. This sort of weirdness, typical of the world of weak
+    pointers, is why we can not reuse the stable name \code{sa} computed above
+    in the error message.
 \end{enumerate}
 
-The nursery is a hash table from array sizes to a non-empty list of pointers to
-arrays of that size. Keys are additionally tagged with the device execution
-context within which they are allocated.
+In addition to the memory table which tracks associations between host and
+device arrays, the \emph{nursery} is a hash table from array sizes to a
+non-empty list of pointers to arrays of that size. Keys are additionally tagged
+with the device execution context within which they are allocated.
 %
 \begin{lstlisting}[style=haskell]
 type NRS        = IORef ( HashTable (CUDA.Context, Int) (FullList () (DevicePtr ())) )
@@ -692,7 +705,7 @@ data Nursery    = Nursery NRS (Weak NRS)
 %
 Querying the nursery returns a pointer to an array of the given size if one is
 available, removing it from the nursery. If no suitably sized chunks are
-available, fresh memory needs to be allocated instead.
+available, fresh memory is allocated instead.
 %
 \begin{lstlisting}[style=haskell]
 malloc :: forall a b. (Typeable a, Typeable b, Storable b)
@@ -722,24 +735,26 @@ malloc ctx mt@(MemoryTable _ _ nursery) ad n = do
 \begin{enumerate}
 \item Instead of allocating the array size to be exactly as many elements as
     needed, round up to the next highest multiple of a set chunk size. This
-    improves the reuse rate for the nursery.
+    improves the reuse rate for the nursery. We note that the CUDA runtime also
+    allocates in page-sized chunks.
 
 \item Check the nursery if a block of the right size can be reused. This avoids
-    calling out to the \CUDA\ API to allocate fresh data, which must pause until
-    any currently executing kernels complete.
+    calling out to the \CUDA\ API to allocate fresh data, which requires a
+    device synchronisation and thus may block until any currently executing
+    kernels complete.
 
 \item If nothing is available from the nursery, allocate a new array. If this
     fails, attempt to recover any free memory by running any pending finalisers
-    and clearing the nursery, then try again.
+    as well as clearing the nursery, then attempting the allocation again.
 
 \item Update the memory table with this new host/device array association.
 
 \end{enumerate}
 
 Finally, we present the finaliser that is invoked when the host array is garbage
-collected by the Haskell runtime. The finaliser refers to its surrounding
-execution context via weak pointers, otherwise these values will be kept alive
-until all keys have become unreachable.
+collected by the Haskell runtime. Note that the finaliser must refer to its
+surrounding execution context via weak pointers, otherwise these values will be
+kept alive until all keys have become unreachable.
 %
 \begin{lstlisting}[style=haskell]
 finalizer :: Weak CUDA.Context          -- execution context this array is allocated in
@@ -783,20 +798,20 @@ finalizer weak_ctx weak_tbl weak_nrs key ptr bytes = do
 \label{sec:memory_management_conclusion}
 
 The Accelerate runtime automatically manages the \CUDA\ memory space through the
-use of finalisers to hook in into the garbage collector of the runtime system of
-the host program. The system is able to avoid several types of redundant data
-transfer between the host CPU and attached \GPU\, which is important for
+use of finalisers to hook into the garbage collector of the runtime system of
+the host program. This approach is able to avoid several types of redundant data
+transfer between the host CPU and attached \GPU, which is important for
 achieving high performance.
 
 The amount of memory available on the device often limits the size of problems
-that the \GPU\ can be used to solve. The current system is designed to minimise
+that a \GPU\ can be used to solve. The current system is designed to minimise
 host-device memory transfers, which can increase the lifetime of arrays stored
 on the device. Future work could improve handling of programs which exceed the
 available memory, for example in the case where this is due to the use of many
 intermediate or input arrays, but where individual sub-problems fit within the
-available memory. In this case arrays that are not required for the current
-calculation can be evacuated from the device by transferring back to the
-associated host-side array, and transferred back to the device only once
+available memory. In this case, arrays that are not required for the current
+calculation can be evacuated from the device by transferring data back to the
+associated host-side array, and re-transferred back to the device only once
 required.
 
 While it is possible to overlap memory transfers with both kernel executions and
@@ -815,69 +830,129 @@ pageable memory, the \CUDA\ library must first copy the data to a staging area
 allocated using pinned memory, and then transfer the data to the device from the
 staging area. Only the second step of this process proceeds asynchronously.
 Allocations on the host are currently handled by the core Accelerate package,
-which contains no \CUDA\ specific operations such as using pinned\footnote{The
-memory allocated by Accelerate is pinned only with respect to the Haskell
-garbage collector, not with respect to the host operating kernel. Regardless,
-the \CUDA\ runtime maintains its own notion of pinned memory separate from the
-kernel notion of pinned memory as specified using \footcode{mlock()}, since DMA
-requires not only the virtual address but physical address to remain constant.}
-memory. Note that page-locked memory is a scarce resource and reduces the amount
-of physical memory available to the operating system, so consuming too much
-page-locked memory can reduce overall system performance~\cite{NVIDIA:2012wf}.
+which contains no \CUDA\ specific operations such as using pinned
+memory.\footnote{The memory allocated by Accelerate is pinned only with respect
+to the Haskell garbage collector, not with respect to the host operating kernel.
+Regardless, the \CUDA\ runtime maintains its own notion of pinned memory
+separate from the kernel notion of pinned memory as specified using
+\footcode{mlock()}, since DMA requires not only the virtual address but physical
+address to remain constant.} Note that page-locked memory is a scarce resource
+and reduces the amount of physical memory available to the operating system, so
+consuming too much page-locked memory can reduce overall system
+performance~\cite{NVIDIA:2012wf}.
 
 
-\section{Skeleton-based code generation}
+\section{Embedding GPU programs as skeletons}
 \label{sec:code_generation}
+
+Accelerate offers a range of aggregate operations on multi-dimensional arrays.
+They include operations modelled after Haskell's list library, such as
+\code{map} and \code{fold}, but also array-oriented operations, such as
+\code{permute} and stencil convolutions.
+
+As a simple example, consider the dot product of two vectors:
+%
+\begin{lstlisting}[style=haskell]
+  dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
+  dotp xs ys = fold (+) 0 (zipWith (*) xs ys)
+\end{lstlisting}
+%
+The crucial difference to vanilla Haskell is the \code{Acc} type constructor
+representing \emph{embedded array-valued computations}. The types
+\code{Vector e} and \code{Scalar e} represent one-dimensional and
+zero-dimensional (singleton) arrays, respectively.
+
+The expression \code{zipwith (*) xs ys} implements point-wise multiplication of
+the two argument vectors, and \code{fold (+) 0} sums the resulting products up
+to yield the final, scalar result, wrapped into a singleton array. The type of
+\code{fold} is:
+%
+\begin{lstlisting}[style=haskell]
+  fold :: (Shape sh, Elt a)
+       => (Exp a -> Exp a -> Exp a)
+       -> Exp a
+       -> Acc (Array (sh:.Int) a)
+       -> Acc (Array sh a)
+\end{lstlisting}
+%
+It uses a binary folding function operating on \emph{embedded scalar
+computations} of type \code{Exp a} to implement a parallel reduction along the
+innermost dimension of an $n$-dimensional, embedded array of type \code{Array
+(sh:.Int) a}. The \emph{shape} \code{sh:.Int} consist of a polymorphic shape
+\code{sh} with one added (innermost) dimension, which is missing from the shape
+of the result array.
+
+
+\subsection{Array operations as skeletons}
 
 The Accelerate \CUDA\ backend is based on the idea of \emph{algorithmic
 skeletons}~\cite{Cole:1989vr}, where a parallel program is composed from one or
 more parameterised skeletons, or templates, encapsulating specific parallel
-behaviour. In our case, the various collective operations in Accelerate
-constitute skeletons that are parameterised by types and scalar embedded
-expressions to be injected at predefined points. The skeletons for collective
-operations are hand-tuned to ensure efficient global-memory access and use of
-fast on-chip shared memory for intra-block communication, all of which is
-necessary to ensure good performance on the \GPU~\cite{NVIDIA:2012wf}.
+behaviour. In our case, the backend implements each of the aggregate array
+operations, such as \code{map}, by way of a CUDA C \emph{code template} that is
+parameterised with array types and worker functions, such as the function to be
+mapped, to be injected at predefined points.
 
-\subsection{Algorithmic Skeletons}
+This generative approach is attractive for specialised hardware, such as GPUs,
+as the code templates can be hand-tuned to avoid expensive control flow, ensure
+efficient global-memory access, and use fast on-chip shared memory for local
+communication --- all of which is necessary to ensure good performance on the
+\GPU~\cite{NVIDIA:2012wf}.
+
+In the first version of Accelerate, we implemented CUDA C code templates and
+template instantiation with a mixture of C++ templates and C preprocessor
+macros, which was described in \cite{Chakravarty:2011fr}. While workable, this
+approach turned out to have a number of problems:
+
+\begin{itemize}
+    \item The use of CPP is fragile and difficult to maintain. Template
+        instantiation by inlining of CPP macros required the use of fixed
+        variables with no static checking to ensure the consistent use of names
+        or that used names where defined before their use. Moreover it was easy
+        to generate code that wasn't even syntactically valid.
+
+    \item The approach led to the generation of dead code whenever specific
+        template instances did not use all of their parameters or fields of
+        structured data, which the CUDA compiler was unable to remove as dead
+        code.
+
+    \item Most importantly, the use of CPP did not scale to support the
+        implementation of producer-consumer skeleton fusion, which is a crucial
+        optimisation, even for code as simple as dot product.
+
+\end{itemize}
+
+The next sections discuss the new approach to template instantiation that avoids
+these problems, and appeared in \cite{CliftonEverest:2014vi}.
+
+
+\subsection{Algorithmic skeletons as template meta programs}
 
 The code generator includes \CUDA\ code skeletons implementing each of the
-collective operations in Accelerate in such a manner that the code generator can
-instantiate each skeleton with a set of concrete parameters.
+collective operations in Accelerate. Each skeleton encodes the behaviour for
+each thread for this collective operation, fixing the parallel algorithmic
+structure of the operation. Each skeleton contains placeholders for the inputs
+that parameterise the skeleton, such as the array types and worker functions.
+Due to the shortcomings of C++ templates and CPP, we instead use Mainland's
+\emph{quasiquotation} extensions~\cite{Mainland:2007bl} to Template
+Haskell~\cite{Sheard:2002wu} to define skeletons as quoted CUDA C templates with
+splices for the template parameters.
+
 Listing~\ref{lst:map_skeleton} shows the skeleton code for the \code{map}
-operation. The skeleton implements the \CUDA\ kernel~\cite{NVIDIA:2012wf} that
-encodes the behaviour of each thread for this computational pattern, fixing the
-parallel algorithmic structure of the operation, and contains place holders for
-the element types of the input and output arrays, as well as the function to
-apply at each element.
-
-% The \code{map()} function in Listing~\ref{lst:map_skeleton} uses the
-% quasiquoting facility of the \texttt{language-c-quote}
-% library~\cite{Mainland:2007bl}. Quasiquotation allows a program to use the
-% \emph{concrete syntax} of a language to construct program fragments in that
-% language. Of particular importance, however, is that 
-
-The \code{map} function in Listing~\ref{lst:map_skeleton} uses
-quasiquotation~\cite{Mainland:2007bl} in order to construct the \emph{abstract}
-syntax representing the program fragment using the \emph{concrete} syntax of the
-target language, in this case \CUDA\@. Since quasiquoters are run at Haskell
-compile time, any parsing errors or errors in generated Haskell abstract syntax
-are therefore also caught at compile time, ensuring that the skeleton which is
-instantiated at runtime will be syntactically correct.
-% . In contrast to generating concrete
-% syntax as strings, this statically ensures that all generated \CUDA\ code is
-% syntactically correct (assuming the abstract syntax is pretty-printed as valid
-% concrete syntax).
-Furthermore, an expression such as \code{\$exp:(threadIdx dev)} is an
-\emph{antiquotation} that causes, at program runtime, the value of evaluating
-the Haskell function \code{threadIdx} with input \code{dev} to be spliced into
-the abstract syntax tree for the quasiquoted \CUDA\ \code{map} skeleton.
+operation. The \code{[cunit|...|]} brackets enclose CUDA C definitions
+comprising this skeleton template. \CUDA\ uses the \code{__global__} keyword to
+indicate that \code{map} is a \emph{GPU} \indexe{kernel}~\cite{NVIDIA:2012wf}
+--- a single data-parallel computation launch on the \GPU\ by the CPU.
+\emph{Antiquotations}\index{antiquotation} \code{$params:var}, \code{$exp:var},
+\code{$items:var}, and \code{$stms:var} denote template parameters using a
+Haskell variable \code{var} to splice CUDA C parameters, expressions, items, and
+statements, respectively, into the skeleton.
 
 \begin{lstlisting}[style=haskell,
     float,
     name=map_skeleton,
     label=lst:map_skeleton,
-    caption={CUDA skeleton for the \code{map} operation}]
+    caption={Accelerate CUDA skeleton for the \code{map} operation}]
 [cunit|
     $esc:("#include <accelerate_cuda.h>")
     $edecls:texIn
@@ -885,7 +960,7 @@ the abstract syntax tree for the quasiquoted \CUDA\ \code{map} skeleton.
     extern "C" __global__ void
     map
     (
-        $params:argIn,
+        $params:argIn,                                                              -- (3)
         $params:argOut
     ){
         const int shapeSize     = size(shOut);
@@ -894,8 +969,8 @@ the abstract syntax tree for the quasiquoted \CUDA\ \code{map} skeleton.
 
         for ( ix =  $exp:(threadIdx dev); ix < shapeSize; ix += gridSize )
         {
-            $items:(dce x       .=. get ix)
-            $items:(setOut "ix" .=. f x)
+            $items:(dce x       .=. get ix)                                         -- (2)
+            $items:(setOut "ix" .=. f x)                                            -- (1)
         }
     }
   |]
@@ -906,44 +981,77 @@ generate concrete parameters for all of the holes in the skeleton template. In
 particular:
 %
 \begin{enumerate}
-\item The types of the input and output arrays \code{argIn} and \code{argOut},
-    respectively.
+\item The function \code{f} which is applied to each individual array element;
 
-\item The function \code{get}, which retrieves or generates the appropriate
-    input array element for array index \code{ix}.
+\item The function \code{get}, which extracts the appropriate input array
+    element for the array index \code{ix}; and finally
 
-\item The function \code{f} which is applied to that element.
+\item The types of the input and output array arguments are collected and
+    spliced into \code{argIn} and \code{argOut}, respectively.
+
 \end{enumerate}
+%
+The meaning of the auxiliary combinators \code{get}, \code{setOut}, \code{dce},
+and \code{(.=.)} will be explained in the following sections.
+
+As the quasiquoter \code{[cunit|...|]} is executed at Haskell compile time,
+syntactic errors in the quotations and antiquotations, as well as their
+composition, are detected at compilation time. Thus, we can be sure that the
+generated skeleton code will be syntactically correct if the backend compiles.
+See \cite{Mainland:2007bl} for more information on quasiquoters.
+
+
+\section{Instantiating skeletons}
 
 For the most part, translating Accelerate scalar expressions to plain \CUDA\ C
 code is a straightforward syntactic translation of the \indext{de Bruijn} \AST\
 to C. The quasiquoting library \texttt{language-c-quote}%
-\footnote{\url{http://hackage.haskell.org/package/language-c-quote}} furthermore
-allows the \CUDA\ \AST\ can be constructed using concrete syntax.
-% , which can later be pretty printed to file for external compilation
-% (\S\ref{sec:external_compilation}).
-The following features of code generation deserve particular attention: (1)
-lambda abstractions; (2) let bindings; (3) shapes; (4) array references; and (5)
-tuples.
+\footnote{\url{http://hackage.haskell.org/package/language-c-quote}} allows the
+\CUDA\ \AST\ to be constructed using concrete syntax. The following features of
+code generation deserve particular attention: lambda abstractions; let
+bindings; shapes; array references; and tuples.
 
-\subsection{Let bindings}
-
-
-\subsection{Lambda abstractions}
-
-dead code elimination!
 
 \subsection{Shapes}
 
-Accelerate directly supports collective operations on multidimensional arrays.
-In C, we represent multidimensional shapes and indices as a \code{struct}:
+Parallelism in Accelerate takes the form of collective operations over arrays of
+type \code{Array sh e}, where \code{sh} is the \emph{shape} and \emph{e} is the
+element type of the array. Following the approach taken in
+Repa~\cite{Keller:2010er,Lippmeier:2012gx}, we represent both the shape and
+indices of an array using an inductive notation of tuples as heterogenous
+\emph{snoc} lists to enable rank-polymorphic definitions of array functions.
+
+\begin{lstlisting}[style=haskell
+    ,float
+    ,label=lst:shapes_and_indices
+    ,caption={Types of array shapes and indices}]
+data Z            = Z                   -- rank zero
+data tail :. head = tail :. head        -- increase rank by 1
+
+type DIM0 = Z
+type DIM1 = DIM0 :. Int
+type DIM2 = DIM1 :. Int
+type DIM3 = DIM2 :. Int
+  %$\langle$ and so on $\rangle$%
+
+type Array DIM0 e = Scalar e
+type Array DIM1 e = Vector e
+\end{lstlisting}
+
+As shown in Listing~\ref{lst:shapes_and_indices}, on both the type and value
+level, the constructor \code{Z} is used to represent the shape of a rank-0 array
+and, and the infix operator \code{:.} to increase the rank by adding a new
+(innermost) dimension to the right of the shape.
+
+During code generation, we represent multidimensional shapes and indices as a
+\code{struct}:
 %
 \begin{lstlisting}[style=cuda]
-typedef Int32                                     Ix;
-typedef void*                                     DIM0;
-typedef Ix                                        DIM1;
-typedef struct { Ix a1,a0; }                      DIM2;
-typedef struct { Ix a2,a1,a0; }                   DIM3;
+typedef Int32                           Ix;
+typedef void*                           DIM0;
+typedef struct { Ix a0; }               DIM1;
+typedef struct { Ix a1,a0; }            DIM2;
+typedef struct { Ix a2,a1,a0; }         DIM3;
   (@*$\langle$ and so on $\rangle$*@)
 \end{lstlisting}
 %
@@ -961,10 +1069,10 @@ indices for the various index types. That is, we have the following family of
 functions:
 %
 \begin{lstlisting}[style=cuda,mathescape]
-int  dim(DIM$n$ sh);                          // number of dimensions in a shape
-int  size(DIM$n$ sh);                         // total number of elements in a shape
-Ix   toIndex(DIM$n$ sh, DIM$n$ ix);              // index into a linear row-major format array
-DIM$n$ fromIndex(DIM$n$ sh, Ix ix);              // inverse of `toIndex'
+int  dim(DIM$n$ sh);                        // number of dimensions in a shape
+int  size(DIM$n$ sh);                       // total number of elements in a shape
+Ix   toIndex(DIM$n$ sh, DIM$n$ ix);            // index into a linear row-major format array
+DIM$n$ fromIndex(DIM$n$ sh, Ix ix);            // inverse of `toIndex'
 \end{lstlisting}
 
 The major advantage of this approach is that the \CUDA\ skeletons are ad-hoc
@@ -975,7 +1083,17 @@ That the underlying representation as a C \code{struct} is only relevant when
 accessing shape data that was marshalled as a parameter to the kernel, in which
 case field accessors must be generated. In all other circumstances however, the
 shape can be treated as a tuple structure. Tuples are explained in further
-detail below.
+detail below. \marginnote{tk: so why did we need the struct at all?}
+
+
+\endinput
+
+\subsection{Let bindings}
+
+
+\subsection{Lambda abstractions}
+
+dead code elimination!
 
 
 \subsection{Array references in scalar code}
@@ -988,11 +1106,11 @@ Accelerate captures the appropriate idioms of GPU programming as collective
 array operations, which we regard as algorithmic skeletons. The code generator
 instantiates \CUDA\ implementations of the skeleton templates to execute
 embedded array programs. Thus, each template instantiation implies the execution
-of separate program on the \GPU\@. This is inefficient, and often we want to
-fuse two skeletons into a single operation, avoiding the creation and traversal
-of an intermediate array. This is the task of the fusion optimisation: to
-combine networks of collective operations into a single operation
-(\S\ref{sec:fusion}).
+of a separate program (kernel) on the \GPU\@. This is inefficient, and often we
+want to fuse two (or more) skeletons into a single operation, avoiding the
+creation and traversal of an intermediate array. This is the task of the fusion
+optimisation: to combine sequences of collective operations into a single
+operation (\S\ref{sec:fusion}).
 
 Following the fusion transformation, the program \AST\ is annotated such that it
 describes how each array term in the program is to be represented. As shown in

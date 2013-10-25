@@ -1,5 +1,5 @@
 
-\documentclass[11pt,a4paper,twoside,draft]{book}
+\documentclass[11pt,a4paper,twoside]{book}
 
 % Imports
 % ------------------------------------------------------------------------------
@@ -34,9 +34,6 @@
 \usepackage{graphicx}
 \usepackage[all]{hypcap}
 \usepackage{ifthen}
-% \usepackage{dejavu}
-% \usepackage{inconsolata}
-% \usepackage{sourcecodepro}
 % \usepackage{lastpage}
 \usepackage[final]{listings}
 % \usepackage{longtable}
@@ -164,6 +161,8 @@
 \addtocontents{lol}{\protect\vspace*{-20pt}}
 
 \newfontfamily\sourcecodepro{Source Code Pro}
+\newfontfamily\sourcecodeprobold{Source Code Pro Medium}
+\newfontfamily\sourcecodeprolight{Source Code Pro Light}
 
 
 % Define the language styles we will use
@@ -172,12 +171,12 @@
     frame=single,
     rulecolor={\color[gray]{0.7}},
     numbers=left,
-    basicstyle=\sourcecodepro,
+    basicstyle=\scriptsize\sourcecodepro,
     numberstyle=\color{Gray}\tiny\it,
     commentstyle=\color{MidnightBlue}\it,
     stringstyle=\color{Maroon},
     keywordstyle=[1],
-    keywordstyle=[2]\color{ForestGreen}\bf,
+    keywordstyle=[2]\color{ForestGreen},
     keywordstyle=[3]\color{Bittersweet},
     keywordstyle=[4]\color{RoyalPurple},
     captionpos=b,
@@ -195,7 +194,6 @@
 \lstdefinestyle{haskell}{%
     language=Haskell,
     upquote=true,
-    basicstyle=\scriptsize\sourcecodepro,
     deletekeywords={case,class,data,default,deriving,do,in,instance,let,of,type,where},
     morekeywords={[2]class,data,default,deriving,family,instance,type,where},
     morekeywords={[3]in,let,case,of,do},
@@ -220,7 +218,6 @@
 
 \lstdefinestyle{cuda}{%
     language=CUDA,
-    basicstyle=\scriptsize\sourcecodepro,
     keywordstyle=[1]\color{ForestGreen},
     keywordstyle=[2]\color{Bittersweet},
     keywordstyle=[3]\color{BrickRed},
@@ -231,7 +228,6 @@
 
 \lstdefinestyle{ptx}{%
     language=CUDA,
-    basicstyle=\scriptsize\sourcecodepro,
     mathescape=false,
     escapeinside={(@*}{*@)}
 }
@@ -240,14 +236,14 @@
     style=haskell,
     frame=none,
     numbers=none,
-    basicstyle=\small\sourcecodepro
+    basicstyle=\ttfamily
 }
 
 
 % Shorthand for inline code fragments
 %
 \newcommand{\code}[1]{\lstinline[style=inline]{#1}}
-\newcommand{\footcode}[1]{\lstinline[style=inline,basicstyle=\scriptsize\sourcecodepro]{#1}}
+\newcommand{\footcode}[1]{\lstinline[style=inline]{#1}}
 
 
 % Chapter page style

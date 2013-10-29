@@ -19,6 +19,7 @@
 \fi
 
 \usepackage{a4wide}
+\usepackage{abbrevs}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{array}
@@ -51,11 +52,11 @@
 \usepackage{subfig}
 \usepackage{titlesec}
 \usepackage[width={autoauto}]{thumbs}
-\usepackage{upquote}
-\usepackage{xfrac}
 \usepackage{tabu}
 \usepackage{textcomp}
 \usepackage{tikz}
+\usepackage{upquote}
+\usepackage{xfrac}
 
 \onehalfspacing
 %\doublespacing
@@ -276,8 +277,11 @@
 
 % Macros for commonly used terms
 
-\newcommand\AST{AST\index{abstract-syntax tree}}
-\newcommand\CUDA{\indext{CUDA}}
-\newcommand\GPU{GPU\index{graphics processing unit}}
-\newcommand\HOAS{HOAS\index{higher-order abstract syntax}}
+
+\newabbrev\AST  {AST\index{abstract-syntax tree}}
+\newabbrev\CUDA {CUDA\index{CUDA}}
+\newabbrev\GPU  {GPU\index{graphics processing unit}}
+\newabbrev\HOAS {HOAS\index{higher-order abstract syntax}}
+\newabbrev\AoS  {AoS\index{array-of-struct}}
+\newabbrev\SoA  {AoS\index{struct-of-array}}
 

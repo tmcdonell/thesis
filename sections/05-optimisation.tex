@@ -1,5 +1,5 @@
 
-\chapter{Optimisation}
+\chapter{Optimising Embedded Array Programs}
 \epigraph{Relax. As usual, I will bore you with the details.}%
 {\textsc{---chris lee}}
 
@@ -29,41 +29,109 @@ In general, we would like to be as aggressive as possible in improving code, but
 not at the expense of making it incorrect.
 
 
-\section{Redundancy Elimination}
-\label{sec:redundancy_elimination}
+% \section{Redundancy Elimination}
+% \label{sec:redundancy_elimination}
+% 
+% The optimisations in this section deal with the elimination of redundant
+% computations. These procedures almost always improve the performance of the code
+% they are applied to.
 
-The optimisations in this section deal with the elimination of redundant
-computations. These procedures almost always improve the performance of the code
-they are applied to.
+\section{Sharing recovery}
+\label{sec:sharing_recovery}
 
-\subsection{Sharing Observation}
-\label{sec:sharing_observation}
+\begin{lstlisting}[style=haskell
+    ,float=tbp
+    ,label=lst:black_scholes
+    ,caption={Black-Scholes option pricing in Accelerate}]
+riskfree, volatility :: Float
+riskfree   = 0.02
+volatility = 0.30
 
-As described in section~TK, operations of the embedded language do not
-directly issue computations; instead, they build \emph{abstract syntax
-trees}\index{abstract syntax tree}\index{AST|see{abstract syntax tree}} that
-represent the embedded computation. These term trees use \indexe{higher-order
-abstract syntax} (HOAS)\index{higher-order abstract syntax} to embed
-function-valued scalar expressions as well as typeclass overloading to reflect
-arithmetic expressions.
+horner :: Num a => [a] -> a -> a
+horner coeff x = x * foldr1 madd coeff
+  where
+    madd a b = a + x*b
 
-A well known problem of defining (deeply) embedded languages in this way is that
-a straightforward reification of the surface language program would result in a
-complete unfolding of the expression into embedded language terms. That is, each
-occurrence of a let-bound variable in the source program would create a separate
-unfolding of the bound expression in the compiled code. For example, consider
-the following program:
-%
-\begin{lstlisting}[style=Haskell]
-let ys = map f xs
-in  zipWith g ys ys
+cnd' :: Floating a => a -> a
+cnd' d =
+  let poly     = horner coeff
+      coeff    = [0.31938153, -0.356563782, 1.781477937, -1.821255978, 1.330274429]
+      rsqrt2pi = 0.39894228040143267793994605993438
+      k        = 1.0 / (1.0 + 0.2316419 * abs d)
+  in
+  rsqrt2pi * exp (-0.5*d*d) * poly k
+
+blackscholes :: Vector (Float, Float, Float) -> Acc (Vector (Float, Float))
+blackscholes = map callput . use
+  where
+  callput x =
+    let (price, strike, years) = unlift x
+        r       = constant riskfree
+        v       = constant volatility
+        v_sqrtT = v * sqrt years
+        d1      = (log (price / strike) + (r + 0.5 * v * v) * years) / v_sqrtT
+        d2      = d1 - v_sqrtT
+        cnd d   = let c = cnd' d in d >* 0 ? (1.0 - c, c)
+        cndD1   = cnd d1
+        cndD2   = cnd d2
+        x_expRT = strike * exp (-r * years)
+    in
+    lift ( price * cndD1 - x_expRT * cndD2
+         , x_expRT * (1.0 - cndD2) - price * (1.0 - cndD1))
 \end{lstlisting}
+
+Accelerate is a \emph{deeply embedded} language, meaning that evaluating an Accelerate program does
+not directly issue computations; instead, it builds \emph{abstract syntax trees}\index{abstract
+syntax tree}\index{AST|see{abstract syntax tree}} that represent the embedded computation, which are
+later executed by an Accelerate backend to compute the result on a given backend target.
+
+A well known problem of defining deeply embedded languages in this way is the issue of
+\emph{sharing}. Our embedded language implementation of Accelerate reifies the abstract syntax of
+the deeply embedded language in Haskell. However, a straightforward reification of the surface
+language program results in each occurrence of a let-bound variable in the source program creating a
+separate unfolding of the bound expression in the compiled code.
+
+At an example, consider the pricing of European-style options using the Black-Scholes formula, the
+Accelerate program for which is shown in Listing~\ref{lst:black_scholes}. Given a vector with
+triples of underlying stock price, strike price, and time to maturity (in years), the Black-Scholes
+formula computes the price of a call an put option. The function \code{callput} evaluates the
+Black-Scholes formula for a single triple, and \code{blackscholes} maps it over a vector of triples,
+such that all individual applications of the formula are executed in parallel.
+
+The function \code{callput} introduces a significant amount of sharing: the helper functions
+\code{cnd'} and hence also \code{horner} are used twice --- for \code{d1} and \code{d2} --- and its
+argument \code{d} is used multiple times in the body. Worse, the conditional expression leads to a
+growing number of predicated instructions which incurs a large penalty on the \SIMD architecture of
+a \GPU\@. A lack of sharing recovery was a significant shortcoming of our initial implementation of
+Accelerate~\cite{Chakravarty:2011fr}.
+
+% As described in section~TK, operations of the embedded language do not
+% directly issue computations; instead, they build \emph{abstract syntax
+% trees}\index{abstract syntax tree}\index{AST|see{abstract syntax tree}} that
+% represent the embedded computation. These term trees use \indexe{higher-order
+% abstract syntax} (HOAS)\index{higher-order abstract syntax} to embed
+% function-valued scalar expressions as well as typeclass overloading to reflect
+% arithmetic expressions.
 %
-If we do not take care, the expression will be inefficiently translated as:
-%
-\begin{lstlisting}[style=Haskell]
-zipWith g (map f xs) (map f xs)
-\end{lstlisting}
+% However, a straightforward reification of the surface language program results in a
+% complete unfolding of the expression into embedded language terms. That is, each
+% occurrence of a let-bound variable in the source program would create a separate
+% unfolding of the bound expression in the compiled code. For example, consider
+% the following program:
+% %
+% \begin{lstlisting}[style=Haskell]
+% let ys = map f xs
+% in  zipWith g ys ys
+% \end{lstlisting}
+% %
+% If we do not take care, the expression will be inefficiently translated as:
+% %
+% \begin{lstlisting}[style=Haskell]
+% zipWith g (map f xs) (map f xs)
+% \end{lstlisting}
+
+
+\subsection{Our approach to sharing recovery}
 
 This problem was solved elegantly by \citet{Gill:2009dx} who proposed the use
 of \index{stable name}\emph{stable names}~\cite{PeytonJones:2000ks} to recover
@@ -88,10 +156,14 @@ necessarily intertwined. Sharing recovery must be performed on the source
 representation, otherwise sharing will have already been lost, but we can not
 perform sharing recovery on higher-order abstract syntax\index{higher-order
 abstract syntax} as we need to traverse below the lambda abstractions. Hence,
-both operations go hand in hand. In brief the method proceeds in three stages:
+both operations go hand in hand.
+
+The contribution of the sharing recovery algorithm is work done primarily by my supervisor Manuel
+Chakravarty, so I present here only a brief overview of the method. See \cite{McDonell:2013wi} for
+details.
 
 
-\paragraph{Phase 1: Prune shared terms:}
+\subsubsection*{Phase 1: Prune shared terms:}
 
 A top-down traversal of the AST\index{abstract syntax tree} annotates each node
 with its unique stable name\index{stable name}, and builds an occurrence map for
@@ -122,7 +194,7 @@ meaning of the program, and hence a lack of sharing does not compromise
 denotational correctness.
 
 
-\paragraph{Phase 2: Float shared terms:}
+\subsubsection*{Phase 2: Float shared terms:}
 
 A bottom-up traversal that determines the scope for every binding to be
 introduced to share a subterm. It uses the occurrence map to determine, for
@@ -133,14 +205,14 @@ a set of occurring names: we need the actual occurrence count to determine where
 shared subterms should be let-bound.
 
 
-\paragraph{Phase 3: Binder introduction:}
+\subsubsection*{Phase 3: Binder introduction:}
 
 Finally, each floated subterm gets let-bound right above the node it floated to.
 At the same time, we convert the AST into nameless \indext{de Bruijn} form by
-introducing de Bruijn indices at the same time as introducing the lets.\\
+introducing de Bruijn indices at the same time as introducing the lets.
 
 
-\subsection{Common Subexpression Elimination}
+\section{Common Subexpression Elimination}
 \label{sec:cse}
 
 \emph{Common subexpression elimination} finds computations that are performed at
@@ -153,11 +225,12 @@ elimination, where we look for expressions of the form:
 %\bf$\langle$ common subexpression elimination $\rangle$% let x = e1 in [x/e1]e2
 \end{lstlisting}
 %
-and replace all occurrences of \code{e1} in \code{e2} with \code{x}. This might
-not completely eliminate redundant expressions from the program, as it will not
-eliminate any common subterms not already defined in the source program. It will
-however catch some cases, in particular those that tend to be introduced during
-the array fusion optimisation.
+and replace all occurrences of \code{e1} in \code{e2} with \code{x}. Thus, this method relies on the
+introduction of let-bindings into the reified program by the sharing recovery algorithm, described
+in the previous section (\S\ref{sec:sharing_recovery}). Moreover, this method will not eliminate any
+common subexpressions that are not already defined in the source program. This might not completely
+eliminate redundant expressions from the program, but is sufficient to catch some cases, in
+particular those that tend to be introduced during the array fusion optimisation.
 %\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
 
 While it may seem that common subexpression elimination is always worthwhile, as
@@ -168,7 +241,6 @@ shared expression's value, which hence reduces the number of registers available
 for other uses. Even worse is if that value has to be spilled to memory because
 there are insufficient registers available. We sidestep this tricky and
 target-dependent issue by, for now, simply ignoring it.
-
 
 
 \section{Array Fusion}
@@ -1638,7 +1710,7 @@ reverseMap f xs
 \end{lstlisting}
 %
 Unfortunately, sharing recovery, using the algorithm from
-section~\ref{sec:sharing_observation}, causes a problem. The variable \code{xs}
+section~\ref{sec:sharing_recovery}, causes a problem. The variable \code{xs}
 is used three times in the arguments to \code{backpermute}, so sharing recovery
 introduces a let binding at the lowest common meet point for all uses of the
 array. This places it between the \code{map} and \code{backpermute} operations:

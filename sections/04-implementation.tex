@@ -465,7 +465,7 @@ Accelerate operations are pure and thus do not mutate arrays, the device arrays
 can be safely shared. Thus, we would like these two arrays to refer to the same
 data in \GPU memory. This reduces the amount of memory required to store the
 data as well as reducing memory traffic.\footnote{Why doesn't sharing recovery
-(\S\ref{sec:sharing_observation}) notice that the two uses of \footcode{xs} are
+(\S\ref{sec:sharing_recovery}) notice that the two uses of \footcode{xs} are
 the same and combine them? The sharing recovery algorithm observes the sharing
 of \emph{Accelerate} terms, and because we have called \footcode{use} twice, we
 are effectively constructing two \emph{separate} Accelerate terms
@@ -485,7 +485,6 @@ Since the two \code{use} nodes refer to the same array on the heap, they will
 share the same array in \GPU memory, and thus the data is only copied once.
 This is a happy consequence of the method we use to uniquely associate host and
 device arrays.
-
 
 \subsubsection{Inter-expression sharing}
 
@@ -825,7 +824,7 @@ the \GPU using direct memory access (DMA). Regular memory allocations are
 change the physical location of the data, such as moving the data to disk in
 order to free up memory for other applications. Since the location of pageable
 memory can change, and may not exist in physical RAM at all, this memory can not
-be directly accessed by the \GPU@. Instead when copying data to the \GPU from
+be directly accessed by the \GPU\@. Instead when copying data to the \GPU from
 pageable memory, the \CUDA library must first copy the data to a staging area
 allocated using pinned memory, and then transfer the data to the device from the
 staging area. Only the second step of this process proceeds asynchronously.
@@ -1003,6 +1002,13 @@ See \cite{Mainland:2007bl} for more information on quasiquoters.
 
 \section{Instantiating skeletons}
 
+Accelerate is an \emph{embedded} language, meaning that while we write programs
+using Haskell syntax, we do not compile arbitrary Haskell programs directly to
+\GPU machine code. Rather, an Accelerate program generates at program runtime an
+\emph{abstract syntax tree} (\AST\index{AST|see{abstract syntax tree}}) that
+represents the embedded program, which Accelerate's \CUDA backend then converts
+into \CUDA C code that is compiled, loaded onto the \GPU, and executed.
+
 For the most part, translating Accelerate scalar expressions to plain \CUDA C
 code is a straightforward syntactic translation of the \indext{de Bruijn} \AST
 to C. The quasiquoting library \texttt{language-c-quote}%
@@ -1013,6 +1019,7 @@ to C. The quasiquoting library \texttt{language-c-quote}%
 % abstractions; let bindings; shapes; array references; and tuples.
 
 \subsection{Instantiating skeletons with scalar code}
+\label{sec:instantiating_skeletons}
 
 Most aggregate array operations in Accelerate are parameterised by scalar
 functions, such as the mapping function for \code{map} or the combination
@@ -1058,12 +1065,13 @@ instance Assign l r => Assign l ([C.BlockItem], r) where
 
 
 \subsection{Representing tuples}
+\label{sec:representing_tuples}
 
 Accelerate arrays of primitive type, such as \code{Float} and \code{Int}, are
 easily represented in CUDA using the corresponding floating point and integral
 types. More interesting is the case of arrays of tuples. A na\"ive
 implementation of tuples in CUDA might use arrays of \code{struct} type --- that
-is, we might consider representing varues of type \code{Array DIM1 (Int, Float)}
+is, we might consider representing values of type \code{Array DIM1 (Int, Float)}
 in CUDA by the value of type:
 %
 \begin{lstlisting}[style=cuda]
@@ -1129,8 +1137,8 @@ directly into the skeleton template. Instead of packaging the tuple components
 into a \code{struct}, we represent it by a list of primitive values, one per
 component. During code generation, we keep track of the values constituting a
 tuple by maintaining a list of expressions, one for each component of the tuple.
-The \code{(.=.)} operator allows ups to assign all values constituting the tuple
-with one assignment in the meta programming system; i.e., we have have lists of
+The \code{(.=.)} operator allows us to assign all values constituting the tuple
+with one assignment in the meta programming system; i.e., we have lists of
 l-values and r-values:
 %
 \begin{lstlisting}[style=haskell]
@@ -1371,7 +1379,7 @@ Accelerate captures the appropriate idioms of GPU programming as collective
 array operations, which we regard as algorithmic skeletons. The code generator
 instantiates \CUDA implementations of the skeleton templates to execute
 embedded array programs. Thus, each template instantiation implies the execution
-of a separate program (kernel) on the \GPU@. This is inefficient, and often we
+of a separate program (kernel) on the \GPU\@. This is inefficient, and often we
 want to fuse two (or more) skeletons into a single operation, avoiding the
 creation and traversal of an intermediate array. This is the task of the fusion
 optimisation: to combine sequences of collective operations into a single
@@ -1410,7 +1418,7 @@ skeleton the code necessary to produce the value from the input arrays at index
 
 When you write a program in Accelerate, what you are really doing is writing a
 Haskell program that \emph{generates} a \CUDA program, that is compiled,
-loaded, and executed on the \GPU@. Thus, one major difference between using
+loaded, and executed on the \GPU\@. Thus, one major difference between using
 Accelerate for general purpose \GPU programming compared to programming in
 \CUDA directly, is that kernels are generated dynamically, at application
 \emph{runtime}, whereas plain \CUDA code is pre-compiled.

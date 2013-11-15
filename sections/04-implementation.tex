@@ -1148,17 +1148,130 @@ instance Assign l r => Assign [l] [r] where
 \end{lstlisting}
 
 
+\subsection{Shared subexpressions}
+\label{sec:shared_subexpressions}
+
+A well known problem with deeply embedded languages is the issue of
+\emph{sharing}, where --- without \emph{sharing recovery} --- each occurrence of
+a let-bound variable in the source program creates a separate unfolding of the
+bound expression in the reified program. To avoid this problem, we implemented a
+sharing recovery algorithm that recovers exactly those let-bindings used in the
+source language. See section~\ref{sec:sharing_recovery} for details on our
+approach to sharing recovery~\cite{McDonell:2013wi}, which is a variant of
+Gill's observable sharing~\cite{Gill:2009dx} --- his paper also discusses the
+issue of sharing in embedded languages in greater detail.
+
+Following sharing recovery and conversion of the source language program into
+the internal \indext{de Bruijn} representation, sharing of scalar
+subcomputations is represented explicitly using the following \AST node:
+%
+\begin{lstlisting}[style=haskell]
+  Let :: (Elt bnd, Elt body)
+      => PreOpenExp acc env        aenv bnd         -- (1) bound expression
+      -> PreOpenExp acc (env, bnd) aenv body        -- (2) body expression, scope of local binding
+      -> PreOpenExp acc env        aenv body
+\end{lstlisting}
+%
+Here, the result of evaluating the let-bound expression (1) is only in scope
+while evaluating the body of the let-binding (2). This property is encoded in
+the type of the environment of the body expression.
+
+To support code generation including shared subexpressions, the CUDA code
+generator uses a monad to generate fresh names. The monad is also used to store
+the expressions representing let-bound terms. These additional terms must be
+evaluated before evaluation of the body.
+%
+\begin{lstlisting}[style=haskell]
+data Gen = Gen
+  { unique          :: Int
+  , localBindings   :: [C.BlockItem]
+  , usedTerms       :: Set C.Exp                    -- see section~\ref{sec:eliminating_dead_code}
+  }
+\end{lstlisting}
+
+When code generation encounters a let binding, we first generate code for the
+bound expression, assign this result to a new (fresh) variable, then use this
+stored variable throughout the evaluation of the body:
+%
+\begin{lstlisting}[style=haskell]
+codegenOpenExp (Let bnd body) env = do
+    bnd'  <- codegenOpenExp bnd env >>= pushEnv bnd
+    body' <- codegenOpenExp body (env `Push` bnd')
+    return body'
+\end{lstlisting}
+
+Recall that Accelerate's \CUDA code generator uses a non-parametric
+representation of tuples, where a scalar expression is represented as a list of
+C expressions, one per component of the (flattened) tuple
+(\S\ref{sec:representing_tuples}). The function \code{pushEnv} generates a fresh
+name for each expression in the tuple, assigns the expression to a new variable,
+and returns the new variable name to be used throughout evaluation of the body
+expression.
+%
+\begin{lstlisting}[style=haskell]
+pushEnv :: exp env aenv a -> [C.Exp] -> Gen [C.Exp]
+pushEnv dummy exps = zipWithM go (expType dummy) exps
+  where
+    go t c = case c of
+      C.Var{}   -> return c
+      _         -> do name    <- fresh
+                      let next = [citem| const $ty:t $id:name = $exp:c; |]
+                      modify (\s -> s { localBindings = next : localBindings s })
+                      return (cvar name)
+\end{lstlisting}
+%
+Note that there is no need to create a fresh name if the input term is a
+variable. That is, we avoid creating additional declarations in the generated
+code such as:
+%
+\begin{lstlisting}[language=cuda]
+  const int x0 = ...
+  const int x1 = x0;
+\end{lstlisting}
+%
+This observation also simplifies the implementation of dead-code analysis
+(\S\ref{sec:eliminating_dead_code}). The output of code generation is the list
+of C expressions representing the final computation, together with a list of
+local declarations to be evaluated first. With the \code{Assign} type class
+introduced previously, we can transparently bring these extra terms into scope
+before evaluating the body, with the introduction of the following instance:
+%
+\begin{lstlisting}[style=haskell]
+instance Assign l r => Assign l ([C.BlockItem], r) where
+  lhs .=. (env, rhs) = env ++ (lhs .=. rhs)
+\end{lstlisting}
+
+
+\subsubsection{Future work}
+
+One disadvantage of the current implementation is that the scope of let bindings
+is lost: once a new variable is declared, it remains in scope for the remainder
+of the C skeleton. This is in contrast to the definition of the \code{Let} \AST
+node, where the binding should only be in scope during evaluation of the body.
+Adding explicit scoping to specify the lifetime of expressions may assist the
+CUDA compiler to improve register allocation.
+
+% Without adding explicit scoping to specify the lifetime of expressions, we
+% rely on the CUDA compiler to efficiently allocate reg
+
+Generating code with explicit scoping may also remove the need for a monad to
+generate fresh names, since unique names can be derived based on the \indext{de
+Bruijn} \emph{level} of the expression, which can be determined from the current
+size of the environment. This is the method used when pretty printing Accelerate
+expressions.
+
+
 \subsection{Eliminating dead code}
 \label{sec:eliminating_dead_code}
 
 As discussed in section~\ref{sec:representing_tuples}, one problem of the
 original code generator based on CPP and C++ templates was its inability to
-remove some forms of dead code. This was seen in the \code{fst4} example, which
-generates significant memory traffic if tuples are represented as
-\code{struct}s, even though three of the four values read from memory were never
-used. With the use of template meta programming to inline the definition of
-scalar expressions directly into the skeleton template, the situation is greatly
-improved.
+remove some forms of dead code. This was seen in the \code{fst4} example of
+section~\ref{sec:representing_tuples}, which generates significant memory
+traffic if tuples are represented as \code{struct}s, even though three of the
+four values read from memory were never used. With the use of template meta
+programming to inline the definition of scalar expressions directly into the
+skeleton template, the situation is greatly improved.
 
 Unfortunately, the CUDA compiler does not always eliminate memory reads, as it
 does not always detect if the values are used. Hence, rather than rely on the
@@ -1210,7 +1323,7 @@ Dead-code analysis then builds the function \code{dce} by testing whether each
 input variable is present in the set:
 %
 \begin{lstlisting}[style=haskell]
-deadCodeElim :: HashSet C.Exp -> [C.Exp] -> [a] -> [(Bool,a)]
+deadCodeElim :: Set C.Exp -> [C.Exp] -> [a] -> [(Bool,a)]
 deadCodeElim used vars
   = let flags = map (\x -> x `Set.member` used) vars
     in  zipWith (,) flags
@@ -1331,15 +1444,6 @@ skeleton-based code generators (such as handwritten idiomatic code for
 special-purpose architectures).
 
 \endinput
-
-
-\subsection{Let bindings}
-
-
-\subsection{Lambda abstractions}
-
-dead code elimination!
-
 
 \subsection{Array references in scalar code}
 

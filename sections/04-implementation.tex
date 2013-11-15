@@ -1313,43 +1313,13 @@ DIM$n$ fromIndex(DIM$n$ sh, Ix ix);            // inverse of `toIndex'
 However, the new code generation method (subsequent to, but not affecting the
 result of \cite{CliftonEverest:2014vi}) does not require the use of
 \code{struct}s to represent shapes. The new approach represents shapes during
-code generation as a list of expressions, representing each of the individual
-components of the shape. Operations such as \code{toIndex} are implemented
-directly in the skeleton, rather than packing the shape components into a
-\code{struct} and then calling the family of overloaded functions.. This
-component-wise representation is identical to the treatment of tuples, which are
-discussed in the following section.
+code generation in the same manner as tuples --- as a list of expressions
+representing each of the individual components of the shape. Operations such as
+\code{toIndex} are implemented directly in the skeleton, rather than packing the
+shape components into a \code{struct} and then calling the family of overloaded
+functions which were provided separately in a header file.
 
 
-% Note we have set the type of each component of the shape in C to a 32-bit
-% integer, whereas indices in Haskell are represented using \code{Int}. Depending
-% on the architecture of the host Haskell compiler, this int might be either 32-
-% or 64-bits. This entails additional conversions when marshalling shapes from
-% Haskell, but can result in higher performance code, because \CUDA devices are
-% natively 32-bit processors incur a significant performance penalty when
-% executing 64-bit arithmetic.
-% 
-% As \CUDA supports the use of C++ features, such as templates and function
-% overload, we simplify code generation by overloading functions which operate on
-% indices for the various index types. That is, we have the following family of
-% functions:
-% %
-% \begin{lstlisting}[style=cuda,mathescape]
-% int  dim(DIM$n$ sh);                        // number of dimensions in a shape
-% int  size(DIM$n$ sh);                       // total number of elements in a shape
-% Ix   toIndex(DIM$n$ sh, DIM$n$ ix);            // index into a linear row-major format array
-% DIM$n$ fromIndex(DIM$n$ sh, Ix ix);            // inverse of `toIndex'
-% \end{lstlisting}
-% 
-% The major advantage of this approach is that the \CUDA skeletons are ad-hoc
-% polymorphic; i.e., we have a single skeleton that during \emph{instantiation} is
-% specialised to a particular array element type and dimensionality.
-% 
-% That the underlying representation as a C \code{struct} is only relevant when
-% accessing shape data that was marshalled as a parameter to the kernel, in which
-% case field accessors must be generated. In all other circumstances however, the
-% shape can be treated as a tuple structure. Tuples are explained in further
-% detail below.
 
 
 \subsection{Conclusion}

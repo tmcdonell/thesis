@@ -1303,16 +1303,15 @@ scalar environment of the function body with input variables of a known name
 (1):
 %
 \begin{lstlisting}[style=haskell]
-codegenOpenFun1
+codegenFun1
     :: DeviceProperties
-    -> Val env
     -> Gamma aenv
-    -> DelayedOpenFun env aenv (a -> b)
-    -> CUOpenFun1     env aenv (a -> b)
-codegenOpenFun1 dev env aenv (Lam (Body f))
+    -> DelayedFun aenv (a -> b)
+    -> CUFun1     aenv (a -> b)
+codegenFun1 dev aenv (Lam (Body f))
   = let
         dummy        = locals "undefined_x" (undefined :: a)                        -- (1)
-        Gen _ _ used = execGen $ codegenOpenExp dev aenv f (env `Push` dummy)       -- (2)
+        Gen _ _ used = execGen $ codegenOpenExp dev aenv f (Empty `Push` dummy)     -- (2)
     ...
 \end{lstlisting}
 %
@@ -1347,19 +1346,19 @@ markAsUsed _         = return ()
 
 \subsubsection{Future work}
 
-Completing our definition of \code{codegenOpenFun1}, we return the result of
+Completing our definition of \code{codegenFun1}, we return the result of
 dead-code analysis produced by \code{deadCodeElim}, together with a function
 that \emph{re-runs} code generation with the actual input variables. Thus, our
 method requires performing code generation twice for every expression.
 %
 \begin{lstlisting}[style=haskell,firstnumber=7]
-codegenOpenFun1 dev env aenv (Lam (Body f))
+codegenFun1 dev aenv (Lam (Body f))
   = let
         dummy        = ...
         Gen _ _ used = execGen $ codegenOpenExp ...
     in
     CUFun1 (deadCodeElim used dummy)
-           (\xs -> evalGen $ codegenOpenExp dev aenv f (env `Push` xs))
+           (\xs -> evalGen $ codegenOpenExp dev aenv f (Empty `Push` xs))
 \end{lstlisting}
 
 Furthermore, this method only eliminates unused inputs to a scalar function. If

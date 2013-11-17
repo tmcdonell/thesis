@@ -1400,27 +1400,28 @@ type Array DIM1 e = Vector e
 \end{lstlisting}
 
 During code generation, the old version of Accelerate~\cite{Chakravarty:2011fr}
-represented multidimensional shapes and indices as a \code{struct}:
+represented multidimensional shapes and indices as a \code{struct}.
 %
-\begin{lstlisting}[style=cuda]
-typedef Int32                           Ix;
-typedef void*                           DIM0;
-typedef struct { Ix a0; }               DIM1;
-typedef struct { Ix a1,a0; }            DIM2;
-typedef struct { Ix a2,a1,a0; }         DIM3;
-  (@*$\langle$ and so on $\rangle$*@)
-\end{lstlisting}
+% \begin{lstlisting}[style=cuda]
+% typedef Int32                           Ix;
+% typedef void*                           DIM0;
+% typedef struct { Ix a0; }               DIM1;
+% typedef struct { Ix a1,a0; }            DIM2;
+% typedef struct { Ix a2,a1,a0; }         DIM3;
+%   (@*$\langle$ and so on $\rangle$*@)
+% \end{lstlisting}
 %
 This representation additionally came with a family of overloaded C functions
-for operating on shapes and indices, so that skeletons were not specialised to a
-particular dimensionality:
+for operating on shapes and indices --- such as \code{toIndex} and
+\code{fromIndex} --- so that skeletons were not specialised to a particular
+dimensionality.
 %
-\begin{lstlisting}[style=cuda,mathescape]
-int  dim(DIM$n$ sh);                        // number of dimensions in a shape
-int  size(DIM$n$ sh);                       // total number of elements in a shape
-Ix   toIndex(DIM$n$ sh, DIM$n$ ix);            // index into a linear row-major format array
-DIM$n$ fromIndex(DIM$n$ sh, Ix ix);            // inverse of `toIndex'
-\end{lstlisting}
+% \begin{lstlisting}[style=cuda,mathescape]
+% int  dim(DIM$n$ sh);                        // number of dimensions in a shape
+% int  size(DIM$n$ sh);                       // total number of elements in a shape
+% Ix   toIndex(DIM$n$ sh, DIM$n$ ix);            // index into a linear row-major format array
+% DIM$n$ fromIndex(DIM$n$ sh, Ix ix);            // inverse of `toIndex'
+% \end{lstlisting}
 
 However, the new code generation method (subsequent to, but not affecting the
 result of \cite{CliftonEverest:2014vi}) does not require the use of
@@ -1467,16 +1468,17 @@ as this unfortunately interferes with our implementation of def-use analysis
 (\S\ref{sec:eliminating_dead_code}).
 
 The following function is used to generate C code for the loop operations, which
-generates code for the function body in a clean environment (1), restoring the
-old environment on exit (2):
+generates code for the function body in a clean environment (1), and restores
+the outer environment on exit (2), including any newly introduced bindings as
+part of the return value (3).
 %
 \begin{lstlisting}[style=haskell]
 cvtF1 :: DelayedOpenExp env aenv t -> Val env -> Gen ([C.BlockItem], [C.Exp])
 cvtF1 (Lam (Body e)) env = do
-  old  <- state (\s -> ( localBindings s, s { localBindings = []  } ))          -- (1)
+  old  <- state (\s -> ( localBindings s, s { localBindings = []  } ))              -- (1)
   e'   <- codegenOpenExp e env
-  env' <- state (\s -> ( localBindings s, s { localBindings = old } ))          -- (2)
-  return (reverse env', e')
+  env' <- state (\s -> ( localBindings s, s { localBindings = old } ))              -- (2)
+  return (reverse env', e')                                                         -- (3)
 \end{lstlisting}
 %
 Thus, any shared subexpressions (\S\ref{sec:shared_subexpressions}) encountered

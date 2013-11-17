@@ -1486,6 +1486,69 @@ during code generation are evaluated before executing the function body, using
 the \code{Assign} class discussed earlier.
 
 
+\subsection{Array references in scalar code}
+
+Accelerate includes two scalar operations that receive an array-valued argument,
+namely array indexing (\code{!} and \code{!!}) and determining the \code{shape}
+of an array. These are, for example, used in the sparse-matrix vector
+multiplication operation shown in Listing~\ref{lst:smvm}. Specifically, this
+code includes the following use of \code{backpermute} to extract the values of
+the vector that are to be multiplied with the non-zero elements of the sparse
+matrix:
+%
+\begin{lstlisting}[style=haskell]
+A.backpermute (shape inds) (\i -> index1 $ inds!i) vec
+\end{lstlisting}
+% \begin{lstlisting}[style=haskell]
+% smvm :: Acc (SparseMatrix Float) -> Acc (Vector Float) -> Acc (Vector Float)
+% smvm smat vec
+%   = let (segd, svec)    = A.unlift smat
+%         (inds, vals)    = A.unzip svec
+%         vecVals         = A.backpermute (shape inds) (\i -> index1 $ inds!i) vec
+%         products        = A.zipWith (*) vecVals vals
+%     in
+%     foldSeg (+) 0 products segd
+% \end{lstlisting}
+%
+Here the array computation \code{inds :: Acc (Array DIM1 Float)} is used in the
+first and second argument of \code{backpermute}. In the code for \code{smvm},
+\code{inds} is a previously let-bound variable. If instead, a collective
+operation would have been used in place of \code{inds} in the scalar function
+\code{\i -> index1 \$ inds!i}, we would lift it out of the scalar function and
+let bind it. After all, we do not want to execute an arbitrarily complex array
+computation once for every invocation of a scalar function. In fact, CUDA does
+not permit us to do this, as the scalar function is translated into GPU kernel
+code, and kernel code can not include further nested parallelism.
+
+Nevertheless, even though array valued arguments to scalar functions will always
+be let-bound variables, code generation is not straightforward. In the old
+version of Accelerate~\cite{Chakravarty:2011fr}, generated code was not able to
+add a new argument to the prototype of the \code{backpermute} skeleton, as the
+generated code simply included the skeleton definition using a C pre-processor
+\code{include} directive. This problem was worked around by using \emph{texture
+references} --- a CUDA feature that comes from its graphics heritage --- to
+define what are essentially read-only arrays as global tables on a per skeleton
+instantiation basis. The use of texture references had another happy
+consequence. Skeletons such as \code{backpermute} allow unconstrained indexing
+patters, which may not follow the strict requirements for coalesced and aligned
+access to global memory, which can incur a severe performance
+penalties~\cite{NVIDIA:2012wf}. However, texture memory access is cached, and
+hence, may be more efficient in these circumstances.
+
+In contrast to a traditional cache such as on a CPU, while the texture cache is
+designed to reduce bandwidth requirements to global memory, it does not reduce
+the access \emph{latency}~\cite[\S5.3.2]{NVIDIA:2012wf}. However, beginning with
+Compute Capability 2.0, the GPU also comes equipped with a traditional L2 cache.
+Since the new code generator based on quasiquoting~\cite{CliftonEverest:2014vi}
+is are able to dynamically rewrite the entire skeleton --- in particular
+including the function prototype --- we are no longer forced to access
+array-valued arguments via the texture cache.
+
+In order to use the inbuilt L2 cache available in devices of compute capability
+2.0 and higher, arrays referenced from scalar code are marshalled to the kernel
+via the kernel function parameters, and read via standard array indexing. For
+older series 1.x devices that do not have a L2 cache, the texture cache is still
+used instead.
 
 
 \subsection{Conclusion}
@@ -1497,8 +1560,6 @@ skeleton-based code generators (such as handwritten idiomatic code for
 special-purpose architectures).
 
 \endinput
-
-\subsection{Array references in scalar code}
 
 \subsection{Delayed Arrays}
 

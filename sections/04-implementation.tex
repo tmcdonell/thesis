@@ -1432,6 +1432,58 @@ shape components into a \code{struct} and then calling the family of overloaded
 functions which were provided separately in a header file.
 
 
+\subsection{Lambda abstractions}
+
+Concerning lambda abstractions, we mentioned previously that Accelerate's scalar
+expression language is first order, in the sense that, although it includes
+lambda abstractions, it does not include a general application form. This
+ensures that lambda abstractions of scalar expressions can only be used as the
+arguments to collective operations, such as \code{zipWith}. This restriction is
+necessary in order to generate code for \GPU hardware. As a consequence, lambda
+abstractions are always outermost (in type correct programs) and we can always
+translate them into either (a) plain C functions, or (b) inline them directly
+into the use site. The old code generator had no choice but to select the first
+alternative, whereas the new method can make use of several optimisations by
+using the second, such as def-use analysis (\S\ref{sec:eliminating_dead_code}).
+
+A recent change to the array and scalar language has been the introduction of
+explicit value iteration. In the scalar language, this is encoded with the
+following \AST node, which behaves analogously to a standard C while loop:
+%
+\begin{lstlisting}[style=haskell]
+While :: Elt a
+      => PreOpenFun acc env aenv (a -> Bool)    -- (1) continue while true
+      -> PreOpenFun acc env aenv (a -> a)       -- (2) function to iterate
+      -> PreOpenExp acc env aenv a              -- initial value
+      -> PreOpenExp acc env aenv a
+\end{lstlisting}
+%
+Although we use scalar functions to represent the iteration test (1) and loop
+body (2), the operation is suitably restricted so that, so long as some care is
+taken when generating C code for the loop, we do not need to perform lambda
+lifting of the function valued arguments. However, we can not use the standard
+\code{codegenFun1} operation to generate the CUDA code for the unary function,
+as this unfortunately interferes with our implementation of def-use analysis
+(\S\ref{sec:eliminating_dead_code}).
+
+The following function is used to generate C code for the loop operations, which
+generates code for the function body in a clean environment (1), restoring the
+old environment on exit (2):
+%
+\begin{lstlisting}[style=haskell]
+cvtF1 :: DelayedOpenExp env aenv t -> Val env -> Gen ([C.BlockItem], [C.Exp])
+cvtF1 (Lam (Body e)) env = do
+  old  <- state (\s -> ( localBindings s, s { localBindings = []  } ))          -- (1)
+  e'   <- codegenOpenExp e env
+  env' <- state (\s -> ( localBindings s, s { localBindings = old } ))          -- (2)
+  return (reverse env', e')
+\end{lstlisting}
+%
+Thus, any shared subexpressions (\S\ref{sec:shared_subexpressions}) encountered
+during code generation are evaluated before executing the function body, using
+the \code{Assign} class discussed earlier.
+
+
 
 
 \subsection{Conclusion}

@@ -959,7 +959,7 @@ and statements, respectively, into the skeleton.
     extern "C" __global__ void
     map
     (
-        $params:argIn,                                                              -- (3)
+        $params:argIn,                                                                 -- (3)
         $params:argOut
     ){
         const int shapeSize     = size(shOut);
@@ -968,8 +968,8 @@ and statements, respectively, into the skeleton.
 
         for ( ix =  $exp:(threadIdx dev); ix < shapeSize; ix += gridSize )
         {
-            $items:(dce x       .=. get ix)                                         -- (2)
-            $items:(setOut "ix" .=. f x)                                            -- (1)
+            $items:(dce x       .=. get ix)                                            -- (2)
+            $items:(setOut "ix" .=. f x)                                               -- (1)
         }
     }
   |]
@@ -1006,17 +1006,167 @@ Accelerate is an \emph{embedded} language, meaning that while we write programs
 using Haskell syntax, we do not compile arbitrary Haskell programs directly to
 \GPU machine code. Rather, an Accelerate program generates at program runtime an
 \emph{abstract syntax tree} (\AST\index{AST|see{abstract syntax tree}}) that
-represents the embedded program, which Accelerate's \CUDA backend then converts
-into \CUDA C code that is compiled, loaded onto the \GPU, and executed.
+represents the embedded program.
+% We regard the collective array operations
+% constituting the embedded program as algorithmic skeletons.
+The job of Accelerate's CUDA backend code generator is to instantiate \CUDA
+implementations of these collective operations, which are then compiled, loaded
+onto the \GPU, and executed.
 
 For the most part, translating Accelerate scalar expressions to plain \CUDA C
 code is a straightforward syntactic translation of the \indext{de Bruijn} \AST
 to C. The quasiquoting library \texttt{language-c-quote}%
 \footnote{\url{http://hackage.haskell.org/package/language-c-quote}} allows the
-\CUDA \AST to be constructed using concrete syntax.
+\CUDA \AST to be constructed using concrete syntax. The following sections
+describe some particular features of code generation.
 
 % The following features of code generation deserve particular attention: lambda
 % abstractions; let bindings; shapes; array references; and tuples.
+
+
+\subsection{Producer-consumer fusion by template instantiation}
+
+In the first, pre-template meta programming version of Accelerate based on C++
+templates and CPP macros~\cite{Chakravarty:2011fr}, we generated one or more
+CUDA GPU kernels for each aggregate array operation. This schema is undesirable
+as it leads to many intermediate arrays and array traversals. Recall the
+definition of vector dot product:
+%
+\begin{lstlisting}[style=haskell]
+dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
+dotp xs ys = fold (+) 0 (zipWith (*) xs ys)
+\end{lstlisting}
+%
+The \code{zipWith} and \code{fold} operations would each compile to separate
+skeletons, and as a result the execution of \code{zipWith} produces an
+intermediate array that the \code{fold} kernels immediately consume.
+
+This is not what a CUDA programmer would manually implement. It is more
+efficient to inline the \code{zipWith} computation into the kernel of the
+\code{fold}. This strategy eliminates one GPU kernel, as well as one
+intermediate array that is of the same extent as the [intersection of the] two
+input arrays. To achieve the same performance as handwritten CUDA code, we
+developed the short-cut fusion technique described in
+chapter~\ref{ch:optimising}, and which appeared in \cite{McDonell:2013wi}.
+
+The fusion system distinguishes producer-producer and consumer-producer fusion.
+The former combines two skeletons where threads produce array elements
+independently (such as \code{map}), from skeletons where threads cooperate to
+produce an array (such as \code{fold}). Central to this approach is a
+representation of arrays as functions, which we called \emph{delayed
+arrays}\index{array!delayed} (in contrast to \emph{manifest
+arrays}\index{array!manifest}) which are represented as follows:
+%
+\begin{lstlisting}[style=haskell]
+  Delayed           :: (Shape sh, Elt e) =>
+    { extentD       :: PreExp DelayedOpenAcc aenv sh            -- array extent
+    , indexD        :: PreFun DelayedOpenAcc aenv (sh  -> e)    -- generate element at index\ldots
+    , linearIndexD  :: PreFun DelayedOpenAcc aenv (Int -> e)    -- \ldots at linear index
+    }               -> DelayedOpenAcc aenv (Array sh e)
+\end{lstlisting}
+%
+Instead of generating a skeleton instance for \code{zipWith} straight away, we
+represent the computation implemented by \code{zipWith} as a scalar function
+(actually, a pair of functions) that generates an element of the array at a
+given array index, together with the extent (domain) of the array, as a value of
+type \code{DelayedOpenAcc}. For details of the representation see
+section~\ref{sec:implementing_array_fusion}.
+
+The crucial step in enabling producer-consumer fusion in Accelerate's CUDA
+backend is in the function \code{codegenAcc}, which turns a manifest array
+computation of type \code{DelayedOpenAcc aenv a} into an instantiated CUDA
+kernel of type \code{CUSkeleton aenv a}:
+%
+\begin{lstlisting}[style=haskell]
+codegenAcc :: DeviceProperties
+           -> DelayedOpenAcc aenv a
+           -> Gamma aenv
+           -> CUSkeleton aenv a
+codegenAcc dev (Manifest pacc) aenv
+  = case pacc of
+      Fold f z a    -> mkFold dev aenv (codegenFun2 f) (codegenExp z) (codegenDelayed a)
+      ...
+\end{lstlisting}
+%
+Here we see that \code{mkFold}, which generates an instance of the \code{fold}
+template, gets as its last argument the code generated for a delayed array
+resulting from the call to \code{codegenDelayed}. The use of template meta
+programming to implement CUDA skeletons is crucial to enable producer-consumer
+fusion by way of template instantiation. In the dot product example, the delayed
+producer is equivalent to the scalar function \code{\\ix -> (xs!ix) * (ys!ix)}.
+The call to \code{mkFold} receives a CUDA version of this function, which can be
+inlined directly into the \code{fold} skeleton. The delayed producer function is
+bound to the argument \code{getIn} in the \code{mkFold} definition given in
+Listing~\ref{lst:mkfold}, which is used in the line marked \emph{(1)} and
+expands to the following CUDA code:
+%
+\begin{lstlisting}[style=haskell]
+const Int64 v1 = ({ assert(ix >= 0 && ix < min(shIn0_0, shIn1_0)); ix; });
+y0 = arrIn0_0[v1] * arrIn1_0[v1];
+\end{lstlisting}
+%
+Here the \code{assert} checks whether the array index is in bounds, and is only
+active when Accelerate is compiling kernels in debugging mode.\footnote{Kernel
+debug mode is activated when the Accelerate CUDA backend is installed in debug
+mode, and the command line flag \code{-ddebug-cc} is provided.} In this case the
+embedded \code{zipWith} operation is over two vectors, so no conversion to and
+from multidimensional indices was required.
+
+In contrast to the \code{map} skeleton shown in Listing~\ref{lst:map_skeleton},
+the code generated by \code{mkFold} proceeds in to parallel phases. The first
+phase is a sequential \code{for} loop including the use of the \code{getIn}
+embedded producer function. The second phase begins at the line marked
+\emph{(2)} and implements a parallel tree reduction~\cite{Chatterjee:2009vh}.
+
+\begin{lstlisting}[style=haskell
+    ,float
+    ,label=lst:mkfold
+    ,caption={Accelerate CUDA skeleton for the \code{foldAll} operation}]
+mkFoldAll :: (Shape sh, Elt e)
+          => DeviceProperties
+          -> Gamma aenv
+          -> CUFun2 aenv (e -> e -> e)
+          -> CUExp  aenv e
+          -> CUDelayedAcc aenv (sh :. Int) e
+          -> CUTranslSkel aenv (Array sh e)
+mkFoldAll dev aenv combine seed (CUDelayed shIn _ getIn)
+  = CUSkeleton [cunit|
+
+    $esc:("#include <accelerate_cuda.h>")
+    $edecls:texIn
+
+    extern "C" __global__ void
+    foldAll
+    (
+        $params:argIn,
+        $params:argOut
+    )
+    {
+        // ommitted variable declarations
+
+        $items:(sh .=. shIn)
+        const int shapeSize     = $exp:(csize sh);
+        const int gridSize      = $exp:(gridSize dev);
+              int ix            = $exp:(threadIdx dev);
+
+        if ( ix < shapeSize ) {
+            $items:(y .=. getIn ix)
+
+            for ( ix += gridSize; ix < shapeSize; ix += gridSize ) {
+                $items:(x .=. getIn ix)                                                -- (1)
+                $items:(y .=. combine x y)
+            }
+        }
+
+        ix = min(shapeSize - blockIdx.x * blockDim.x, blockDim.x);
+        $items:(sdata "threadIdx.x" .=. y)                                             -- (2)
+        $items:(reduceBlock dev combine x y sdata ix)
+
+        // first thread writes result to global memory
+    }
+  |]
+\end{lstlisting}
+
 
 \subsection{Instantiating skeletons with scalar code}
 \label{sec:instantiating_skeletons}
@@ -1349,7 +1499,9 @@ markAsUsed _         = return ()
 Completing our definition of \code{codegenFun1}, we return the result of
 dead-code analysis produced by \code{deadCodeElim}, together with a function
 that \emph{re-runs} code generation with the actual input variables. Thus, our
-method requires performing code generation twice for every expression.
+method requires performing code generation at least twice for every expression:
+once to generates usage information, and then again each time the function is
+instantiated with a particular set of variables.
 %
 \begin{lstlisting}[style=haskell,firstnumber=7]
 codegenFun1 dev aenv (Lam (Body f))

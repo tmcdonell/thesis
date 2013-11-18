@@ -81,10 +81,11 @@ blackscholes = map callput . use
          , x_expRT * (1.0 - cndD2) - price * (1.0 - cndD1))
 \end{lstlisting}
 
-Accelerate is a \emph{deeply embedded} language, meaning that evaluating an Accelerate program does
-not directly issue computations; instead, it builds \emph{abstract syntax trees}\index{abstract
-syntax tree}\index{AST|see{abstract syntax tree}} that represent the embedded computation, which are
-later executed by an Accelerate backend to compute the result on a given backend target.
+Accelerate is a \emph{deeply embedded} language, meaning that evaluating an
+Accelerate program does not directly issue computations; instead, it builds
+\emph{abstract syntax trees}\index{abstract syntax tree} that represent the
+embedded computation, which are later executed by an Accelerate backend to
+compute the result on a given backend target.
 
 A well known problem of defining deeply embedded languages in this way is the issue of
 \emph{sharing}. Our embedded language implementation of Accelerate reifies the abstract syntax of

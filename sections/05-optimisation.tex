@@ -96,13 +96,13 @@ separate unfolding of the bound expression in the compiled code.
 At an example, consider the pricing of European-style options using the Black-Scholes formula, the
 Accelerate program for which is shown in Listing~\ref{lst:black_scholes}. Given a vector with
 triples of underlying stock price, strike price, and time to maturity (in years), the Black-Scholes
-formula computes the price of a call an put option. The function \code{callput} evaluates the
-Black-Scholes formula for a single triple, and \code{blackscholes} maps it over a vector of triples,
+formula computes the price of a call an put option. The function @callput@ evaluates the
+Black-Scholes formula for a single triple, and @blackscholes@ maps it over a vector of triples,
 such that all individual applications of the formula are executed in parallel.
 
-The function \code{callput} introduces a significant amount of sharing: the helper functions
-\code{cnd'} and hence also \code{horner} are used twice --- for \code{d1} and \code{d2} --- and its
-argument \code{d} is used multiple times in the body. Worse, the conditional expression leads to a
+The function @callput@ introduces a significant amount of sharing: the helper functions
+@cnd'@ and hence also @horner@ are used twice --- for @d1@ and @d2@ --- and its
+argument @d@ is used multiple times in the body. Worse, the conditional expression leads to a
 growing number of predicated instructions which incurs a large penalty on the \SIMD architecture of
 a \GPU\@. A lack of sharing recovery was a significant shortcoming of our initial implementation of
 Accelerate~\cite{Chakravarty:2011fr}.
@@ -183,9 +183,9 @@ expression, so the complexity of sharing observation is proportional to the
 number of nodes in the tree \emph{with} sharing.
 
 As the stable name of an expression is an intensional property, it can only be
-determined in Haskell's \code{IO} monad, and strictly speaking because of this
+determined in Haskell's @IO@ monad, and strictly speaking because of this
 it is not deterministic. The stable name API does not guarantee completeness:
-for two stable names \code{sn1} and \code{sn2}, if \code{sn1 == sn2} then the
+for two stable names @sn1@ and @sn2@, if @sn1 == sn2@ then the
 two stable names were created from the same heap object. However, the reverse is
 not necessarily true; if the two stable names are not equal the objects they
 come from may still be equal. Put another way, equality on stable names may
@@ -227,7 +227,7 @@ elimination, where we look for expressions of the form:
 %\bf$\langle$ common subexpression elimination $\rangle$% let x = e1 in [x/e1]e2
 \end{lstlisting}
 %
-and replace all occurrences of \code{e1} in \code{e2} with \code{x}. Thus, this method relies on the
+and replace all occurrences of @e1@ in @e2@ with @x@. Thus, this method relies on the
 introduction of let-bindings into the reified program by the sharing recovery algorithm, described
 in the previous section (\S\ref{sec:sharing_recovery}). Moreover, this method will not eliminate any
 common subexpressions that are not already defined in the source program. This might not completely
@@ -304,15 +304,15 @@ influences this work.
 \subsubsection{Deforestation}
 
 % blugh blurgh
-Inspired by earlier work in \code{fold/unfold} methods (for example
+Inspired by earlier work in @fold/unfold@ methods (for example
 \citet{Burstall:1977kl}), Philip Wadler set out to develop a technique that
 would \emph{automatically} remove intermediate structures from functional
 programs, a technique he (later) dubbed \indexe{deforestation}
 \cite{Wadler:1981hy,Wadler:1990ix}.
 
 The method identifies a core set of list operators that can be used to express a
-large class of computations: \code{map}, \code{reduce} and \code{generate} (the
-latter being similar in spirit to \code{foldr} and \code{unfoldr} respectively),
+large class of computations: @map@, @reduce@ and @generate@ (the
+latter being similar in spirit to @foldr@ and @unfoldr@ respectively),
 together with a collection of rewrite rules that apply to combinations of these
 operators. These rules identify specific patterns of list operators that create
 then consume intermediate lists, then merges these operations to avoid the
@@ -353,20 +353,20 @@ fusion}~\cite{Gill:1996tf,Gill:1993de}.
 % This techniques performs a range of optimisations as broad as previous
 % approaches the listless transformer \cite{Wadler:1984ia,Wadler:2005iw} while
 % addressing their drawbacks.
-Like the deforestation algorithm, \code{foldr/build} fusion is a rule-based
+Like the deforestation algorithm, @foldr/build@ fusion is a rule-based
 source-to-source transformation. In fact, it is based on a single rule:
 %
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \code{foldr/build} transformation}]
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The @foldr/build@ transformation}]
 %\bf$\langle$ foldr/build fusion $\rangle$% forall g k z. foldr k z (build g) $\mapsto$ g k z
 
 build :: (forall b. (a -> b -> b) -> b -> b) -> [a]
 foldr :: (a -> b -> b) -> b -> [a] -> b
 \end{lstlisting}
 
-The idea is to think of \code{build} as a function that constructs a list, and
-\code{foldr} as a list consumer. Because of this uniform treatment of lists as
+The idea is to think of @build@ as a function that constructs a list, and
+@foldr@ as a list consumer. Because of this uniform treatment of lists as
 \emph{complete objects}, rather than being composed of many individual
-constructor cells, we can have a single \code{foldr/build} rule analogous to
+constructor cells, we can have a single @foldr/build@ rule analogous to
 standard case reduction rules, but instead of removing a single constructor
 removes the \emph{entire data structure}. This method became the first
 non-trivial deforestation system to be included as an active part of a
@@ -376,14 +376,14 @@ production quality functional language compiler.
 \begin{itemize}
     \item Simple, automatic, source-to-source transformation.
 
-%    \item No limitation on inputs: \code{foldr/build} fusion operates over the
+%    \item No limitation on inputs: @foldr/build@ fusion operates over the
 %        entire Haskell language. When a list is produced without using
-%        \code{build} or consumed without using \code{foldr}, the
+%        @build@ or consumed without using @foldr@, the
 %        deforestation scheme is not hampered and simply leaves the list intact.
 
     \item Single rule: unlike the original deforestation algorithm, a single
         rule suffices. When new list operations are added, so long as they can
-        be expressed in terms of \code{foldr} and \code{build}, the
+        be expressed in terms of @foldr@ and @build@, the
         transformation will apply; there is no need to consider all combinations
         with the existing operations.
 \end{itemize}
@@ -391,12 +391,10 @@ production quality functional language compiler.
 \paragraph{Disadvantages}
 \begin{itemize}
     \item The transformation can not handle functions that use accumulators,
-        such as \code{foldl}, or consume multiple inputs, such as
-        \code{zip}.
+        such as @foldl@, or consume multiple inputs, such as @zip@.
 
-    \item Operations that do not produce lists using \code{build} or consume
-        them using \code{foldr} will not have the intermediate list
-        eliminated.
+    \item Operations that do not produce lists using @build@ or consume them
+        using @foldr@ will not have the intermediate list eliminated.
 \end{itemize}
 
 
@@ -404,13 +402,13 @@ production quality functional language compiler.
 
 Following Gill's work, a whole cottage industry of new deforestation approaches
 appeared with the goal of covering the cases left out by
-\code{foldr/build}\index{fusion!foldr/build}. Most of that work was
+@foldr/build@\index{fusion!foldr/build}. Most of that work was
 theoretical, a lot of it was based on category theory, and almost none of it had
 any impact in practice. Unlike those systems of the prior two decades,
 \emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007kp} succeeded in this
 goal and at the same time stayed simple and useful in practice.
 
-Stream fusion has a similar structure to \code{foldr/build}: a single rule
+Stream fusion has a similar structure to @foldr/build@: a single rule
 eliminates matching pairs of constructor and destructor, and operations need to
 be expressed in terms of these constructors:
 %
@@ -428,18 +426,18 @@ data Step a s = Done
 
 Streams have some abstract state and a \emph{stepper} function that advances the
 stream from one state to the next, possibly yielding a new value. The
-\code{stream} constructor \code{Yield}s values from its input until it runs
-out, and the \code{unstream} destructor build a list by consuming its input
-stream until encountering \code{Done}, discarding \code{Skip}s along the
-way. The \code{Stream} constructors are chosen so as to keep the definition of
-each element as a non-recursive function. When \code{Stream}s are fused by
+@stream@ constructor @Yield@s values from its input until it runs
+out, and the @unstream@ destructor build a list by consuming its input
+stream until encountering @Done@, discarding @Skip@s along the
+way. The @Stream@ constructors are chosen so as to keep the definition of
+each element as a non-recursive function. When @Stream@s are fused by
 applying the rule, this enables the compiler to aggressively apply standard
 optimisation techniques.
 
 \paragraph{Advantages}
 \begin{itemize}
     \item Preserves the nice properties of
-        \code{foldr/build}\index{fusion!foldr/build} fusion.
+        @foldr/build@\index{fusion!foldr/build} fusion.
     \item Adds supports operations with accumulators and multiple inputs.
 \end{itemize}
 
@@ -452,7 +450,7 @@ optimisation techniques.
 
 
 \subsubsection{Data Parallel Haskell}
-tk: \code{split/join}\index{fusion!split/join} fusion from
+tk: @split/join@\index{fusion!split/join} fusion from
 DPH.\index{data-parallel Haskell}\index{DPH|see{data-parallel Haskell}}
 \citet{Chakravarty:2007tc,Jones:2008uu}.
 
@@ -473,7 +471,7 @@ data Array sh e = Manifest sh (Vector e)    -- unboxed data
 \end{lstlisting}
 
 The key principle of the design is to avoid generating an explicit
-(\code{Manifest}) representation of intermediate arrays that can instead be
+(@Manifest@) representation of intermediate arrays that can instead be
 represented as a transformation function from array indices to values.
 
 % Repa retains the functional programming style by exposing an interface of
@@ -503,7 +501,7 @@ tk: \citet{Warren:1984ka,Sarkar:1991ff}
 \subsubsection{Conclusion}
 
 The most practically successful fusion systems ---
-\code{foldr/build}\index{fusion!foldr/build} fusion, stream\index{fusion!stream}
+@foldr/build@\index{fusion!foldr/build} fusion, stream\index{fusion!stream}
 fusion and delayed arrays\index{fusion!delayed arrays} --- are \emph{short-cut
 fusion}\index{fusion!short-cut} methods that rely on local program
 transformations. These methods are implemented as simple but specific rewrite
@@ -527,10 +525,10 @@ considerations:
 
 \paragraph{Parallelism:} While fusing parallel collective operations, we must be
 careful not to lose information essential to parallel execution. For example,
-\code{foldr/build}\index{fusion!foldr/build} and stream\index{fusion!stream}
+@foldr/build@\index{fusion!foldr/build} and stream\index{fusion!stream}
 fusion are not applicable, because they produce sequential tail-recursive loops
 rather than massively parallel GPU kernels. Similarly the
-\code{split/join}\index{fusion!split/join} approach used by
+@split/join@\index{fusion!split/join} approach used by
 DPH\index{data-parallel Haskell} is not helpful. Although fused operations are
 split into sequential and parallel subcomputations, the granularity of the
 parallel operations is rather coarse and the sequential component again consists
@@ -563,7 +561,7 @@ at runtime.
 \paragraph{Filtering:} General array fusion transformations must deal with
 filter-like operations, for which the size of the result structure depends on
 the \emph{values} of the input array, as well as its size. For example
-\index{fusion!stream}stream fusion includes the \code{Skip} constructor in
+\index{fusion!stream}stream fusion includes the @Skip@ constructor in
 order to support filtering operations (among other uses). Although easily
 implementable as a combination of the core primitives and provided by the
 library as such, filtering is difficult to implement as a single-step parallel
@@ -590,7 +588,7 @@ amounts to a partial proof of correctness checked by the type checker.
 \label{sec:the_main_idea}
 
 All collective operations in Accelerate are array-to-array transformations.
-Reductions, such as \code{fold}, which reduce an array to a single element,
+Reductions, such as @fold@, which reduce an array to a single element,
 yield a singleton array rather than a scalar expression. We partition array
 operations into two categories:
 
@@ -613,7 +611,7 @@ operations into two categories:
     float=t,
     label={lst:operations},
     caption={[Core Accelerate array operations] Summary of Accelerate's core
-        collective array operations, omitting \code{Shape} and \code{Elt}
+        collective array operations, omitting @Shape@ and @Elt@
         class constraints for brevity. In addition, there are other flavours of
         folds and scans as well as segmented versions of these.}]
 %\makebox[\textwidth]{\rm\bf Producers}%
@@ -682,7 +680,7 @@ producers and consumers, the fusion transform is split into two distinct phases:
 
 Figure~\ref{fig:fusion} shows how the fusion technique affects the
 AST\index{abstract syntax tree}: blue boxes labelled $p_1$ to $p_7$ represent
-producers, where $p_5$ is a producer like \code{zipWith} that takes two arrays
+producers, where $p_5$ is a producer like @zipWith@ that takes two arrays
 as input. The consumers are labelled $c_1$ and $c_2$. In the first phase all
 adjacent producers are fused, with the exception of $p_1$ whose result is used
 by both $c_1$ and $p_2$. In the second phase, the fused producers are embedded
@@ -697,7 +695,7 @@ Accelerate is a restricted, deeply embedded language, we can compute accurate
 cost estimates and make an informed decision, but this is left for future work.
 Moreover, this is an instance of a fundamental limitation with
 \index{fusion!short-cut}short-cut fusion techniques such as
-\index{fusion!foldr/build}\code{foldr/build} and \index{fusion!stream}stream
+\index{fusion!foldr/build}@foldr/build@ and \index{fusion!stream}stream
 fusion. Since short-cut fusion is a local transformation that depends on
 inlining, it is applicable only to fusing operations which have a single use
 site. To implement this type of fusion efficiently would require fundamental
@@ -730,7 +728,7 @@ are existentially typed:
 Exp s == Exp t = ??
 \end{lstlisting}
 %
-There is no reason that \code{s} and \code{t} should be expressions of the same
+There is no reason that @s@ and @t@ should be expressions of the same
 type. In some instances we might not care, and as such can define standard
 heterogeneous equality:
 %
@@ -760,10 +758,10 @@ data PreOpenExp acc env aenv t where
         -> PreOpenExp acc env          aenv body_t
 \end{lstlisting}
 %
-To apply \code{heq} to the body expression, we need to know something about
+To apply @heq@ to the body expression, we need to know something about
 the type of the bound terms to ensure that the scalar environments are the same,
 namely \lstinline[style=inline,mathescape]{a $\sim$ bnd_t $\sim$ b}.%
-\footnote{Alternatively we can use \code{Data.Typeable.gcast} to provide a
+\footnote{Alternatively we can use @Data.Typeable.gcast@ to provide a
 type-safe cast, but this quickly becomes unwieldy and is a little
 unsatisfactory.} To do this we must equip terms with a runtime witness to the
 existentially quantified type. Our reified dictionaries will allow us to do
@@ -778,10 +776,10 @@ heqIntegralType _            _            = False
 \end{lstlisting}
 %
 However, doing this is perfectly useless as it only gives us a value of type
-\code{Bool}, with no idea what that value means or to what its truth might
+@Bool@, with no idea what that value means or to what its truth might
 entitle us. The type checker does not gain any useful knowledge about the types
-the dictionaries \code{a} and \code{b} witness simply by knowing that
-\code{heqIntegralType a b = True}. A boolean is a bit uninformative.
+the dictionaries @a@ and @b@ witness simply by knowing that
+@heqIntegralType a b = True@. A boolean is a bit uninformative.
 
 Instead, we can write essentially the same test, but in the positive case
 deliver some \emph{evidence} that the types are equal:
@@ -797,8 +795,8 @@ matchIntegralType (TypeWord _) (TypeWord _) = Just REFL
 matchIntegralType _            _            = Nothing
 \end{lstlisting}
 %
-Matching on \code{Just REFL} will inject the knowledge into the type
-checker that the types \code{s} and \code{t} are the same. Now with our
+Matching on @Just REFL@ will inject the knowledge into the type
+checker that the types @s@ and @t@ are the same. Now with our
 evidence-producing heterogeneous equality test for reified dictionary families,
 we can compare two terms and gain type-level knowledge when they witness the
 same value-level types. These witnesses for existentially quantified types then
@@ -865,7 +863,7 @@ v :: forall t'. Idx env t' -> f env' t'
 Where the operation differs is in the image of variables: renaming maps
 variables to variables and substitution maps variables to terms. We then lift
 this to an operation which traverses terms, with appropriate lifting to push
-under a lambda, and rebuilding the term after applying \code{v} to the
+under a lambda, and rebuilding the term after applying @v@ to the
 variables:
 %
 \begin{lstlisting}[style=haskell]
@@ -875,14 +873,14 @@ rebuild :: Syntactic f
         -> Term env' t
 \end{lstlisting}
 
-The \code{Syntactic} class\footnote{Since Accelerate is a stratified language
+The @Syntactic@ class\footnote{Since Accelerate is a stratified language
 there are separate implementations of this toolkit on syntactic elements for the
 scalar and collective operations, but the details are identical. The discussion
-uses the generic \code{Term} to mean either of these operations.} tells us
-everything we need to know about \code{f} --- our notion of ``stuff'' --- in
+uses the generic @Term@ to mean either of these operations.} tells us
+everything we need to know about @f@ --- our notion of ``stuff'' --- in
 order to rebuild terms: a mapping in from variables, a mapping out to terms, and
-a weakening map which extends the context. Renaming will instantiate \code{f}
-with \code{Idx}, whereas for substitutions we may choose \code{Term} instead.
+a weakening map which extends the context. Renaming will instantiate @f@
+with @Idx@, whereas for substitutions we may choose @Term@ instead.
 %
 \begin{lstlisting}[style=haskell]
 class Syntactic f where
@@ -904,7 +902,7 @@ vanished. When we use a named representation (or HOAS\index{higher-order
 abstract syntax}\index{HOAS|see{higher-order abstract syntax}}) we get weakening
 for free, but in the de Bruijn\index{de Bruijn} representation weakening takes
 work: we need to shift all the variable references to make room for new
-bindings. To do this we need to explain how to shift the \code{v} operation into
+bindings. To do this we need to explain how to shift the @v@ operation into
 an extended environment; saying what to do with the new variable and how to
 account for it on the output side.
 %
@@ -917,19 +915,19 @@ shift :: Syntactic f
 %
 Overall, the crucial functionality of simultaneous substitution is to propagate
 a class of operations on variables closed under shifting, which is what
-\code{Syntactic} and \code{rebuild} offer.
+@Syntactic@ and @rebuild@ offer.
 
 
 \subsection{Inlining}
 \label{sec:inlining}
 
-The final question, then, is how to write the function \code{v} which we push
-through terms, as the type \code{forall t'} could be anything. After all, what
+The final question, then, is how to write the function @v@ which we push
+through terms, as the type @forall t'@ could be anything. After all, what
 is the point of having a simultaneous substitution algorithm if we can't
 specialise it to one-at-a-time substitution.
 
 The following function takes a replacement for the top variable and returns a
-simultaneous substitution which eliminates \code{ZeroIdx}.
+simultaneous substitution which eliminates @ZeroIdx@.
 %
 \begin{lstlisting}[style=haskell
     ,name=inlining
@@ -951,7 +949,7 @@ inline body bnd = rebuild (subTop bnd) body
 \end{lstlisting}
 %
 The demonic $\forall$ --- which is to say that the quantifier is in a position
-which gives us obligation, not opportunity --- of the operator \code{v} forces
+which gives us obligation, not opportunity --- of the operator @v@ forces
 us to respect type: when pattern matching detects the variable we care about,
 happily we discover that it has the type we must respect. The demon is not so
 free to mess with us as one might at first fear.
@@ -962,9 +960,9 @@ free to mess with us as one might at first fear.
 \subsection{Function composition}
 \label{sec:function_composition}
 
-The equivalent of unary function composition \code{(.)} on terms can be
-defined in a similar manner. A function \code{(a -> b)} is equivalent to a
-\code{Term} of type \code{b} and free variable \code{a}. Similar to inlining, we
+The equivalent of unary function composition @(.)@ on terms can be
+defined in a similar manner. A function @(a -> b)@ is equivalent to a
+@Term@ of type @b@ and free variable @a@. Similar to inlining, we
 replace an expression that uses the top variable with one that uses another,
 remembering to bind the result of the first expression so that it can be reused
 in the second without duplication.
@@ -980,10 +978,10 @@ dot f g = Let g (rebuild split f)
     split (SuccIdx ix) = Var (SuccIdx (SuccIdx ix))
 \end{lstlisting}
 %
-Note the type of \code{split}, where we needed to create space in the
-environment at the second index (\code{SuccIdx ZeroIdx}) for the free variable
-\code{a} to appear in the resultant \code{Term}, as the first index will be
-bound to the result of the first expression \code{g}.
+Note the type of @split@, where we needed to create space in the
+environment at the second index (@SuccIdx ZeroIdx@) for the free variable
+@a@ to appear in the resultant @Term@, as the first index will be
+bound to the result of the first expression @g@.
 
 We lift this to function terms by unwrapping the lambda abstractions.
 Annoyingly, GHC's type checker can not determine that the function type
@@ -1027,11 +1025,11 @@ data Extend acc aenv aenv' where
 \end{lstlisting}
 %
 In the style of the \indext{de Bruijn} indices used for projecting environment
-variables (\S TK), \code{Extend} uses an inductive notion of tuples as
+variables (\S TK), @Extend@ uses an inductive notion of tuples as
 heterogeneous \emph{snoc} lists. In contrast to environment indices, the base
 case does not refer to an empty environment, but instead the environment
-\code{aenv} which we are extending. This witnesses how to construct an extended
-environment \code{aenv'} by bringing new terms into scope, one at a time.
+@aenv@ which we are extending. This witnesses how to construct an extended
+environment @aenv'@ by bringing new terms into scope, one at a time.
 %
 \begin{lstlisting}[style=haskell]
 bind :: Arrays a => Extend acc aenv aenv' -> PreOpenAcc acc aenv' a -> PreOpenAcc acc aenv a
@@ -1061,12 +1059,12 @@ instance Sink (PreOpenAcc acc)
   ...
 \end{lstlisting}
 %
-This generalises \code{weaken} from section~\ref{sec:substitution} to increase
-the environment of an object \code{f} based on some function on indices rather
+This generalises @weaken@ from section~\ref{sec:substitution} to increase
+the environment of an object @f@ based on some function on indices rather
 than shifting by a single \indext{de Bruijn} index. Thus we only need to
 traverse a term once no matter how many positions the variable indices shift by.
 Using this, we can weaken terms based on the witness provided by
-\code{Extend}.
+@Extend@.
 %
 \begin{lstlisting}[style=haskell,name=sinking]
 sink :: Sink f => Extend acc env env' -> f env t -> f env' t
@@ -1112,7 +1110,7 @@ this would require a number of rewrite rules quadratic in the number of
 operations that are to be fused. This was the problem with Wadler's original
 deforestation algorithm. The representation must also be sufficiently expressive
 to represent all operations we want to fuse, which was a limitation of
-\index{fusion!foldr/build}\code{foldr/build} fusion.
+\index{fusion!foldr/build}@foldr/build@ fusion.
 
 
 \subsection{Representing Producers}
@@ -1127,7 +1125,7 @@ others~\cite{Claessen:2012hl}.
 
 The use of delayed arrays [in Repa] was originally motived by the desire to
 avoid superfluous copying of array elements during index space transformations
-such as \code{backpermute} (see Listing~\ref{lst:operations}). Another major
+such as @backpermute@ (see Listing~\ref{lst:operations}). Another major
 benefit of delayed arrays is that it offers by-default automatic fusion.
 Moreover, this fusion does not require sophisticated compiler transformations or
 for the two fusible terms to be statically juxtaposed; fusion is a property of
@@ -1143,12 +1141,12 @@ let b = map f a
 in  mmMult b b
 \end{lstlisting}
 %
-Every access to an element \code{b} will apply the (arbitrarily expensive)
-function \code{f} to the corresponding element of \code{a}. It follows that
+Every access to an element @b@ will apply the (arbitrarily expensive)
+function @f@ to the corresponding element of @a@. It follows that
 these arbitrarily expensive computations will be done \emph{at least twice},
-once for each argument of \code{mmMult}, quite contrary to the programmer's
-intent. Indeed, if \code{mmMult} consumes its elements in a non-linear manner,
-accessing elements more than once, the computation of \code{f} will be performed
+once for each argument of @mmMult@, quite contrary to the programmer's
+intent. Indeed, if @mmMult@ consumes its elements in a non-linear manner,
+accessing elements more than once, the computation of @f@ will be performed
 every time. We must be able to represent some terms as manifest arrays so that a
 delayed-by-default representation can not lead to an arbitrary loss of sharing.
 This is a well known problem with Repa.
@@ -1195,26 +1193,26 @@ k\textipa{@}NGk\textquotesingle t\={a}SH\textipa{@}n
 % kəNGkˈtāSHən\enspace kəŋkˈteɪʃən
 |} (n) the action or an instance of delaying; tardy action.}
 %
-is parameterised by the recursive closure of array computations \code{acc}, the
-array environment \code{aenv}, and has three constructors:
+is parameterised by the recursive closure of array computations @acc@, the
+array environment @aenv@, and has three constructors:
 %
 \begin{itemize}
-\item \code{Done} injects a manifest array into the type.
+\item @Done@ injects a manifest array into the type.
     %represented as a reference to a term in the array environment.
 
-\item \code{Yield} defines a new array in terms of its shape and a function
+\item @Yield@ defines a new array in terms of its shape and a function
     that maps indices to elements.
 
-\item \code{Step} encodes a special case of \code{Yield}, that defines a new
+\item @Step@ encodes a special case of @Yield@, that defines a new
     array by applying an index and value transformation to an argument array.
 
 \end{itemize}
 
-Note that the argument arrays to \code{Done} and \code{Step} are not expressed
-as terms in \code{acc}, the type of collective array operations. By instead
-requiring a \indext{de Bruijn} index \code{Idx} into the array environment, we
+Note that the argument arrays to @Done@ and @Step@ are not expressed
+as terms in @acc@, the type of collective array operations. By instead
+requiring a \indext{de Bruijn} index @Idx@ into the array environment, we
 ensure that the argument array is manifest. Thus the definition of
-\code{Cunctation} is non-recursive in the type of array computations. This
+@Cunctation@ is non-recursive in the type of array computations. This
 allows the representation to be (later) embedded within producer terms
 (\ref{sec:producer_consumer_fusion}) with the guarantee that an embedded scalar
 computation will not invoke further parallel computations.%
@@ -1223,7 +1221,7 @@ computation will not invoke further parallel computations.%
 array variables (\footcode{Idx}).}
 
 In order to bring additional array terms into scope, which may be required for
-\code{Done} and \code{Step}, we combine this representation of producer
+@Done@ and @Step@, we combine this representation of producer
 arrays with the method of section~\ref{sec:environment_manipulation} for
 collecting supplementary environment bindings. This completes our data structure
 for combining producer terms in Accelerate:
@@ -1237,20 +1235,20 @@ data Embed acc aenv a where
         -> Embed      acc aenv       a
 \end{lstlisting}
 
-Note the types of the array environments. The \code{Embed} type is expressed in
-relation to the type \code{aenv}, which represents all let-bindings
+Note the types of the array environments. The @Embed@ type is expressed in
+relation to the type @aenv@, which represents all let-bindings
 currently in scope at this point of the AST\index{abstract syntax tree} that we
 are currently fusing. The data constructor contains an existentially typed
-\code{aenv'}, witnessed by the first argument, \code{Extend}, which contains any
+@aenv'@, witnessed by the first argument, @Extend@, which contains any
 supplementary array terms collected during the fusion process. The actual array
 representation in the second argument is expressed in terms of this extended
-environment, so has access to any terms from the AST (\code{aenv}) as well as
-those additional bindings introduced by \code{Extend}.
+environment, so has access to any terms from the AST (@aenv@) as well as
+those additional bindings introduced by @Extend@.
 
 Why do we separate the auxiliary bindings from the representation of fused
-producers? The constructors of \code{Cunctation} could carry this information,
+producers? The constructors of @Cunctation@ could carry this information,
 and then we would not require this additional data structure. For example, the
-following is a valid alternative definition for the \code{Yield} constructor:
+following is a valid alternative definition for the @Yield@ constructor:
 %
 \begin{lstlisting}[style=haskell]
   Yield' :: (Shape sh, Elt e)                           -- Alternative definition (bad)
@@ -1260,24 +1258,24 @@ following is a valid alternative definition for the \code{Yield} constructor:
          -> Cunctation acc aenv       (Array sh e)
 \end{lstlisting}
 
-To create a real AST\index{abstract syntax tree} node from the \code{Embed}
+To create a real AST\index{abstract syntax tree} node from the @Embed@
 representation, we need both the environment bindings as well as the array
 description. However, analysis of how to fuse terms requires only the array
 description. If the additional bindings are bundled as part of the array
-representation, as in \code{Yield'}, the existentially quantified environment
+representation, as in @Yield'@, the existentially quantified environment
 type is only available after we pattern match on the constructor. This is
 problematic because to inspect terms and do things like function composition
 (\S\ref{sec:function_composition}) the types of the environments of the two
 terms must be the same, so after we pattern match on the constructor we must
-\code{sink} (\S\ref{sec:sinking}) the second term into \code{aenv'}. Even worse,
+@sink@ (\S\ref{sec:sinking}) the second term into @aenv'@. Even worse,
 for terms in the delayed state the only way to do this sinking is to first
 convert them into a real AST node and then back into the delayed state. If for
 some reason we can not fuse into this representation --- for example we do not
-meet the requirements for the more restrictive \code{Step} --- then this
+meet the requirements for the more restrictive @Step@ --- then this
 additional work is wasted.
 
 Why can we not analyse terms with respect to the exposed environment type
-\code{aenv}, ignoring for the moment the existential? At some point we will need
+@aenv@, ignoring for the moment the existential? At some point we will need
 to combine the extended environments, and we have no way to do this even if the
 existential types are exposed.
 %
@@ -1294,8 +1292,8 @@ have for combining delayed terms. While the semantics of the algorithm
 ultimately remain the same, for performance reasons this separation is critical.
 
 Finally, we convert the delayed representations into manifest data using the
-\code{compute} function. It inspects the argument terms of the representation to
-identify special cases, such as \code{map}s or \code{backpermute}s.
+@compute@ function. It inspects the argument terms of the representation to
+identify special cases, such as @map@s or @backpermute@s.
 %
 \begin{lstlisting}[style=haskell
     ,label=lst:compute
@@ -1317,12 +1315,12 @@ compute' cc = case simplify cc of
     | otherwise                            -> Transform sh p f (avarIn v)  -- index \& value transform
 \end{lstlisting}
 
-The helper functions \code{match} and \code{isIdentity} check for congruence of
+The helper functions @match@ and @isIdentity@ check for congruence of
 expressions. As discussed in section~\ref{sec:equality}, we match on \code{Just
 REFL} to inject information on the positive case to both the type and value
-level. For example, \code{isIdentity} checks whether a function corresponds to
+level. For example, @isIdentity@ checks whether a function corresponds to
 the term $\lambda x.x$, and in the positive case witnesses that its type must be
-\code{a -> a}.
+@a -> a@.
 
 
 \subsection{Producer/Producer Fusion}
@@ -1335,10 +1333,10 @@ representation discussed in the previous section
 (\S\ref{sec:representing_producers}), and merging sequences of producers into a
 single operations. Smart constructors for each producer term manage the
 integration with successive producers. For example, the following is the fused
-version of \code{map}:
+version of @map@:
 %
 \begin{lstlisting}[style=haskell,
-    caption={Fused definition of the \code{map} operation},
+    caption={Fused definition of the @map@ operation},
     label=lst:mapD]
 mapD :: Elt b
      => PreFun     acc aenv (a -> b)
@@ -1348,17 +1346,17 @@ mapD f (step  -> Just (Step sh ix g v)) = Step sh ix (f `compose` g) v
 mapD f (yield -> Yield sh g)            = Yield sh (f `compose` g)
 \end{lstlisting}
 
-We use two helper functions, \code{step} and \code{yield}, to expose the only
+We use two helper functions, @step@ and @yield@, to expose the only
 two interesting cases and then compose (\S\ref{sec:function_composition}) the
-input function \code{f} into the appropriate place in the constructor. Index
-transformation functions such as \code{backpermute} proceed in the same manner.
+input function @f@ into the appropriate place in the constructor. Index
+transformation functions such as @backpermute@ proceed in the same manner.
 
-These helper functions operate by converting the input \code{Cunctation} into
+These helper functions operate by converting the input @Cunctation@ into
 the constructor with the same name. A producer can always be expressed as a
-function from indices to elements in the style of \code{Yield}, but this is not
-the case for the more restrictive \code{Step}. For the \code{Done} case in both
-instances, GHC can not infer that the result type is a single \code{Array}, so
-we use the \code{accType} function to reify the \code{Arrays} class
+function from indices to elements in the style of @Yield@, but this is not
+the case for the more restrictive @Step@. For the @Done@ case in both
+instances, GHC can not infer that the result type is a single @Array@, so
+we use the @accType@ function to reify the @Arrays@ class
 representation.
 %
 \begin{lstlisting}[style=haskell]
@@ -1375,15 +1373,15 @@ step cc = case cc of
   Done v | ArraysRarray <- accType' cc -> Just $ Step (arrayShape v) identity identity v
 \end{lstlisting}
 
-The only interesting case is that of \code{zipWith}, which is the only producer
+The only interesting case is that of @zipWith@, which is the only producer
 that consumes multiple arrays (see Listing~\ref{lst:operations}). In contrast
-to, for example, \code{foldr/build}\index{fusion!foldr/build}, we fuse in both
+to, for example, @foldr/build@\index{fusion!foldr/build}, we fuse in both
 of the input arguments.
 %
 \begin{lstlisting}[style=haskell
     ,name=zipWithD
     ,label=lst:zipWithD
-    ,caption={[Fused definition of the \code{zipWith} operation]}]
+    ,caption={[Fused definition of the @zipWith@ operation]}]
 zipWithD :: (Shape sh, Elt a, Elt b, Elt c)
          => PreFun     acc aenv (a -> b -> c)
          -> Cunctation acc aenv (Array sh a)
@@ -1393,7 +1391,7 @@ zipWithD f cc1 cc0
 \end{lstlisting}
 %
 Because it is advantageous to express operations in the most specific way
-possible, \code{zipWith} considers the special case of when the two input arrays
+possible, @zipWith@ considers the special case of when the two input arrays
 happen to derive from the same manifest data:
 %
 \begin{lstlisting}[style=haskell,name=zipWithD]
@@ -1413,13 +1411,13 @@ elements and combine:
   = Yield (sh1 `Intersect` sh0) (combine f f1 f0)
 \end{lstlisting}
 %
-The function \code{combine} completes the task of drawing an element from each
-of the input arrays and combining them with the binary function \code{f}, being
+The function @combine@ completes the task of drawing an element from each
+of the input arrays and combining them with the binary function @f@, being
 sure to let-bind the intermediate results along the way.
 %
 \begin{lstlisting}[style=haskell
     ,name=zipWithD
-    ,caption={Fused definition of the \code{zipWith} operation}
+    ,caption={Fused definition of the @zipWith@ operation}
     ,escapeinside={(*}{*)}]
   where
     combine :: forall acc aenv a b c e. (Elt a, Elt b, Elt c)
@@ -1435,10 +1433,10 @@ sure to let-bind the intermediate results along the way.
 \end{lstlisting}
 %
 Note that line~\ref{lst:zipwithD_combine_weaken} requires a type signature,
-otherwise the type variable \code{e} introduced by the weakening step will
-escape and can not be unified correctly. This new parameter \code{e} represents
-in the first case of \code{Step} the array element type, and in the second
-instance via \code{Yield} the array index type.
+otherwise the type variable @e@ introduced by the weakening step will
+escape and can not be unified correctly. This new parameter @e@ represents
+in the first case of @Step@ the array element type, and in the second
+instance via @Yield@ the array index type.
 
 
 \subsection{Producer/Consumer Fusion}
@@ -1461,12 +1459,12 @@ system should translate this into a single collective operation, in much the
 same way as a human would write if working directly in a low-level language such
 as C or \CUDA.
 
-The basic idea is to pass producers encoded in the \code{Cunctation}
+The basic idea is to pass producers encoded in the @Cunctation@
 representation directly to consumers, and implementation of the consumer can
 decide how best to access values of the input. Consumers themselves have no
-\code{Cunctation} representation, however.
+@Cunctation@ representation, however.
 
-Consumers such as \code{stencil} apply a function with access to all array
+Consumers such as @stencil@ apply a function with access to all array
 elements within a local neighbourhood of the focal point of the stencil. As
 overlapping stencils from neighbouring elements access the same elements in
 their argument arrays many times, they must be implemented carefully not to
@@ -1503,7 +1501,7 @@ on-the-fly.
 
 Producers can only be embedded into consumers during the (much later) code
 generation phase. During code generation, the code for the embedded producer
-terms such as \code{indexD} is generated and integrated directly into the
+terms such as @indexD@ is generated and integrated directly into the
 skeleton code of the consumer. The end result is that no intermediate array
 needs to be created.
 
@@ -1530,8 +1528,8 @@ The first phase of fusion completes via bottom-up tree contraction of the
 AST\index{abstract syntax tree}. Terms are converted into the intermediate
 representation and merged as described in the previous section
 (\S\ref{sec:producer_consumer_fusion}). The following example demonstrates the
-procedure for a producer (\code{map}), a consumer (\code{fold}) as well as a
-non-computation form (\code{use}). Non-computation forms may also employ smart
+procedure for a producer (@map@), a consumer (@fold@) as well as a
+non-computation form (@use@). Non-computation forms may also employ smart
 constructors, the most interesting of which is that for let-bindings, although
 we defer that discussion until section~\ref{sec:binder_elimination}.
 %
@@ -1549,12 +1547,12 @@ embedPreAcc pacc =
     ...
 \end{lstlisting}
 
-The function \code{done} simply converts an AST node into the internal
+The function @done@ simply converts an AST node into the internal
 representation as a manifest array. This also illustrates why we require both
-\code{Done} and \code{Step} representations. It would be convenient to represent
-manifest data as \code{Step} with identity transformation functions, but the
-result type of \code{Step} is restricted to a single \code{Array}, whereas
-\code{Done} generalises to any instance of the \code{Arrays} class.
+@Done@ and @Step@ representations. It would be convenient to represent
+manifest data as @Step@ with identity transformation functions, but the
+result type of @Step@ is restricted to a single @Array@, whereas
+@Done@ generalises to any instance of the @Arrays@ class.
 
 \begin{lstlisting}[style=haskell,name=embedPreAcc]
   where
@@ -1563,12 +1561,12 @@ result type of \code{Step} is restricted to a single \code{Array}, whereas
     done pacc     = Embed (BaseEnv `PushEnv` pacc) (Done ZeroIdx)
 \end{lstlisting}
 
-In order to use our smart constructors for producer terms, such as \code{mapD}
+In order to use our smart constructors for producer terms, such as @mapD@
 (Listing~\ref{lst:mapD}), all of the terms must be expressed with respect to the
 same array environment. This simplifies the definition of the fusion rules, but
 recall that the representation of producer arrays includes additional array
 environment bindings (see section~\ref{sec:representing_producers}). The
-function \code{into} is used to convert a function of one type-annotated
+function @into@ is used to convert a function of one type-annotated
 argument into a function of one argument \emph{plus} a witness that sinks the
 argument from one environment type into another.
 
@@ -1577,11 +1575,11 @@ argument from one environment type into another.
     into op a env = op (sink env a)
 \end{lstlisting}
 
-In the example, \code{into} is partially applied with the smart constructor
-\code{mapD} and the scalar function applied at each element. This result is
-passed to \code{fuse} which does the work of traversing the AST\index{abstract
-syntax tree} bottom-up to produce the fused \code{Embed} representation. The
-modified \code{mapD} is saturated with the extra environment bindings and the
+In the example, @into@ is partially applied with the smart constructor
+@mapD@ and the scalar function applied at each element. This result is
+passed to @fuse@ which does the work of traversing the AST\index{abstract
+syntax tree} bottom-up to produce the fused @Embed@ representation. The
+modified @mapD@ is saturated with the extra environment bindings and the
 array representation, to produce a new delayed representation that can be
 further fused into later terms.
 
@@ -1593,13 +1591,13 @@ further fused into later terms.
     fuse op (embedAcc -> Embed env cc) = Embed env (op env cc)
 \end{lstlisting}
 
-In contrast to \code{fuse}, which allows the result to be combined with later
-terms, the \code{embed} function instead evaluates the argument array at this
+In contrast to @fuse@, which allows the result to be combined with later
+terms, the @embed@ function instead evaluates the argument array at this
 point in the program to a manifest array. This is achieved by converting the
-\code{Embed} representation into a real AST\index{abstract syntax tree} node
-using \code{compute'} (see Listing~\ref{lst:compute}). The only point of note is
-that the argument array (\code{cc}) is placed adjacent to the term consuming it
-(\code{op}), which is important for the second fusion phase discussed in the
+@Embed@ representation into a real AST\index{abstract syntax tree} node
+using @compute'@ (see Listing~\ref{lst:compute}). The only point of note is
+that the argument array (@cc@) is placed adjacent to the term consuming it
+(@op@), which is important for the second fusion phase discussed in the
 next section (\S\ref{sec:producer_consumer_fusion}).
 
 \begin{lstlisting}[style=haskell
@@ -1616,9 +1614,9 @@ next section (\S\ref{sec:producer_consumer_fusion}).
 \paragraph{Phase 2: Embedding Producers}
 \label{sec:embedding_producers}
 
-The second phase of fusion is a top-down translation from the \code{Embed}
+The second phase of fusion is a top-down translation from the @Embed@
 representation from the first phase (\S\ref{sec:producer_producer_fusion}) into
-an AST using \code{DelayedOpenAcc} (Listing~\ref{lst:DelayedOpenAcc}) to
+an AST using @DelayedOpenAcc@ (Listing~\ref{lst:DelayedOpenAcc}) to
 annotate which nodes of the AST should be computed to manifest arrays and which
 should be embedded into consumers.
 
@@ -1630,10 +1628,10 @@ fuseOpenAcc :: Arrays arrs => Embed OpenAcc aenv arrs -> DelayedOpenAcc aenv arr
 fuseOpenAcc = manifest . inject . compute
 \end{lstlisting}
 
-The function \code{manifest} for the most part simply wraps each node of the
-AST\index{abstract syntax tree} in a \code{Manifest} constructor, indicating
+The function @manifest@ for the most part simply wraps each node of the
+AST\index{abstract syntax tree} in a @Manifest@ constructor, indicating
 that this node should must be computed to memory. In the first phase (see
-Listing~\ref{lst:embedPreAcc}) we left all producers such as \code{map} in a
+Listing~\ref{lst:embedPreAcc}) we left all producers such as @map@ in a
 state ready for further fusion. Some producers might still exist as a manifest
 array, however. These producer terms may be the last stage of the computation,
 or the result of a let-binding to be used multiple times, for example.
@@ -1649,9 +1647,9 @@ or the result of a let-binding to be used multiple times, for example.
       ...
 \end{lstlisting}
 
-Here the function \code{delayed} is used to traverse the input array arguments
-to the computation nodes \code{map} and \code{fold}. This inspects the
-\code{Embed} representation of producer terms to generate the fragments that
+Here the function @delayed@ is used to traverse the input array arguments
+to the computation nodes @map@ and @fold@. This inspects the
+@Embed@ representation of producer terms to generate the fragments that
 will be later embedded into producer functions during code generation. We take
 care to recover optimisation opportunities such as linear indexing of the
 underlying array data.
@@ -1699,7 +1697,7 @@ if we float let bindings of manifest data across producer chains. This helps to
 expose further opportunities for producer/producer fusion.
 
 Similarly, consider the following example that first reverses a vector with
-\code{backpermute}, and then maps a function \code{f} over the result. Again, we
+@backpermute@, and then maps a function @f@ over the result. Again, we
 would hope these are fused into a single operation:%
 \footnote{Some details of the backwards permutation function are elided for
 clarity. See the definition of \texttt{reverse}:
@@ -1712,10 +1710,10 @@ reverseMap f xs
 \end{lstlisting}
 %
 Unfortunately, sharing recovery, using the algorithm from
-section~\ref{sec:sharing_recovery}, causes a problem. The variable \code{xs}
-is used three times in the arguments to \code{backpermute}, so sharing recovery
+section~\ref{sec:sharing_recovery}, causes a problem. The variable @xs@
+is used three times in the arguments to @backpermute@, so sharing recovery
 introduces a let binding at the lowest common meet point for all uses of the
-array. This places it between the \code{map} and \code{backpermute} operations:
+array. This places it between the @map@ and @backpermute@ operations:
 %
 \begin{lstlisting}[style=haskell]
 reverseMap f xs
@@ -1726,8 +1724,8 @@ reverseMap f xs
 %
 The argument array is used three times: twice to access shape information, but
 only once to access the array data --- in the final argument to
-\code{backpermute}. Fortunately there is a simple workaround. Since the delayed
-array constructors representing producer arrays, \code{Step} and \code{Yield}
+@backpermute@. Fortunately there is a simple workaround. Since the delayed
+array constructors representing producer arrays, @Step@ and @Yield@
 (Listing~\ref{lst:cunctation}), carry the shape of the arrays they represent as
 part of the constructor, we can eliminate all uses of the array that only access
 shape information, leaving just a single reference to the array's payload.
@@ -1750,13 +1748,13 @@ aletD (embedAcc -> Embed env1 cc1) acc0
 \end{lstlisting}
 
 The first and simplest case to consider is if the bound term is a manifest
-array, as in the \code{zipMap} example. Recall that manifest arrays are encoded
-using the \code{Done} constructor, and referenced using a \indexe{de Bruijn}
+array, as in the @zipMap@ example. Recall that manifest arrays are encoded
+using the @Done@ constructor, and referenced using a \indexe{de Bruijn}
 index into the environment. In this case there is no need to create an
 indirection. We substitute (\S\ref{sec:substitution}) references in the body to
-the top variable \code{ZeroIdx} --- what would have been the new binding ---
-with the principal array \code{v1} instead. This process is valid not just for
-manifest input arrays injected via \code{use}, but any term that has been forced
+the top variable @ZeroIdx@ --- what would have been the new binding ---
+with the principal array @v1@ instead. This process is valid not just for
+manifest input arrays injected via @use@, but any term that has been forced
 into a manifest array.
 %
 \begin{lstlisting}[style=haskell,name=aletD]
@@ -1765,11 +1763,11 @@ into a manifest array.
   = Embed (env1 `join` env0) cc0
 \end{lstlisting}
 
-The remaining cases are when the let bound term \code{cc1} is in a fusible
+The remaining cases are when the let bound term @cc1@ is in a fusible
 state. We wish to determine if the binding should be eliminated, as in the
-second example above, \code{reverseMap}. Note that the body expression was input
-as an \code{acc} term, and that we only transform it into the delayed
-representation, using \code{embedAcc}, after determining which of let floating
+second example above, @reverseMap@. Note that the body expression was input
+as an @acc@ term, and that we only transform it into the delayed
+representation, using @embedAcc@, after determining which of let floating
 or let elimination may apply. Not doing so can lead to unnecessary sinking or
 delaying of terms, which ruins performance.
 %
@@ -1811,13 +1809,13 @@ but not its \emph{shape} (see Listing~\ref{lst:shrinking} for the method).
 \end{lstlisting}
 %
 Note that we need to check the uses of the bound variable in the body expression
-\emph{including} any additional environment bindings introduced via \code{env0}.
+\emph{including} any additional environment bindings introduced via @env0@.
 (tk: this happened in Canny, extract minimal example?)
 
 The interesting case of let binding elimination (line~\ref{lst:aletD_elim}) is
 achieved by inlining the definition of the bound term directly into the body
 expression. This entails replacing expressions that access the shape of the
-array --- the original motivating example from \code{reverseMap} --- with the
+array --- the original motivating example from @reverseMap@ --- with the
 shape carried by the delayed representation, as well as a replacement for
 accesses to the array data as a result of array indexing from scalar
 expressions.
@@ -1834,12 +1832,12 @@ expressions.
           = Embed (env1 `join` env0') cc0'
 \end{lstlisting}
 %
-Here \code{replaceA} traverses the body of the let binding, replacing uses of
-the array variable within scalar expressions with the terms \code{sh1} and
-\code{f1}, which instead generate an equivalent result directly. Its
+Here @replaceA@ traverses the body of the let binding, replacing uses of
+the array variable within scalar expressions with the terms @sh1@ and
+@f1@, which instead generate an equivalent result directly. Its
 implementation is unremarkable. Inlining the bound term into this result both
 fixes the array environment type, and places the term at the correct position so
-that it will be fused during the final \code{embedAcc} traversal.
+that it will be fused during the final @embedAcc@ traversal.
 
 \note{tk: talk about whether this increases (maximum) memory usage (it
 shouldn't, but I have no proof)}
@@ -1874,7 +1872,7 @@ algorithm that re-traverses the whole reduct whenever a redex is reduced,
 although more efficient imperative algorithms exist
 \cite{Appel:1997gs,Benton:2004ua,Kennedy:2007cb}.
 
-The only interesting case of the \code{shrink} function is that of a
+The only interesting case of the @shrink@ function is that of a
 $\beta$-redex where the number of uses is less than or equal to one. The
 implementation, outlined below, uses the \indext{de Bruijn} manipulation
 techniques developed in sections~\ref{sec:equality} and \ref{sec:substitution}.
@@ -1943,8 +1941,8 @@ example, the following rewrite is always applied:
 \end{lstlisting}
 %
 The attentive reader will note that it is straightforward to choose a positive
-non-zero floating-point value \code{eps} such that \code{eps + 1.0 > 1.0} is
-\code{False}. Issues arising from simplification of floating-point expressions
+non-zero floating-point value @eps@ such that @eps + 1.0 > 1.0@ is
+@False@. Issues arising from simplification of floating-point expressions
 are currently ignored, but this is not so outrageous as it would be for a
 traditional offline compiler: since Accelerate programs are just-in-time
 compiled, any such issues still occur only at program runtime. The only
@@ -1971,7 +1969,7 @@ particular operator/operand combinations to simplify expressions. The most
 obvious algebraic simplifications involve combining a binary operator with an
 operand that is the algebraic identity of that operator, or with an operand that
 always yields a constant, independent of the other value of the operand. For
-example, for a term \code{x} the following are always true:
+example, for a term @x@ the following are always true:
 %
 \begin{lstlisting}[style=Haskell,numbers=none]
 %\bf$\langle$ algebraic simplification $\rangle$%
@@ -2007,7 +2005,7 @@ parts that are constant and variable.
 %are applied.
 This is particularly relevant when only one operand of a binary
 operator is identified as being constant valued. For example, the expression
-\code{x + 1 + 2} would only be simplified if the second addition occurred
+@x + 1 + 2@ would only be simplified if the second addition occurred
 first. For the case of commutative binary operators where only one operand is
 constant valued, the constant expression is applied as the first operand. The
 previous term would then be rewritten as:
@@ -2103,7 +2101,7 @@ we use an observable technique?}
 % of iterations $n$ if the element has not diverged, otherwise returns the value
 % and iteration count (at divergence) unchanged. We then lift this to the
 % Accelerate array language by applying the operation at all points in the plane
-% \code{cs}:
+% @cs@:
 % %
 % \begin{lstlisting}[style=haskell,firstnumber=last]
 % step :: Acc (Array DIM2 (Complex,Int)) -> Acc (Array DIM2 (Complex,Int))
@@ -2125,8 +2123,8 @@ we use an observable technique?}
 % mandelbrot = foldr ($) zs0 (replicate depth step)
 % \end{lstlisting}
 % %
-% Here \code{foldr} and \code{replicate} come from the standard Haskell
-% prelude, and \code{depth} is the maximum iteration count of the relation.
+% Here @foldr@ and @replicate@ come from the standard Haskell
+% prelude, and @depth@ is the maximum iteration count of the relation.
 % 
 % This correctly computes the Mandelbrot set, but is outrageously slow because it
 % must read and write the values $z$ and $n$ to memory at each step of the
@@ -2134,9 +2132,9 @@ we use an observable technique?}
 % recurrence relation and storing only the final result to memory. Later, we will
 % see how the technique of \emph{array fusion} (\S\ref{sec:fusion}) can be used to
 % eliminate this intermediate memory traffic by combining the \emph{depth}
-% applications of the collective operation \code{zipWith iter} into a single
-% operation containing \code{depth} instances of the scalar function
-% \code{iter}, which does not require us to write the intermediate values to
+% applications of the collective operation @zipWith iter@ into a single
+% operation containing @depth@ instances of the scalar function
+% @iter@, which does not require us to write the intermediate values to
 % memory. However, doing this we uncover an embarrassing secret: \emph{a C
 % compiler does not compile C code}, it compiles \emph{idiomatic} C code. While
 % combining the sequence of collective operations into a single collective
@@ -2159,8 +2157,8 @@ we use an observable technique?}
 % \end{lstlisting}
 % %
 % The nested bindings are replaced with an explicit scalar value iteration
-% structure, where the expression \code{e2} is repeated twice with the initial
-% value \code{e1}. Similarly, loops can be joined:
+% structure, where the expression @e2@ is repeated twice with the initial
+% value @e1@. Similarly, loops can be joined:
 % %
 % \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
 % %\bf$\langle$ loop joining $\rangle$%
@@ -2194,8 +2192,8 @@ chapter, and one can easily invent examples to show that no order can be optimal
 for all programs, but some orderings are generally preferable to others. This
 section describes the motivation for the current sequence of transformations.
 
-Consider the term \code{zipWith f xs xs}. The fusion transformation rewrites
-this into \code{generate} style as per
+Consider the term @zipWith f xs xs@. The fusion transformation rewrites
+this into @generate@ style as per
 section~\ref{sec:producer_producer_fusion}. Before simplification this produces
 the following term, rewritten slightly: \note{TK: no, it doesn't anymore}
 %
@@ -2215,7 +2213,7 @@ including shrinking (\S\ref{sec:simplification}) and common subexpression
 elimination (\S\ref{sec:redundancy_elimination}). The additional array bindings
 are an artefact of the way the fusion transformation handles extended
 environment bindings \note{which Trevor is ashamed of and has promised to fix},
-and clearly all array variables refer to the same manifest data, \code{xs} in
+and clearly all array variables refer to the same manifest data, @xs@ in
 the expression expression. Applying shrinking to the array terms conceals this
 infelicity:
 %
@@ -2239,7 +2237,7 @@ in generate (intersect (shape a0) (shape a0))
 %
 This term is a completely valid interpretation of the source program that does
 not introduce any additional work, but we can do better. Applying shrinking
-inlines the two terms \code{x1} and \code{x2} because they are each only
+inlines the two terms @x1@ and @x2@ because they are each only
 referenced once in the body, resulting in two accesses of the array to the same
 index. Since the straightforward implementation of common subexpression
 elimination is aimed at removing redundant let-bindings, we should always apply

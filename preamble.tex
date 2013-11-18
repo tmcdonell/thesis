@@ -172,7 +172,7 @@
     frame=single,
     rulecolor={\color[gray]{0.7}},
     numbers=left,
-    basicstyle=\scriptsize\sourcecodepro,
+    basicstyle=\scriptsize\sourcecodeprolight,
     numberstyle=\color{Gray}\tiny\it,
     commentstyle=\color{MidnightBlue}\it,
     stringstyle=\color{Maroon},
@@ -276,12 +276,15 @@
 \providecommand{\indext}[1]{\index{#1}#1}
 
 % Macros for commonly used terms
-
-
+%
+% TK: the abbrevs package doesn't work as advertised, and puts as space before a trailing period as
+% well. This is bad so needs to be undone. \:
+%
 \newabbrev\AST  {AST\index{abstract-syntax tree}}
 \newabbrev\CUDA {CUDA\index{CUDA}}
 \newabbrev\GPU  {GPU\index{graphics processing unit}}
 \newabbrev\HOAS {HOAS\index{higher-order abstract syntax}}
 \newabbrev\AoS  {AoS\index{array-of-struct}}
 \newabbrev\SoA  {AoS\index{struct-of-array}}
+\newabbrev\SIMD {SIMD\index{single-instruction multiple-data}}
 

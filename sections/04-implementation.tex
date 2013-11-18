@@ -1,5 +1,5 @@
 
-\chapter{Implementation}
+\chapter{Accelerating Haskell Array Codes}
 \epigraph{The trouble with opportunity is that it always comes disguised as hard work.}%
 {\textsc{---herbert v.\ prochnow}}
 
@@ -1711,47 +1711,6 @@ def-use analysis for dead code elimination) with those of generative
 skeleton-based code generators (such as handwritten idiomatic code for
 special-purpose architectures).
 
-\endinput
-
-\subsection{Delayed Arrays}
-
-Accelerate captures the appropriate idioms of GPU programming as collective
-array operations, which we regard as algorithmic skeletons. The code generator
-instantiates \CUDA implementations of the skeleton templates to execute
-embedded array programs. Thus, each template instantiation implies the execution
-of a separate program (kernel) on the \GPU\@. This is inefficient, and often we
-want to fuse two (or more) skeletons into a single operation, avoiding the
-creation and traversal of an intermediate array. This is the task of the fusion
-optimisation: to combine sequences of collective operations into a single
-operation (\S\ref{sec:fusion}).
-
-Following the fusion transformation, the program \AST is annotated such that it
-describes how each array term in the program is to be represented. As shown in
-Listing~\ref{lst:DelayedOpenAcc}, an array is either a standard array of
-\code{Manifest} data, or it is a \code{Delayed} array, represented as functions
-that are to be embedded into the consumer of that array data so that elements
-can be generated and consumed on-the-fly. In particular, we must generate
-skeleton instantiations for input arrays that appear in the delayed state:
-
-\begin{lstlisting}[style=haskell]
-  Delayed               :: (Shape sh, Elt e) =>
-    { extentD           :: PreExp DelayedOpenAcc aenv sh
-    , indexD            :: PreFun DelayedOpenAcc aenv (sh  -> e)
-    , linearIndexD      :: PreFun DelayedOpenAcc aenv (Int -> e)
-    }                   -> DelayedOpenAcc aenv (Array sh e)
-\end{lstlisting}
-
-\endinput
-
-Our code generator is also amenable to generating code that
-results from fusing networks of skeletons, which we describe
-separately~\cite{McDonell:acc-optim}. Instead of a manifest array of raw data,
-following the fusion by the frontend the @map@ operation instead takes a
-description of how to generate input array data. In
-Listing~\ref{lst:map_skeleton}, the expression @get ix@ splices into the
-skeleton the code necessary to produce the value from the input arrays at index
-@ix@, and assigns that value to the local variable @x@.
-
 
 \section{Dynamic Compilation}
 \label{sec:dynamic_compilation}
@@ -2164,6 +2123,8 @@ Accelerate program which associates each collective operation in the program
 with the compiled kernels which will be used to implement the operation.
 
 
+
+\endinput
 \section{EDSL Basics}
 
 % http://www.haskell.org/haskellwiki/Embedded_domain_specific_language

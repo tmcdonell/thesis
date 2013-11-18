@@ -1516,25 +1516,62 @@ with the compiled kernels which will be used to implement the operation.
 \section{Executing embedded array programs}
 \label{sec:executing_programs}
 
-The previous sections discuss how to implement asynchronous compilation as well
-as kernel caching in order to reduce the overheads of dynamic compilation. When
-we wish to execute a collective array operation, we query the kernel cache for
-object code instantiated to that skeleton; if no appropriate kernel is found
-then new code is generated and compiled, asynchronously to other operations such
-as transferring input data to the device. These tasks occur during the first
-pass over the program AST.
+The previous sections have discussed how to generate code for collective
+operations in an Accelerate program, compile the generated code asynchronously
+with other operations such as data transfer to the GPU, as well as our approach
+to kernel caching in order to reduce the overheads of dynamic compilation. These
+operations occur during the first traversal of the program AST\@. This section
+discusses the second phase of evaluating an Accelerate computation: loading the
+compiled code onto the GPU and executing the generated kernel(s) for each
+collective operation in a second bottom-up traversal of the program AST.
 
-Once code generation and array transfer have completed, the \CUDA backend
-traverses the program AST once more, evaluating the entire program by executing
-the generated GPU kernel(s) for each collective array operation of the AST
-bottom-up. In order to do this efficiently, the first phase outputs a new AST
-where each node is decorated with all of the information required to executed
-that collective operation.% How is this achieved?
+% The previous sections discuss how to implement asynchronous compilation as well
+% as kernel caching in order to reduce the overheads of dynamic compilation. When
+% we wish to execute a collective array operation, we query the kernel cache for
+% object code instantiated to that skeleton; if no appropriate kernel is found
+% then new code is generated and compiled, asynchronously to other operations such
+% as transferring input data to the device. These tasks occur during the first
+% phase of program execution.
+% 
+% Once code generation and array transfer have completed, the \CUDA backend
+% traverses the program \AST once more, evaluating the entire program by executing
+% the generated \GPU kernel(s) for each collective array operation of the \AST
+% bottom-up. In order to do this efficiently, the first phase outputs a new \AST
+% where each node is decorated with all of the information required to executed
+% that collective operation.% How is this achieved?
 
-% BEGIN ASIDE {
-Recall that terms in the Accelerate core language are defined non-recursively.
-At an example, consider this definition of a binary tree, which store all data
-at the leaves of the tree and is parameterised by the type of the leaf element:
+
+\subsection{Execution state}
+
+The CUDA backend provides the following function which encapsulates the entire
+process of compiling and evaluating an embedded array program denoted in the
+Accelerate language:
+%
+\begin{lstlisting}[style=haskell]
+CUDA.run :: Arrays a => Acc a -> a
+\end{lstlisting}
+%
+As the previous sections have demonstrated, running an Accelerate computation in
+the CUDA backend entails the use of much internal state, in particular a
+\code{StateT} monad stacked over \code{IO}. This is necessary to use the Haskell
+foreign function interface (FFI) to communicate with the CUDA runtime, maintaine
+the CUDA environment's device context, and to keep track of internal resources
+such as GPU memory and the compiled kernel code.
+
+Nevertheless, that we are under the hood manipulating CUDA through the FFI and
+that we need to maintain internal state should not distract from the property
+that \code{run} is a pure function at the level of the user-level Accelerate
+API. In fact, Accelerate provides an alternative backend implemented as a purely
+functional interpreter. The interpreter forms an executable specification of the
+denotational semantics of any Accelerate backend, and can be used to verify
+accelerated backends.
+
+
+\subsection{Aside: Tying the recursive knot}
+\label{sec:knot_tying}
+
+Consider the following definition of a binary tree, which stores all data at the
+leaves of the tree and is parameterised by the type of the leaf element:
 %
 \begin{lstlisting}[style=haskell]
 data Tree a
@@ -1543,8 +1580,9 @@ data Tree a
 \end{lstlisting}
 %
 Note that the internal \code{Node}s of the \code{Tree} are defined in terms of
-itself, recursively. Instead, the tree can be parameterised by the recursive
-step:
+itself --- that is, \code{Tree} is a recursively defined data type.
+Alternatively, the tree can be defined non-recursively, by parameterising the
+definition by the recursive step:
 %
 \begin{lstlisting}[style=haskell]
 data PreTree tree a
@@ -1552,9 +1590,9 @@ data PreTree tree a
     | Node (tree a) (tree a)
 \end{lstlisting}
 %
-and the original tree can be recovered from this definition, albeit with the
-need to unwrap the \code{Tree} constructor before exposing the \code{Leaf} and
-\code{Node} constructors of the tree itself:
+A recursive tree type can be recovered from this definition, albeit with the
+additional step of needing to unwrap the \code{Tree} constructor before exposing
+the \code{Leaf} and \code{Node} constructors of the tree itself:
 %
 \begin{lstlisting}[style=haskell,firstnumber=4]
 data Tree a = Tree (PreTree Tree a)
@@ -1569,35 +1607,70 @@ subtree at each point, and any existing functions operating over the basic
 \begin{lstlisting}[style=haskell,firstnumber=5]
 data SizedTree a = SizedTree Int (PreTree SizedTree a)
 \end{lstlisting}
-% END ASIDE }
 
-Accelerate uses this technique to decorate each node of the AST with all of the
-information required to execute the skeleton(s) implementing that node.
-Following the fusion transformation (\S\ref{sec:fusion}), the recursive step of
-nodes in the AST are parameterised as either \code{Manifest} or \code{Delayed},
-representing computations that will be instantiated to \CUDA code and executed,
-and computations that have been fused (embedded) into other kernels
-respectively. To execute a computation in the second phase, the former requires
-information of the kernels implementing the computation as well as any free
-variables, while the latter requires only the shape of the computation that was
-embedded within the consumer. The following data structure is used to tie the
-recursive knot in the program AST to represent this information:
+
+\subsection{Annotating array programs}
+
+Recall that terms in the Accelerate language are defined non-recursively. That
+is, the GADT used to represent nodes of the program AST are parameterised by the
+recursive knot, in the manner described in the previous section:
+%
+\begin{lstlisting}[style=haskell]
+data PreOpenAcc acc aenv a where
+  Map   :: (Shape sh, Elt a, Elt b)
+        => PreFun     acc aenv (a -> b)
+        -> acc            aenv (Array sh a)
+        -> PreOpenAcc acc aenv (Array sh b)
+  ...
+\end{lstlisting}
+
+This characteristic is used in order to improve the performance of executing
+array programs in the CUDA backend. In addition to the function \code{run}
+mentioned earlier for executing array programs, we also provide the following
+function, which prepares and executes an embedded array program of one argument:
+%
+\begin{lstlisting}[style=haskell]
+CUDA.run1 :: (Arrays a, Arrays b) => (Acc a -> Acc b) -> a -> b
+\end{lstlisting}
+%
+The idea is that, if we have an array program (first argument) that is executed
+many times, we want to avoid having to repeat the first phase of execution every
+time the function is applied to new input data (second argument). That is,
+rather than at each invocation of the function generating code for each
+operation and finding the compiled code already exists in the kernel cache, we
+would instead like to know precisely which kernel object needs to be executed
+without even consulting the caches. The Accelerate CUDA backend uses the
+knot-tying technique described in the previous section (\S\ref{sec:knot_tying})
+in order to achieve this.
+% to decorate each node of the program AST with all of the information required to
+% execute the kernel(s) implementing that operation, and exposes this
+% functionality by use of the \code{run1} operation.
+
+Following the fusion transformation, the Accelerate array program is
+parameterised by a series of \code{Manifest} and \code{Delayed} nodes,
+representing operations that will eventually be executed on the device, and
+computations that have been fused (embedded) into other operations,
+respectively. See section~\ref{sec:implementing_array_fusion} for details of the
+representation. To execute a CUDA computation, manifest nodes are annotated with
+the compiled kernel code implementing the computation, while delayed
+computations recall only the extent of the computation that was embedded within
+its consumer.
 %
 \begin{lstlisting}[style=haskell]
 data ExecOpenAcc aenv a where
-  ExecAcc   :: FL.FullList () (AccKernel a)             -- (1)
-            -> Gamma aenv                               -- (2)
+  ExecAcc   :: FL.FullList () (AccKernel a)             -- (1) compiled kernel code
+            -> Gamma aenv                               -- (2) arrays referenced from scalar code
             -> PreOpenAcc ExecOpenAcc aenv a
             -> ExecOpenAcc aenv a
 
   EmbedAcc  :: (Shape sh, Elt e)
-            => PreExp ExecOpenAcc aenv sh               -- (3)
+            => PreExp ExecOpenAcc aenv sh               -- (3) shape of embedded array
             -> ExecOpenAcc aenv (Array sh e)
 \end{lstlisting}
 %
 \begin{enumerate}
 \item A non-empty list of the kernels required to execute this node of the
-    computation (see below).
+    computation.
 
 \item The free array variables required to execute the kernel. In particular,
     this maps environment indexes (de Bruijn indices) to some token identifying
@@ -1607,23 +1680,23 @@ data ExecOpenAcc aenv a where
     leading to better kernel caching.
 
 \item The size of the input array that was embedded into the consumer, which is
-    often required when executing a kernel.
+    often required when executing the kernel the operation was embedded within.
 \end{enumerate}
 
 In order to execute a single kernel the following data is required:
 %
 \begin{lstlisting}[style=haskell]
 data AccKernel a where
-  AccKernel :: String -> CUDA.Fun -> CUDA.Module        -- (1)
-            -> CUDA.Occupancy -> Int -> Int             -- (2)
-            -> (Int -> Int)                             -- (3)
+  AccKernel :: String -> CUDA.Fun -> CUDA.Module        -- (1) compiled code
+            -> CUDA.Occupancy -> Int -> Int             -- (2) thread occupancy information
+            -> (Int -> Int)                             -- (3) launch configuration
             -> AccKernel a
 \end{lstlisting}
 %
 \begin{enumerate}
 \item The name of the \code{\_\_global\_\_} kernel function that the function
     object (second parameter) implements. The compiled object code is linked
-    into the \CUDA context as part of the binary module (third parameter).
+    into the CUDA context as part of the binary module (third parameter).
 
     % The results of \CUDA thread occupancy calculation.
 \item Once the kernel is compiled, details such as the number of registers
@@ -1646,18 +1719,36 @@ data AccKernel a where
 \end{enumerate}
 
 This formulation does not require searching the kernel tables during the
-execution phase in order to locate binary code; any kernels required to execute
-a computation are attached directly to the computation they instantiate. For
-Accelerate programs that are executed on multiple data sets, this is an
-important optimisation, and is further exploited when executing embedded
-Accelerate programs using the \code{run1} operator (see \S tk).
+execution phase in order to locate binary code: any kernels required to execute
+a computation are attached directly to the computation they instantiate. This is
+an important optimisation, which we provide through use of the \code{run1}
+operator, which we can now complete:
+%
+\begin{lstlisting}[style=haskell]
+CUDA.run1 :: (Arrays a, Arrays b) => (Acc a -> Acc b) -> a -> b
+CUDA.run1 f = \a -> unsafePerformIO (execute a)
+  where
+    acc         = convertAfun f
+    afun        = unsafePerformIO $ evalCUDA (compileAfun acc)
+    execute a   = evalCUDA (executeAfun1 afun a >>= collect)
+\end{lstlisting}
+%
+Here, @compileAfun :: DelayedAfun f -> ExecAfun f@ instantiates and
+compiles skeleton code implementing each of the collective array operations in
+the program (\S\ref{sec:instantiating_skeletons}), returning a new program AST
+where each node is annotated in the manner described above. The @run1@
+operation then returns a function that uses
+@executeAfun1 :: ExecAfun (a -> b) -> a -> CIO b@
+to evaluate the annotated program AST. Since we return this operation in a new
+closure, the first compilation phase producing @afun@ will only be executed
+once.
 
 Note that there is a subtle tension here: the task of the compilation phase is
 to produce an annotated AST carrying all of the information required to execute
 the computation, but that in turn requires the \emph{compiled} kernel modules,
 so how can compilation proceed asynchronously? We use a clever trick and take
 advantage of Haskell's non-strict execution semantics: once the external
-compilation has been initiated in a separate thread, \code{unsafePerformIO} is
+compilation has been initiated in a separate thread, @unsafePerformIO@ is
 used (in a safe manner) to delay waiting for the external process to complete
 and linking of the binary object until it is demanded by the running program.
 %

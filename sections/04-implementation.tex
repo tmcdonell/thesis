@@ -660,7 +660,7 @@ y0 = arrIn0_0[v1] * arrIn1_0[v1];
 Here the @assert@ checks whether the array index is in bounds, and is only
 active when Accelerate is compiling kernels in debugging mode.\footnote{Kernel
 debug mode is activated when the Accelerate CUDA backend is installed in debug
-mode, and the command line flag @-ddebug-cc@ is provided.} In this case the
+mode, and the command line flag \footcode{-ddebug-cc} is provided.} In this case the
 embedded @zipWith@ operation is over two vectors, so no conversion to and
 from multidimensional indices was required.
 

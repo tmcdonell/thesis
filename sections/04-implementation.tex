@@ -1652,6 +1652,7 @@ data SizedTree a = SizedTree Int (PreTree SizedTree a)
 
 
 \subsection{Annotating array programs}
+\label{sec:annotating_array_programs}
 
 Recall that terms in the Accelerate language are defined non-recursively. That
 is, the GADT used to represent nodes of the program AST are parameterised by the
@@ -1842,6 +1843,126 @@ reduces the overhead of launching thread blocks.
 
 TK: perhaps a graph of how occupancy calculations change for a given kernel on
 different GPU architectures?
+
+
+\subsection{Kernel execution}
+
+To evaluate the array computation on the CUDA backend, we perform a bottom-up
+traversal of the annotated program (\S\ref{sec:annotating_array_programs})
+executing the attached kernels. For each node of the AST, we distinguish three
+cases:
+%
+\begin{enumerate}
+\item If it is a @Use@ node, return a reference to the device memory holding the
+    array data.
+
+\item If it is a non-skeleton node, such as a let binding or shape conversion,
+    the evaluator executes the operation directly by adjusting the environment
+    or similar as required.
+
+\item If it is a skeleton node, memory is allocated to hold the result of
+    evaluating the skeleton, and finally invokes the one or more GPU kernels
+    that implement the operation.
+\end{enumerate}
+%
+In summary, the execution pass interleaves host-side evaluation and the
+invocation of GPU kernels, while keeping track of device memory, allocating
+intermediates, and releasing memory once no longer required. GPU kernels execute
+asynchronously, so the evaluator is able to immediately begin to set up the next
+stage of the computation while the current kernel executes. The CUDA runtime
+maintains a queue of kernels to be executed on the device, so if the result of
+an asynchronously executing kernel is needed before the kernel completes, any
+kernels that depend on that result will only be invoked after the kernel
+completes.
+
+\subsection{Kernel execution, concurrently}
+
+Beginning with compute capability 2.0, some CUDA devices are able to execute
+multiple kernels concurrently, rather than always executing kernels one after
+the other. This can improve overall performance by increasing the number of
+active threads on the device, particularly when executing many small kernels.
+Accelerate's collective operations have a purely functional semantics, so
+concurrent expression evaluation is always sound. The current implementation
+executes subtrees of the expression concurrently on the single device. We leave
+for future work also executing concurrently on separate GPUs, as is available in
+some Tesla configurations.
+
+In order to execute kernels concurrently, the kernels must be issued in
+different non-default streams. A \indexe{stream} is a sequence of commands that
+execute in order; different streams, on the other hand, may execute their
+commands out of order with respect to one another or concurrently. To allow
+streams to synchronise, an \indexe{event} may be inserted into a stream. Any
+stream may delay execution until a given event has been posted, which allows
+efficient cross-stream synchronisation managed by the device.
+
+The Accelerate CUDA backend introduces concurrency when evaluating the bound
+expression at a let binding, and synchronises when looking up a bound variable
+in the environment. Following conversion and optimisation of the program by the
+Accelerate frontend, any operation that is to be evaluated will appear as a
+let-bound expression in the program, and so sequences of let bindings may be
+able to execute their subtrees concurrently. The array expression evaluator has
+the type:
+%
+\begin{lstlisting}[style=haskell]
+executeOpenAcc
+    :: ExecOpenAcc aenv arrs            -- annotated array program (\S\ref{sec:annotating_array_programs})
+    -> Aval aenv                        -- array environment with synchronisation points
+    -> Stream                           -- current execution stream
+    -> CIO arrs
+\end{lstlisting}
+%
+Here, the array environment carries both the object as well as an event streams
+can synchronise against, which signals that the array has been fully evaluated:
+%
+\begin{lstlisting}[style=haskell]
+data Async a = Async !Event !a
+
+data Aval env where
+  Aempty :: Aval ()
+  Apush  :: Aval env -> Async t -> Aval (env, t)
+\end{lstlisting}
+
+The only interesting cases for the evaluator are those of let bindings and
+environment lookup. When looking up an array in the environment, we ensure that
+all future work submitted to the current stream will occur after the
+asynchronous event for the array in the environment has been fulfilled.
+Synchronisation occurs on the device, so the following does not need to block
+waiting for the result:
+% \footnote{\footcode{Event.wait} is the FFI binding to \footcode{cudaStreamWaitEvent} and comes from the CUDA binding library.}
+%
+\begin{lstlisting}[style=haskell]
+after :: Stream -> Async a -> CIO a
+after stream (Async event arr) = Event.wait event (Just stream) [] >> return arr
+\end{lstlisting}
+
+Evaluating the binding of a let requires evaluating the expression in a new
+execution stream, and returning the array wrapped in an @Async@ containing an
+event indicating when the last kernel issued to the stream has completed:
+%
+\begin{lstlisting}[style=haskell]
+streaming :: MonadIO m => Context -> Reservoir -> (Stream -> m a) -> m (Event, a)
+streaming ctx rsv@(Reservoir _ weak_rsv) action = do
+  stream <- liftIO $ create ctx rsv                     -- (1) create new stream
+  result <- action stream
+  end    <- liftIO $ Event.waypoint stream              -- (2) event signals completion of action
+  return (end, result)
+\end{lstlisting}
+%
+Here the function @create@ allocates a new execution stream. However, rather
+than directly creating a new stream, the @Reservoir@ is used to store streams
+that are not currently executing. Thus, @create@ takes an inactive stream from
+the reservoir if one is available, allocating a new execution stream otherwise.
+Once all proceeding commands submitted to the stream have completed, the stream
+is asynchronously returned back to the reservoir.
+%
+\begin{lstlisting}[style=haskell]
+type RSV        = MVar ( HashTable CUDA.Context (FullList () Stream) )
+data Reservoir  = Reservoir !RSV !(Weak RSV)
+\end{lstlisting}
+%
+The design of the stream @Reservoir@ is similar to that of the device memory
+@Nursery@; see section~\ref{sec:memory_manager_implementation} for details. We
+use finalisers on events and streams handle deallocation.
 
 
 \section{Data transfer \& garbage collection}
@@ -2035,6 +2156,7 @@ else fresh memory is allocated.
 % \end{lstlisting}
 
 \subsection{Memory manager implementation}
+\label{sec:memory_manager_implementation}
 
 The memory management system is implemented over several modules:
 %

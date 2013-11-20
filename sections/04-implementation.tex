@@ -1555,416 +1555,6 @@ with the compiled kernels which will be used to implement the operation.
 
 
 
-\section{Executing embedded array programs}
-\label{sec:executing_programs}
-
-The previous sections have discussed how to generate code for collective
-operations in an Accelerate program, compile the generated code asynchronously
-with other operations such as data transfer to the GPU, as well as our approach
-to kernel caching in order to reduce the overheads of dynamic compilation. These
-operations occur during the first traversal of the program AST\@. This section
-discusses the second phase of evaluating an Accelerate computation: loading the
-compiled code onto the GPU and executing the generated kernel(s) for each
-collective operation in a second bottom-up traversal of the program AST.
-
-% The previous sections discuss how to implement asynchronous compilation as well
-% as kernel caching in order to reduce the overheads of dynamic compilation. When
-% we wish to execute a collective array operation, we query the kernel cache for
-% object code instantiated to that skeleton; if no appropriate kernel is found
-% then new code is generated and compiled, asynchronously to other operations such
-% as transferring input data to the device. These tasks occur during the first
-% phase of program execution.
-% 
-% Once code generation and array transfer have completed, the \CUDA backend
-% traverses the program \AST once more, evaluating the entire program by executing
-% the generated \GPU kernel(s) for each collective array operation of the \AST
-% bottom-up. In order to do this efficiently, the first phase outputs a new \AST
-% where each node is decorated with all of the information required to executed
-% that collective operation.% How is this achieved?
-
-
-\subsection{Execution state}
-
-The CUDA backend provides the following function which encapsulates the entire
-process of compiling and evaluating an embedded array program denoted in the
-Accelerate language:
-%
-\begin{lstlisting}[style=haskell]
-CUDA.run :: Arrays a => Acc a -> a
-\end{lstlisting}
-%
-As the previous sections have demonstrated, running an Accelerate computation in
-the CUDA backend entails the use of much internal state, in particular a
-@StateT@ monad stacked over @IO@. This is necessary to use the Haskell
-foreign function interface (FFI) to communicate with the CUDA runtime, maintaine
-the CUDA environment's device context, and to keep track of internal resources
-such as GPU memory and the compiled kernel code.
-
-Nevertheless, that we are under the hood manipulating CUDA through the FFI and
-that we need to maintain internal state should not distract from the property
-that @run@ is a pure function at the level of the user-level Accelerate
-API. In fact, Accelerate provides an alternative backend implemented as a purely
-functional interpreter. The interpreter forms an executable specification of the
-denotational semantics of any Accelerate backend, and can be used to verify
-accelerated backends.
-
-
-\subsection{Aside: Tying the recursive knot}
-\label{sec:knot_tying}
-
-Consider the following definition of a binary tree, which stores all data at the
-leaves of the tree and is parameterised by the type of the leaf element:
-%
-\begin{lstlisting}[style=haskell]
-data Tree a
-    = Leaf a                            -- Leaves of the tree hold the data
-    | Node (Tree a) (Tree a)            -- Internal nodes record only left and right branches
-\end{lstlisting}
-%
-Note that the internal @Node@s of the @Tree@ are defined in terms of
-itself --- that is, @Tree@ is a recursively defined data type.
-Alternatively, the tree can be defined non-recursively, by parameterising the
-definition by the recursive step:
-%
-\begin{lstlisting}[style=haskell]
-data PreTree tree a
-    | Leaf a
-    | Node (tree a) (tree a)
-\end{lstlisting}
-%
-A recursive tree type can be recovered from this definition, albeit with the
-additional step of needing to unwrap the @Tree@ constructor before exposing
-the @Leaf@ and @Node@ constructors of the tree itself:
-%
-\begin{lstlisting}[style=haskell,firstnumber=4]
-data Tree a = Tree (PreTree Tree a)
-\end{lstlisting}
-
-This distinction is important because it allows us to use the same basic tree
-definition, but include additional information as part of each recursive step.
-For example, we can define a new binary tree type that records the size of the
-subtree at each point, and any existing functions operating over the basic
-@PreTree@ structure can still be used:
-%
-\begin{lstlisting}[style=haskell,firstnumber=5]
-data SizedTree a = SizedTree Int (PreTree SizedTree a)
-\end{lstlisting}
-
-
-\subsection{Annotating array programs}
-\label{sec:annotating_array_programs}
-
-Recall that terms in the Accelerate language are defined non-recursively. That
-is, the GADT used to represent nodes of the program AST are parameterised by the
-recursive knot, in the manner described in the previous section:
-%
-\begin{lstlisting}[style=haskell]
-data PreOpenAcc acc aenv a where
-  Map   :: (Shape sh, Elt a, Elt b)
-        => PreFun     acc aenv (a -> b)
-        -> acc            aenv (Array sh a)
-        -> PreOpenAcc acc aenv (Array sh b)
-  ...
-\end{lstlisting}
-
-This characteristic is used in order to improve the performance of executing
-array programs in the CUDA backend. In addition to the function @run@
-mentioned earlier for executing array programs, we also provide the following
-function, which prepares and executes an embedded array program of one argument:
-%
-\begin{lstlisting}[style=haskell]
-CUDA.run1 :: (Arrays a, Arrays b) => (Acc a -> Acc b) -> a -> b
-\end{lstlisting}
-%
-The idea is that, if we have an array program (first argument) that is executed
-many times, we want to avoid having to repeat the first phase of execution every
-time the function is applied to new input data (second argument). That is,
-rather than at each invocation of the function generating code for each
-operation and finding the compiled code already exists in the kernel cache, we
-would instead like to know precisely which kernel object needs to be executed
-without even consulting the caches. The Accelerate CUDA backend uses the
-knot-tying technique described in the previous section (\S\ref{sec:knot_tying})
-in order to achieve this.
-% to decorate each node of the program AST with all of the information required to
-% execute the kernel(s) implementing that operation, and exposes this
-% functionality by use of the @run1@ operation.
-
-Following the fusion transformation, the Accelerate array program is
-parameterised by a series of @Manifest@ and @Delayed@ nodes,
-representing operations that will eventually be executed on the device, and
-computations that have been fused (embedded) into other operations,
-respectively. See section~\ref{sec:implementing_array_fusion} for details of the
-representation. To execute a CUDA computation, manifest nodes are annotated with
-the compiled kernel code implementing the computation, while delayed
-computations recall only the extent of the computation that was embedded within
-its consumer.
-%
-\begin{lstlisting}[style=haskell]
-data ExecOpenAcc aenv a where
-  ExecAcc   :: FL.FullList () (AccKernel a)             -- (1) compiled kernel code
-            -> Gamma aenv                               -- (2) arrays referenced from scalar code
-            -> PreOpenAcc ExecOpenAcc aenv a
-            -> ExecOpenAcc aenv a
-
-  EmbedAcc  :: (Shape sh, Elt e)
-            => PreExp ExecOpenAcc aenv sh               -- (3) shape of embedded array
-            -> ExecOpenAcc aenv (Array sh e)
-\end{lstlisting}
-%
-\begin{enumerate}
-\item A non-empty list of the kernels required to execute this node of the
-    computation.
-
-\item The free array variables required to execute the kernel. In particular,
-    this maps environment indexes (de Bruijn indices) to some token identifying
-    that array in the generated code. Rather than using the de Bruijn index
-    directly in the generated code, the extra indirection results in generating
-    code that is less sensitive to the placement of let bindings, ultimately
-    leading to better kernel caching.
-
-\item The size of the input array that was embedded into the consumer, which is
-    often required when executing the kernel the operation was embedded within.
-\end{enumerate}
-
-In order to execute a single kernel the following data is required:
-%
-\begin{lstlisting}[style=haskell]
-data AccKernel a where
-  AccKernel :: String -> CUDA.Fun -> CUDA.Module        -- (1) compiled code
-            -> CUDA.Occupancy -> Int -> Int             -- (2) thread occupancy information
-            -> (Int -> Int)                             -- (3) launch configuration
-            -> AccKernel a
-\end{lstlisting}
-%
-\begin{enumerate}
-\item The name of the @\_\_global\_\_@ kernel function that the function
-    object (second parameter) implements. The compiled object code is linked
-    into the CUDA context as part of the binary module (third parameter).
-
-    % The results of \CUDA thread occupancy calculation.
-\item Once the kernel is compiled, details such as the number of registers
-    required for each thread can be used to determine the optimal launch
-    configuration of the kernel. In particular, the configuration is chosen in
-    order to maximum \indexe{thread occupancy}, which is the ratio of active
-    warps (i.e.\ warps that could run) to the maximum possible number of active
-    warps. While higher occupancy does not always equate to higher performance,
-    low occupancy always interferes with the ability to hide memory and
-    instruction latency, resulting in sub-optimal performance. This analysis
-    (fourth parameter) determines the optimal number of threads per block to use
-    (fifth parameter) together with the number of bytes of shared memory
-    required when initiating the kernel launch (sixth parameter).
-
-\item A function that computes the number of thread blocks to launch the kernel
-    with given the size of the computation, which is generally only known at
-    program runtime. How this function is used exactly depends on the kernel
-    being executed, but for example may take as input the size of the input
-    array.
-\end{enumerate}
-
-This formulation does not require searching the kernel tables during the
-execution phase in order to locate binary code: any kernels required to execute
-a computation are attached directly to the computation they instantiate. This is
-an important optimisation, which we provide through use of the @run1@
-operator, which we can now complete:
-%
-\begin{lstlisting}[style=haskell]
-CUDA.run1 :: (Arrays a, Arrays b) => (Acc a -> Acc b) -> a -> b
-CUDA.run1 f = \a -> unsafePerformIO (execute a)
-  where
-    acc         = convertAfun f
-    afun        = unsafePerformIO $ evalCUDA (compileAfun acc)
-    execute a   = evalCUDA (executeAfun1 afun a >>= collect)
-\end{lstlisting}
-%
-Here, @compileAfun :: DelayedAfun f -> ExecAfun f@ instantiates and
-compiles skeleton code implementing each of the collective array operations in
-the program (\S\ref{sec:instantiating_skeletons}), returning a new program AST
-where each node is annotated in the manner described above. The @run1@
-operation then returns a function that uses
-@executeAfun1 :: ExecAfun (a -> b) -> a -> CIO b@
-to evaluate the annotated program AST. Since we return this operation in a new
-closure, the first compilation phase producing @afun@ will only be executed
-once.
-
-Note that there is a subtle tension here: the task of the compilation phase is
-to produce an annotated AST carrying all of the information required to execute
-the computation, but that in turn requires the \emph{compiled} kernel modules,
-so how can compilation proceed asynchronously? We use a clever trick and take
-advantage of Haskell's non-strict execution semantics: once the external
-compilation has been initiated in a separate thread, @unsafePerformIO@ is
-used (in a safe manner) to delay waiting for the external process to complete
-and linking of the binary object until it is demanded by the running program.
-%
-\begin{lstlisting}[style=haskell]
-build1 :: DelayedOpenAcc aenv a -> CIO (AccKernel a)
-build1 acc = do
-  ...
-  (name, key)   <- compile code                         -- initiate external compilation
-  let (cta, blocks, smem)       = launchConfig acc occ
-      (mdl, fun, occ)           = unsafePerformIO $ do  -- delay linking until actually required
-        m       <- link key
-        f       <- CUDA.getFun m name
-        o       <- determineOccupancy acc device f
-        return (m, f, o)
-  --
-  return $ AccKernel name fun mdl occ cta smem blocks
-\end{lstlisting}
-
-
-\subsection{Launch configuration \& thread occupancy}
-
-In the CUDA execution model, GPU kernels are executed by a multi-dimensional
-hierarchy of threads. In particular, they are grouped into thread blocks, which
-are distributed over the available streaming multiprocessors (SMs). In contrast
-to a traditional CPU core, a GPU core does not have features such as branch
-prediction or speculative execution, which increase (single threaded)
-performance. In exchange, a GPU core is capable of executing hundreds of threads
-concurrently. In particular, a SM dispatches work in small groups of threads
-called \emph{warps}\index{warp}, and by executing warps concurrently and
-exchanging warps when one is paused or stalled the GPU is able to keep all of
-the ALUs busy. The ratio of active warps (i.e. warps that could run given a
-kernel's resource requirements such as number of registers per thread) to the
-maximum possible number of active warps (i.e. number of in-flight threads that
-can be tracked by the hardware) is called \indexe{occupancy}.
-
-Higher occupancy does not always equate to higher performance --- for example,
-if a kernel is limited by instruction throughput rather than memory bandwidth
---- but low occupancy always interferes with the ability of the GPU to hide
-memory and instruction latency by swapping stalled warps, resulting in
-suboptimal performance. Several factors influence the configuration required for
-maximum possible occupancy, but once a kernel has been compiled and its resource
-usage known (in particular, the number of registers and bytes of shared memory
-each thread requires), we can calculate an ideal launch configuration. The CUDA
-backend does this for every kernel, to make optimal use of physical resources
-which vary from GPU to GPU. Additionally, we limit the number of threads blocks
-per multiprocessor to that which can be physically resident. This requires the
-generated kernels to be able to process multiple elements per thread, but
-reduces the overhead of launching thread blocks.
-
-TK: perhaps a graph of how occupancy calculations change for a given kernel on
-different GPU architectures?
-
-
-\subsection{Kernel execution}
-
-To evaluate the array computation on the CUDA backend, we perform a bottom-up
-traversal of the annotated program (\S\ref{sec:annotating_array_programs})
-executing the attached kernels. For each node of the AST, we distinguish three
-cases:
-%
-\begin{enumerate}
-\item If it is a @Use@ node, return a reference to the device memory holding the
-    array data.
-
-\item If it is a non-skeleton node, such as a let binding or shape conversion,
-    the evaluator executes the operation directly by adjusting the environment
-    or similar as required.
-
-\item If it is a skeleton node, memory is allocated to hold the result of
-    evaluating the skeleton, and finally invokes the one or more GPU kernels
-    that implement the operation.
-\end{enumerate}
-%
-In summary, the execution pass interleaves host-side evaluation and the
-invocation of GPU kernels, while keeping track of device memory, allocating
-intermediates, and releasing memory once no longer required. GPU kernels execute
-asynchronously, so the evaluator is able to immediately begin to set up the next
-stage of the computation while the current kernel executes. The CUDA runtime
-maintains a queue of kernels to be executed on the device, so if the result of
-an asynchronously executing kernel is needed before the kernel completes, any
-kernels that depend on that result will only be invoked after the kernel
-completes.
-
-\subsection{Kernel execution, concurrently}
-
-Beginning with compute capability 2.0, some CUDA devices are able to execute
-multiple kernels concurrently, rather than always executing kernels one after
-the other. This can improve overall performance by increasing the number of
-active threads on the device, particularly when executing many small kernels.
-Accelerate's collective operations have a purely functional semantics, so
-concurrent expression evaluation is always sound. The current implementation
-executes subtrees of the expression concurrently on the single device. We leave
-for future work also executing concurrently on separate GPUs, as is available in
-some Tesla configurations.
-
-In order to execute kernels concurrently, the kernels must be issued in
-different non-default streams. A \indexe{stream} is a sequence of commands that
-execute in order; different streams, on the other hand, may execute their
-commands out of order with respect to one another or concurrently. To allow
-streams to synchronise, an \indexe{event} may be inserted into a stream. Any
-stream may delay execution until a given event has been posted, which allows
-efficient cross-stream synchronisation managed by the device.
-
-The Accelerate CUDA backend introduces concurrency when evaluating the bound
-expression at a let binding, and synchronises when looking up a bound variable
-in the environment. Following conversion and optimisation of the program by the
-Accelerate frontend, any operation that is to be evaluated will appear as a
-let-bound expression in the program, and so sequences of let bindings may be
-able to execute their subtrees concurrently. The array expression evaluator has
-the type:
-%
-\begin{lstlisting}[style=haskell]
-executeOpenAcc
-    :: ExecOpenAcc aenv arrs            -- annotated array program (\S\ref{sec:annotating_array_programs})
-    -> Aval aenv                        -- array environment with synchronisation points
-    -> Stream                           -- current execution stream
-    -> CIO arrs
-\end{lstlisting}
-%
-Here, the array environment carries both the object as well as an event streams
-can synchronise against, which signals that the array has been fully evaluated:
-%
-\begin{lstlisting}[style=haskell]
-data Async a = Async !Event !a
-
-data Aval env where
-  Aempty :: Aval ()
-  Apush  :: Aval env -> Async t -> Aval (env, t)
-\end{lstlisting}
-
-The only interesting cases for the evaluator are those of let bindings and
-environment lookup. When looking up an array in the environment, we ensure that
-all future work submitted to the current stream will occur after the
-asynchronous event for the array in the environment has been fulfilled.
-Synchronisation occurs on the device, so the following does not need to block
-waiting for the result:
-% \footnote{\footcode{Event.wait} is the FFI binding to \footcode{cudaStreamWaitEvent} and comes from the CUDA binding library.}
-%
-\begin{lstlisting}[style=haskell]
-after :: Stream -> Async a -> CIO a
-after stream (Async event arr) = Event.wait event (Just stream) [] >> return arr
-\end{lstlisting}
-
-Evaluating the binding of a let requires evaluating the expression in a new
-execution stream, and returning the array wrapped in an @Async@ containing an
-event indicating when the last kernel issued to the stream has completed:
-%
-\begin{lstlisting}[style=haskell]
-streaming :: MonadIO m => Context -> Reservoir -> (Stream -> m a) -> m (Event, a)
-streaming ctx rsv@(Reservoir _ weak_rsv) action = do
-  stream <- liftIO $ create ctx rsv                     -- (1) create new stream
-  result <- action stream
-  end    <- liftIO $ Event.waypoint stream              -- (2) event signals completion of action
-  return (end, result)
-\end{lstlisting}
-%
-Here the function @create@ allocates a new execution stream. However, rather
-than directly creating a new stream, the @Reservoir@ is used to store streams
-that are not currently executing. Thus, @create@ takes an inactive stream from
-the reservoir if one is available, allocating a new execution stream otherwise.
-Once all proceeding commands submitted to the stream have completed, the stream
-is asynchronously returned back to the reservoir.
-%
-\begin{lstlisting}[style=haskell]
-type RSV        = MVar ( HashTable CUDA.Context (FullList () Stream) )
-data Reservoir  = Reservoir !RSV !(Weak RSV)
-\end{lstlisting}
-%
-The design of the stream @Reservoir@ is similar to that of the device memory
-@Nursery@; see section~\ref{sec:memory_manager_implementation} for details. We
-use finalisers on events and streams handle deallocation.
-
-
 \section{Data transfer \& garbage collection}
 \label{sec:memory_management}
 
@@ -2412,6 +2002,417 @@ address to remain constant.} Note that page-locked memory is a scarce resource
 and reduces the amount of physical memory available to the operating system, so
 consuming too much page-locked memory can reduce overall system
 performance~\cite{NVIDIA:2012wf}.
+
+
+\section{Executing embedded array programs}
+\label{sec:executing_programs}
+
+The previous sections have discussed how to generate code for collective
+operations in an Accelerate program, compile the generated code asynchronously
+with other operations such as data transfer to the GPU, as well as our approach
+to kernel caching in order to reduce the overheads of dynamic compilation. These
+operations occur during the first traversal of the program AST\@. This section
+discusses the second phase of evaluating an Accelerate computation: loading the
+compiled code onto the GPU and executing the generated kernel(s) for each
+collective operation in a second bottom-up traversal of the program AST\@.
+
+% The previous sections discuss how to implement asynchronous compilation as well
+% as kernel caching in order to reduce the overheads of dynamic compilation. When
+% we wish to execute a collective array operation, we query the kernel cache for
+% object code instantiated to that skeleton; if no appropriate kernel is found
+% then new code is generated and compiled, asynchronously to other operations such
+% as transferring input data to the device. These tasks occur during the first
+% phase of program execution.
+% 
+% Once code generation and array transfer have completed, the \CUDA backend
+% traverses the program \AST once more, evaluating the entire program by executing
+% the generated \GPU kernel(s) for each collective array operation of the \AST
+% bottom-up. In order to do this efficiently, the first phase outputs a new \AST
+% where each node is decorated with all of the information required to executed
+% that collective operation.% How is this achieved?
+
+
+\subsection{Execution state}
+
+The CUDA backend provides the following function which encapsulates the entire
+process of compiling and evaluating an embedded array program denoted in the
+Accelerate language:
+%
+\begin{lstlisting}[style=haskell]
+CUDA.run :: Arrays a => Acc a -> a
+\end{lstlisting}
+%
+As the previous sections have demonstrated, running an Accelerate computation in
+the CUDA backend entails the use of much internal state, in particular a
+@StateT@ monad stacked over @IO@. This is necessary to use the Haskell
+foreign function interface (FFI) to communicate with the CUDA runtime, maintaine
+the CUDA environment's device context, and to keep track of internal resources
+such as GPU memory and the compiled kernel code.
+
+Nevertheless, that we are under the hood manipulating CUDA through the FFI and
+that we need to maintain internal state should not distract from the property
+that @run@ is a pure function at the level of the user-level Accelerate
+API. In fact, Accelerate provides an alternative backend implemented as a purely
+functional interpreter. The interpreter forms an executable specification of the
+denotational semantics of any Accelerate backend, and can be used to verify
+accelerated backends.
+
+
+\subsection{Aside: Tying the recursive knot}
+\label{sec:knot_tying}
+
+Consider the following definition of a binary tree, which stores all data at the
+leaves of the tree and is parameterised by the type of the leaf element:
+%
+\begin{lstlisting}[style=haskell]
+data Tree a
+    = Leaf a                            -- Leaves of the tree hold the data
+    | Node (Tree a) (Tree a)            -- Internal nodes record only left and right branches
+\end{lstlisting}
+%
+Note that the internal @Node@s of the @Tree@ are defined in terms of
+itself --- that is, @Tree@ is a recursively defined data type.
+Alternatively, the tree can be defined non-recursively, by parameterising the
+definition by the recursive step:
+%
+\begin{lstlisting}[style=haskell]
+data PreTree tree a
+    | Leaf a
+    | Node (tree a) (tree a)
+\end{lstlisting}
+%
+A recursive tree type can be recovered from this definition, albeit with the
+additional step of needing to unwrap the @Tree@ constructor before exposing
+the @Leaf@ and @Node@ constructors of the tree itself:
+%
+\begin{lstlisting}[style=haskell,firstnumber=4]
+data Tree a = Tree (PreTree Tree a)
+\end{lstlisting}
+
+This distinction is important because it allows us to use the same basic tree
+definition, but include additional information as part of each recursive step.
+For example, we can define a new binary tree type that records the size of the
+subtree at each point, and any existing functions operating over the basic
+@PreTree@ structure can still be used:
+%
+\begin{lstlisting}[style=haskell,firstnumber=5]
+data SizedTree a = SizedTree Int (PreTree SizedTree a)
+\end{lstlisting}
+
+
+\subsection{Annotating array programs}
+\label{sec:annotating_array_programs}
+
+Recall that terms in the Accelerate language are defined non-recursively. That
+is, the GADT used to represent nodes of the program AST are parameterised by the
+recursive knot, in the manner described in the previous section:
+%
+\begin{lstlisting}[style=haskell]
+data PreOpenAcc acc aenv a where
+  Map   :: (Shape sh, Elt a, Elt b)
+        => PreFun     acc aenv (a -> b)
+        -> acc            aenv (Array sh a)
+        -> PreOpenAcc acc aenv (Array sh b)
+  ...
+\end{lstlisting}
+
+This characteristic is used in order to improve the performance of executing
+array programs in the CUDA backend. In addition to the function @run@
+mentioned earlier for executing array programs, we also provide the following
+function, which prepares and executes an embedded array program of one argument:
+%
+\begin{lstlisting}[style=haskell]
+CUDA.run1 :: (Arrays a, Arrays b) => (Acc a -> Acc b) -> a -> b
+\end{lstlisting}
+%
+The idea is that, if we have an array program (first argument) that is executed
+many times, we want to avoid having to repeat the first phase of execution every
+time the function is applied to new input data (second argument). That is,
+rather than at each invocation of the function generating code for each
+operation and finding the compiled code already exists in the kernel cache, we
+would instead like to know precisely which kernel object needs to be executed
+without even consulting the caches. The Accelerate CUDA backend uses the
+knot-tying technique described in the previous section (\S\ref{sec:knot_tying})
+in order to achieve this.
+% to decorate each node of the program AST with all of the information required to
+% execute the kernel(s) implementing that operation, and exposes this
+% functionality by use of the @run1@ operation.
+
+Following the fusion transformation, the Accelerate array program is
+parameterised by a series of @Manifest@ and @Delayed@ nodes,
+representing operations that will eventually be executed on the device, and
+computations that have been fused (embedded) into other operations,
+respectively. See section~\ref{sec:implementing_array_fusion} for details of the
+representation. To execute a CUDA computation, manifest nodes are annotated with
+the compiled kernel code implementing the computation, while delayed
+computations recall only the extent of the computation that was embedded within
+its consumer.
+%
+\begin{lstlisting}[style=haskell]
+data ExecOpenAcc aenv a where
+  ExecAcc   :: FL.FullList () (AccKernel a)             -- (1) compiled kernel code
+            -> Gamma aenv                               -- (2) arrays referenced from scalar code
+            -> PreOpenAcc ExecOpenAcc aenv a
+            -> ExecOpenAcc aenv a
+
+  EmbedAcc  :: (Shape sh, Elt e)
+            => PreExp ExecOpenAcc aenv sh               -- (3) shape of embedded array
+            -> ExecOpenAcc aenv (Array sh e)
+\end{lstlisting}
+%
+\begin{enumerate}
+\item A non-empty list of the kernels required to execute this node of the
+    computation.
+
+\item The free array variables required to execute the kernel. In particular,
+    this maps environment indexes (de Bruijn indices) to some token identifying
+    that array in the generated code. Rather than using the de Bruijn index
+    directly in the generated code, the extra indirection results in generating
+    code that is less sensitive to the placement of let bindings, ultimately
+    leading to better kernel caching.
+
+\item The size of the input array that was embedded into the consumer, which is
+    often required when executing the kernel the operation was embedded within.
+\end{enumerate}
+
+In order to execute a single kernel the following data is required:
+%
+\begin{lstlisting}[style=haskell]
+data AccKernel a where
+  AccKernel :: String -> CUDA.Fun -> CUDA.Module        -- (1) compiled code
+            -> CUDA.Occupancy -> Int -> Int             -- (2) thread occupancy information
+            -> (Int -> Int)                             -- (3) launch configuration
+            -> AccKernel a
+\end{lstlisting}
+%
+\begin{enumerate}
+\item The name of the @\_\_global\_\_@ kernel function that the function
+    object (second parameter) implements. The compiled object code is linked
+    into the CUDA context as part of the binary module (third parameter).
+
+    % The results of \CUDA thread occupancy calculation.
+\item Once the kernel is compiled, details such as the number of registers
+    required for each thread can be used to determine the optimal launch
+    configuration of the kernel. In particular, the configuration is chosen in
+    order to maximum \indexe{thread occupancy}, which is the ratio of active
+    warps (i.e.\ warps that could run) to the maximum possible number of active
+    warps. While higher occupancy does not always equate to higher performance,
+    low occupancy always interferes with the ability to hide memory and
+    instruction latency, resulting in sub-optimal performance. This analysis
+    (fourth parameter) determines the optimal number of threads per block to use
+    (fifth parameter) together with the number of bytes of shared memory
+    required when initiating the kernel launch (sixth parameter).
+
+\item A function that computes the number of thread blocks to launch the kernel
+    with given the size of the computation, which is generally only known at
+    program runtime. How this function is used exactly depends on the kernel
+    being executed, but for example may take as input the size of the input
+    array.
+\end{enumerate}
+
+This formulation does not require searching the kernel tables during the
+execution phase in order to locate binary code: any kernels required to execute
+a computation are attached directly to the computation they instantiate. This is
+an important optimisation, which we provide through use of the @run1@
+operator, which we can now complete:
+%
+\begin{lstlisting}[style=haskell]
+CUDA.run1 :: (Arrays a, Arrays b) => (Acc a -> Acc b) -> a -> b
+CUDA.run1 f = \a -> unsafePerformIO (execute a)
+  where
+    acc         = convertAfun f
+    afun        = unsafePerformIO $ evalCUDA (compileAfun acc)
+    execute a   = evalCUDA (executeAfun1 afun a >>= collect)
+\end{lstlisting}
+%
+Here, @compileAfun :: DelayedAfun f -> ExecAfun f@ instantiates and
+compiles skeleton code implementing each of the collective array operations in
+the program (\S\ref{sec:instantiating_skeletons}), returning a new program AST
+where each node is annotated in the manner described above. The @run1@
+operation then returns a function that uses
+@executeAfun1 :: ExecAfun (a -> b) -> a -> CIO b@
+to evaluate the annotated program AST. Since we return this operation in a new
+closure, the first compilation phase producing @afun@ will only be executed
+once.
+
+Note that there is a subtle tension here: the task of the compilation phase is
+to produce an annotated AST carrying all of the information required to execute
+the computation, but that in turn requires the \emph{compiled} kernel modules,
+so how can compilation proceed asynchronously? We use a clever trick and take
+advantage of Haskell's non-strict execution semantics: once the external
+compilation has been initiated in a separate thread, @unsafePerformIO@ is
+used (in a safe manner) to delay waiting for the external process to complete
+and linking of the binary object until it is demanded by the running program.
+%
+\begin{lstlisting}[style=haskell]
+build1 :: DelayedOpenAcc aenv a -> CIO (AccKernel a)
+build1 acc = do
+  ...
+  (name, key)   <- compile code                         -- initiate external compilation
+  let (cta, blocks, smem)       = launchConfig acc occ
+      (mdl, fun, occ)           = unsafePerformIO $ do  -- delay linking until actually required
+        m       <- link key
+        f       <- CUDA.getFun m name
+        o       <- determineOccupancy acc device f
+        return (m, f, o)
+  --
+  return $ AccKernel name fun mdl occ cta smem blocks
+\end{lstlisting}
+
+
+\subsection{Launch configuration \& thread occupancy}
+
+In the CUDA execution model, GPU kernels are executed by a multi-dimensional
+hierarchy of threads. In particular, they are grouped into thread blocks, which
+are distributed over the available streaming multiprocessors (SMs). In contrast
+to a traditional CPU core, a GPU core does not have features such as branch
+prediction or speculative execution, which increase (single threaded)
+performance. In exchange, a GPU core is capable of executing hundreds of threads
+concurrently. In particular, a SM dispatches work in small groups of threads
+called \emph{warps}\index{warp}, and by executing warps concurrently and
+exchanging warps when one is paused or stalled the GPU is able to keep all of
+the ALUs busy. The ratio of active warps (i.e. warps that could run given a
+kernel's resource requirements such as number of registers per thread) to the
+maximum possible number of active warps (i.e. number of in-flight threads that
+can be tracked by the hardware) is called \indexe{occupancy}.
+
+Higher occupancy does not always equate to higher performance --- for example,
+if a kernel is limited by instruction throughput rather than memory bandwidth
+--- but low occupancy always interferes with the ability of the GPU to hide
+memory and instruction latency by swapping stalled warps, resulting in
+suboptimal performance. Several factors influence the configuration required for
+maximum possible occupancy, but once a kernel has been compiled and its resource
+usage known (in particular, the number of registers and bytes of shared memory
+each thread requires), we can calculate an ideal launch configuration. The CUDA
+backend does this for every kernel, to make optimal use of physical resources
+which vary from GPU to GPU. Additionally, we limit the number of threads blocks
+per multiprocessor to that which can be physically resident. This requires the
+generated kernels to be able to process multiple elements per thread, but
+reduces the overhead of launching thread blocks.
+
+TK: perhaps a graph of how occupancy calculations change for a given kernel on
+different GPU architectures?
+
+
+\subsection{Kernel execution}
+
+To evaluate the array computation on the CUDA backend, we perform a bottom-up
+traversal of the annotated program (\S\ref{sec:annotating_array_programs})
+executing the attached kernels. For each node of the AST, we distinguish three
+cases:
+%
+\begin{enumerate}
+\item If it is a @Use@ node, return a reference to the device memory holding the
+    array data.
+
+\item If it is a non-skeleton node, such as a let binding or shape conversion,
+    the evaluator executes the operation directly by adjusting the environment
+    or similar as required.
+
+\item If it is a skeleton node, memory is allocated to hold the result of
+    evaluating the skeleton, and finally invokes the one or more GPU kernels
+    that implement the operation.
+\end{enumerate}
+%
+In summary, the execution pass interleaves host-side evaluation and the
+invocation of GPU kernels, while keeping track of device memory, allocating
+intermediates, and releasing memory once no longer required (see
+section~\ref{sec:memory_management} for details on memory management). GPU
+kernels execute asynchronously, so the evaluator is able to immediately begin to
+set up the next stage of the computation while the current kernel executes. The
+CUDA runtime maintains a queue of kernels to be executed on the device, so if
+the result of an asynchronously executing kernel is needed before the kernel
+completes, any kernels that depend on that result will only be invoked after the
+kernel completes.
+
+\subsection{Kernel execution, concurrently}
+
+Beginning with compute capability 2.0, some CUDA devices are able to execute
+multiple kernels concurrently, rather than always executing kernels one after
+the other. This can improve overall performance by increasing the number of
+active threads on the device, particularly when executing many small kernels.
+Accelerate's collective operations have a purely functional semantics, so
+concurrent expression evaluation is always sound. The current implementation
+executes subtrees of the expression concurrently on the single device. We leave
+for future work also executing concurrently on separate GPUs, as is available in
+some Tesla configurations.
+
+In order to execute kernels concurrently, the kernels must be issued in
+different non-default streams. A \indexe{stream} is a sequence of commands that
+execute in order; different streams, on the other hand, may execute their
+commands out of order with respect to one another or concurrently. To allow
+streams to synchronise, an \indexe{event} may be inserted into a stream. Any
+stream may delay execution until a given event has been posted, which allows
+efficient cross-stream synchronisation managed by the device.
+
+The Accelerate CUDA backend introduces concurrency when evaluating the bound
+expression at a let binding, and synchronises when looking up a bound variable
+in the environment. Following conversion and optimisation of the program by the
+Accelerate frontend, any operation that is to be evaluated will appear as a
+let-bound expression in the program, and so sequences of let bindings may be
+able to execute their subtrees concurrently. The array expression evaluator has
+the type:
+%
+\begin{lstlisting}[style=haskell]
+executeOpenAcc
+    :: ExecOpenAcc aenv arrs            -- annotated array program (\S\ref{sec:annotating_array_programs})
+    -> Aval aenv                        -- array environment with synchronisation points
+    -> Stream                           -- current execution stream
+    -> CIO arrs
+\end{lstlisting}
+%
+Here, the array environment carries both the object as well as an event streams
+can synchronise against, which signals that the array has been fully evaluated:
+%
+\begin{lstlisting}[style=haskell]
+data Async a = Async !Event !a
+
+data Aval env where
+  Aempty :: Aval ()
+  Apush  :: Aval env -> Async t -> Aval (env, t)
+\end{lstlisting}
+
+The only interesting cases for the evaluator are those of let bindings and
+environment lookup. When looking up an array in the environment, we ensure that
+all future work submitted to the current stream will occur after the
+asynchronous event for the array in the environment has been fulfilled.
+Synchronisation occurs on the device, so the following does not need to block
+waiting for the result:
+% \footnote{\footcode{Event.wait} is the FFI binding to \footcode{cudaStreamWaitEvent} and comes from the CUDA binding library.}
+%
+\begin{lstlisting}[style=haskell]
+after :: Stream -> Async a -> CIO a
+after stream (Async event arr) = Event.wait event (Just stream) [] >> return arr
+\end{lstlisting}
+
+Evaluating the binding of a let requires evaluating the expression in a new
+execution stream, and returning the array wrapped in an @Async@ containing an
+event indicating when the last kernel issued to the stream has completed:
+%
+\begin{lstlisting}[style=haskell]
+streaming :: MonadIO m => Context -> Reservoir -> (Stream -> m a) -> m (Event, a)
+streaming ctx rsv@(Reservoir _ weak_rsv) action = do
+  stream <- liftIO $ create ctx rsv                     -- (1) create new stream
+  result <- action stream
+  end    <- liftIO $ Event.waypoint stream              -- (2) event signals completion of action
+  return (end, result)
+\end{lstlisting}
+%
+Here the function @create@ allocates a new execution stream. However, rather
+than directly creating a new stream, the @Reservoir@ is used to store streams
+that are not currently executing. Thus, @create@ takes an inactive stream from
+the reservoir if one is available, allocating a new execution stream otherwise.
+Once all proceeding commands submitted to the stream have completed, the stream
+is asynchronously returned back to the reservoir.
+%
+\begin{lstlisting}[style=haskell]
+type RSV        = MVar ( HashTable CUDA.Context (FullList () Stream) )
+data Reservoir  = Reservoir !RSV !(Weak RSV)
+\end{lstlisting}
+%
+The design of the stream @Reservoir@ is similar to that of the device memory
+@Nursery@; see section~\ref{sec:memory_manager_implementation} for details. We
+use finalisers on events and streams handle deallocation.
 
 
 \endinput

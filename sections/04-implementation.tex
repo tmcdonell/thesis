@@ -1767,6 +1767,40 @@ build1 acc = do
 \end{lstlisting}
 
 
+\subsection{Launch configuration \& thread occupancy}
+
+In the CUDA execution model, GPU kernels are executed by a multi-dimensional
+hierarchy of threads. In particular, they are grouped into thread blocks, which
+are distributed over the available streaming multiprocessors (SMs). In contrast
+to a traditional CPU core, a GPU core does not have features such as branch
+prediction or speculative execution, which increase (single threaded)
+performance. In exchange, a GPU core is capable of executing hundreds of threads
+concurrently. In particular, a SM dispatches work in small groups of threads
+called \emph{warps}\index{warp}, and by executing warps concurrently and
+exchanging warps when one is paused or stalled the GPU is able to keep all of
+the ALUs busy. The ratio of active warps (i.e. warps that could run given a
+kernel's resource requirements such as number of registers per thread) to the
+maximum possible number of active warps (i.e. number of in-flight threads that
+can be tracked by the hardware) is called \indexe{occupancy}.
+
+Higher occupancy does not always equate to higher performance --- for example,
+if a kernel is limited by instruction throughput rather than memory bandwidth
+--- but low occupancy always interferes with the ability of the GPU to hide
+memory and instruction latency by swapping stalled warps, resulting in
+suboptimal performance. Several factors influence the configuration required for
+maximum possible occupancy, but once a kernel has been compiled and its resource
+usage known (in particular, the number of registers and bytes of shared memory
+each thread requires), we can calculate an ideal launch configuration. The CUDA
+backend does this for every kernel, to make optimal use of physical resources
+which vary from GPU to GPU. Additionally, we limit the number of threads blocks
+per multiprocessor to that which can be physically resident. This requires the
+generated kernels to be able to process multiple elements per thread, but
+reduces the overhead of launching thread blocks.
+
+TK: perhaps a graph of how occupancy calculations change for a given kernel on
+different GPU architectures?
+
+
 \section{Data transfer \& garbage collection}
 \label{sec:memory_management}
 

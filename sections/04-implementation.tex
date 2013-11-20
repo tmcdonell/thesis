@@ -5,93 +5,6 @@
 {\textsc{---herbert v.\ prochnow}}
 
 
-%\begin{itemize}
-%\item implementing parallel algorithms (20\%, 1 week)
-%    \begin{itemize}
-%        \item fold
-%        \item scan
-%        \item permute (atomic operations)
-%        \item segmented/rank polymorphic operations
-%    \end{itemize}
-%
-%\item skeleton-based code generation (2 weeks)
-%    \begin{itemize}
-%        \item device capabilities (free array variables, @umul24@,
-%            @shfl@, atomic operations, shared memory)
-%        \item rank polymorphic operations
-%    \end{itemize}
-%
-%\item runtime system (3 weeks)
-%    \begin{itemize}
-%        \item launching kernels (occupancy calculator)
-%        \item caching compiled kernels (live \& persistent caches)
-%        \item memory management (escaping the EDSL evaluator; weak pointers vs.
-%            reference counting)
-%        \item executing kernels (annotated AST)
-%    \end{itemize}
-%
-%\end{itemize}
-
-% \begin{itemize}
-%\item Accelerate frontend
-%    \begin{itemize}
-%        \item reification
-%            \begin{itemize}
-%                \item smart constructors for type classes
-%                \item explicit dictionaries (polymorphism)
-%                \item environments
-%                \item HOAS vs. de Bruijn
-%                \item representation types
-%            \end{itemize}
-%        \item surface \& internal (core) languages
-%            \begin{itemize}
-%                \item representing different constructs in surface/core
-%                \item surface nested $\rightarrow$ core flat ?? (fuuuuture)
-%            \end{itemize}
-%        \item sharing observation ( --> sec 5? not my work )
-%    \end{itemize}
-%
-%\item Accelerate CUDA backend
-%    \begin{itemize}
-%        \item code generation
-%            \begin{itemize}
-%                \item architecture sensitive JIT cross-compiler
-%                \item future work: types, Haskell compile time
-%            \end{itemize}
-%        \item external compilation
-%            \begin{itemize}
-%                \item annotating AST nodes
-%            \end{itemize}
-%        \item memory management
-%            \begin{itemize}
-%                \item weak pointers \& weak hash tables
-%                \item advantages to alternatives
-%            \end{itemize}
-%        \item execution
-%            \begin{itemize}
-%                \item occupancy analysis
-%                \item multi-pass kernels
-%            \end{itemize}
-%        \item performance
-%            \begin{itemize}
-%                \item amortizing overheads (how to quantise this?)
-%                \item of generated code
-%                \item runtime overheads
-%                \item w.r.t. CUDA memory subsystem (theoretical performance)
-%                \item examples! spot the infelicities! (dot product)
-%            \end{itemize}
-%    \end{itemize}
-%\end{itemize}
-
-%Compilation has five phases:
-%\begin{itemize}
-%    \item Lexing
-%    \item Parsing
-%    \item Semantic analysis
-%    \item Optimisation
-%    \item Code Generation
-%\end{itemize}
-
 The previous chapter described the design of the Accelerate language, an
 embedded DSL of operations over arrays, rich enough to express some interesting
 real-world problems. This chapter details the architecture and implementation of
@@ -2023,7 +1936,7 @@ collective operation in a second bottom-up traversal of the program AST\@.
 % then new code is generated and compiled, asynchronously to other operations such
 % as transferring input data to the device. These tasks occur during the first
 % phase of program execution.
-% 
+%
 % Once code generation and array transfer have completed, the \CUDA backend
 % traverses the program \AST once more, evaluating the entire program by executing
 % the generated \GPU kernel(s) for each collective array operation of the \AST
@@ -2415,32 +2328,113 @@ The design of the stream @Reservoir@ is similar to that of the device memory
 use finalisers on events and streams handle deallocation.
 
 
-\endinput
-\section{EDSL Basics}
 
+%
+% END
+%
+
+%\begin{itemize}
+%\item implementing parallel algorithms (20\%, 1 week)
+%    \begin{itemize}
+%        \item fold
+%        \item scan
+%        \item permute (atomic operations)
+%        \item segmented/rank polymorphic operations
+%    \end{itemize}
+%
+%\item skeleton-based code generation (2 weeks)
+%    \begin{itemize}
+%        \item device capabilities (free array variables, @umul24@,
+%            @shfl@, atomic operations, shared memory)
+%        \item rank polymorphic operations
+%    \end{itemize}
+%
+%\item runtime system (3 weeks)
+%    \begin{itemize}
+%        \item launching kernels (occupancy calculator)
+%        \item caching compiled kernels (live \& persistent caches)
+%        \item memory management (escaping the EDSL evaluator; weak pointers vs.
+%            reference counting)
+%        \item executing kernels (annotated AST)
+%    \end{itemize}
+%
+%\end{itemize}
+
+% \begin{itemize}
+%\item Accelerate frontend
+%    \begin{itemize}
+%        \item reification
+%            \begin{itemize}
+%                \item smart constructors for type classes
+%                \item explicit dictionaries (polymorphism)
+%                \item environments
+%                \item HOAS vs. de Bruijn
+%                \item representation types
+%            \end{itemize}
+%        \item surface \& internal (core) languages
+%            \begin{itemize}
+%                \item representing different constructs in surface/core
+%                \item surface nested $\rightarrow$ core flat ?? (fuuuuture)
+%            \end{itemize}
+%        \item sharing observation ( --> sec 5? not my work )
+%    \end{itemize}
+%
+%\item Accelerate CUDA backend
+%    \begin{itemize}
+%        \item code generation
+%            \begin{itemize}
+%                \item architecture sensitive JIT cross-compiler
+%                \item future work: types, Haskell compile time
+%            \end{itemize}
+%        \item external compilation
+%            \begin{itemize}
+%                \item annotating AST nodes
+%            \end{itemize}
+%        \item memory management
+%            \begin{itemize}
+%                \item weak pointers \& weak hash tables
+%                \item advantages to alternatives
+%            \end{itemize}
+%        \item execution
+%            \begin{itemize}
+%                \item occupancy analysis
+%                \item multi-pass kernels
+%            \end{itemize}
+%        \item performance
+%            \begin{itemize}
+%                \item amortizing overheads (how to quantise this?)
+%                \item of generated code
+%                \item runtime overheads
+%                \item w.r.t. CUDA memory subsystem (theoretical performance)
+%                \item examples! spot the infelicities! (dot product)
+%            \end{itemize}
+%    \end{itemize}
+%\end{itemize}
+
+%Compilation has five phases:
+%\begin{itemize}
+%    \item Lexing
+%    \item Parsing
+%    \item Semantic analysis
+%    \item Optimisation
+%    \item Code Generation
+%\end{itemize}
+
+% EDSL basics:
+%
 % http://www.haskell.org/haskellwiki/Embedded_domain_specific_language
 % http://www.haskell.org/haskellwiki/Research_papers/Domain_specific_languages
-
-There are two major degrees of embedded languages:
-
-\begin{description}
-\item[Shallow:] Operations immediately translate into the target language.
-
-\item[Deep:] Operations build a data-structure that reflects the expression to
-    be evaluated. This structure allows the expression to be transformed before
-    being translated into the target language; for example by applying
-    optimisations.
-\end{description}
-
-Sharing and recursion are common problems when implementing embedded domain
-specific languages.
-
-\section{Surface vs.\ Representation types}
-
-
-\subsection{Algorithmic Skeletons}
-
-\subsection{Caching and reuse}
-floyd-warshall might require the improvements to caching / code generation re.
-free variable indices.
-
+% 
+% There are two major degrees of embedded languages:
+% 
+% \begin{description}
+% \item[Shallow:] Operations immediately translate into the target language.
+% 
+% \item[Deep:] Operations build a data-structure that reflects the expression to
+%     be evaluated. This structure allows the expression to be transformed before
+%     being translated into the target language; for example by applying
+%     optimisations.
+% \end{description}
+% 
+% Sharing and recursion are common problems when implementing embedded domain
+% specific languages.

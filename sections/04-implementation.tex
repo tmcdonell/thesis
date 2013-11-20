@@ -577,6 +577,7 @@ describe some particular features of code generation.
 
 
 \subsection{Producer-consumer fusion by template instantiation}
+\label{sec:fusion_by_template_instantiation}
 
 In the first, pre-template meta programming version of Accelerate based on C++
 templates and CPP macros~\cite{Chakravarty:2011fr}, we generated one or more
@@ -645,7 +646,7 @@ template, gets as its last argument the code generated for a delayed array
 resulting from the call to @codegenDelayed@. The use of template meta
 programming to implement CUDA skeletons is crucial to enable producer-consumer
 fusion by way of template instantiation. In the dot product example, the delayed
-producer is equivalent to the scalar function @\\ix -> (xs!ix) * (ys!ix)@.
+producer is equivalent to the scalar function @\ix -> (xs!ix) * (ys!ix)@.
 The call to @mkFold@ receives a CUDA version of this function, which can be
 inlined directly into the @fold@ skeleton. The delayed producer function is
 bound to the argument @getIn@ in the @mkFold@ definition given in
@@ -1127,14 +1128,56 @@ dimensionality.
 % DIM$n$ fromIndex(DIM$n$ sh, Ix ix);            // inverse of `toIndex'
 % \end{lstlisting}
 
-However, the new code generation method (subsequent to, but not affecting the
-result of \cite{CliftonEverest:2014vi}) does not require the use of
-@struct@s to represent shapes. The new approach represents shapes during
-code generation in the same manner as tuples --- as a list of expressions
-representing each of the individual components of the shape. Operations such as
-@toIndex@ are implemented directly in the skeleton, rather than packing the
-shape components into a @struct@ and then calling the family of overloaded
-functions which were provided separately in a header file.
+The new code generation method\footnote{Subsequent to, but not affecting the
+result of \cite{CliftonEverest:2014vi}} does not require the use of @struct@s to
+represent shapes. The new approach represents shapes during code generation in
+the same manner as tuples --- as a list of expressions representing each of the
+individual components of the shape. Operations such as @toIndex@ are implemented
+directly in the skeleton, rather than packing the shape components into a
+@struct@ and then calling the family of overloaded functions which were provided
+separately in a header file.
+
+Recall the vector dot product example from
+section~\ref{sec:fusion_by_template_instantiation}, where the pairwise
+multiplication of the two arrays resulting in the scalar function
+@\ix -> (xs!ix) * (ys!ix)@ being embedded into the consumer template. If a
+@struct@-based representation of shapes is used, this results in the following
+C code~\cite{CliftonEverest:2014vi}:
+%
+\begin{lstlisting}[style=cuda]
+  const Int64 v2 = ix;
+  const int v3 = toIndex(shIn0, shape(v2));
+  const int v4 = toIndex(shIn1, shape(v2));
+  y0 = arrIn0_a0[v3] * arrIn1_a0[v4];
+\end{lstlisting}
+%
+The functions @shape@ and @toIndex@ map multi-dimensional indices to the linear
+array representation. Since the source arrays are vectors, they do not
+contribute anything to the example, in particular, their definitions are:
+%
+\begin{lstlisting}[style=cuda]
+static __inline__ __device__ int toIndex(const DIM1 sh, const DIM1 ix)
+{
+    assert(ix >= 0 && ix < sh);
+    return ix;
+}
+
+static __inline__ __device__ DIM1 shape(const int a)
+{
+    return a;
+}
+\end{lstlisting}
+%
+Thus, @v3@ and @v4@ map, indirectly, to @v2@ and --- luckily --- the CUDA
+compiler is able to remove the superfluous assignments in this case. With the
+new code generator method, we produce the following code which does not
+introduce the redundant assignment, and thus does not rely on optimisations
+performed by the CUDA compiler:
+%
+\begin{lstlisting}[style=cuda]
+const Int64 v1 = ({ assert(ix ≥ 0 && ix < min(shIn0_0, shIn1_0)); ix; });
+y0 = arrIn0_0[v1] * arrIn1_0[v1];
+\end{lstlisting}
 
 
 \subsection{Lambda abstractions}
@@ -1218,7 +1261,7 @@ Here the array computation @inds :: Acc (Array DIM1 Float)@ is used in the
 first and second argument of @backpermute@. In the code for @smvm@,
 @inds@ is a previously let-bound variable. If instead, a collective
 operation would have been used in place of @inds@ in the scalar function
-@\i -> index1 \$ inds!i@, we would lift it out of the scalar function and
+@\i -> index1 $ inds!i@, we would lift it out of the scalar function and
 let bind it. After all, we do not want to execute an arbitrarily complex array
 computation once for every invocation of a scalar function. In fact, CUDA does
 not permit us to do this, as the scalar function is translated into GPU kernel

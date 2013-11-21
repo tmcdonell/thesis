@@ -72,7 +72,7 @@ synchronisation point, so thread blocks instead communicate their partial
 results by committing them to memory, and the kernel is launched recursively
 until the final reduction value is computed.
 
-\begin{figure}[htbp]
+\begin{figure}
     \begin{center}
         \includegraphics[width=\textwidth]{images/sec-4/tree-reduction}
     \end{center}
@@ -229,6 +229,7 @@ codomain.
 %
 \begin{lstlisting}[style=haskell
     ,label=lst:filter
+    ,float=t
     ,caption={[Filter in Accelerate] Filtering returns only those elements of a
     vector which satisfy a predicate. This operation is included as part of
     Accelerate's standard prelude.}]
@@ -259,6 +260,7 @@ combined (accumulated) correctly.
 %
 \begin{lstlisting}[style=haskell
     ,label=lst:histogram
+    ,float=t
     ,caption={[Simple histogram in Accelerate] A simple histogram written in
     Accelerate. We assume the input vector contains elements in the range
     $\left[0,100\right)$ and accumulate into ten equally sized bins.}]
@@ -784,7 +786,7 @@ indicate that @map@ is a \emph{GPU} \indexe{kernel}~\cite{NVIDIA:2012wf}
 --- a single data-parallel computation launch on the \GPU by the CPU\@.
 \emph{Antiquotations}\index{antiquotation} @$params:var@, @$exp:var@,
 @$items:var@, and @$stms:var@ denote template parameters using a
-Haskell variable @var@ to splice \CUDA C parameters, expressions, items,
+Haskell expression @var@ to splice \CUDA C parameters, expressions, items,
 and statements, respectively, into the skeleton.
 
 \begin{lstlisting}[style=haskell,
@@ -914,8 +916,8 @@ type @DelayedOpenAcc@. For details of the representation see
 section~\ref{sec:implementing_array_fusion}.
 
 The crucial step in enabling producer-consumer fusion in Accelerate's CUDA
-backend is in the function @codegenAcc@, which turns a manifest array
-computation of type @DelayedOpenAcc aenv a@ into an instantiated CUDA
+backend is in the function @codegenAcc@, which turns an AST node of type
+@DelayedOpenAcc aenv a@ producing a manifest array, into an instantiated CUDA
 kernel of type @CUSkeleton aenv a@:
 %
 \begin{lstlisting}[style=haskell]
@@ -1712,12 +1714,12 @@ or an entirely different computation. For example, operations such as
 and compile the same code multiple times.
 
 \begin{lstlisting}[style=haskell,numbers=none]
-type ProgramCache = HashTable KernelKey KernelEntry
+type ProgramCache = MVar ( HashTable KernelKey KernelEntry )
 
 type KernelKey = (CUDA.Compute, ByteString)
 data KernelEntry
-    = CompileProcess FilePath (MVar ())                                 -- (1)
-    | KernelObject ByteString (FullList CUDA.Context CUDA.Module)       -- (2)
+    = CompileProcess FilePath (MVar ())                                             -- (1)
+    | KernelObject ByteString (FullList CUDA.Context CUDA.Module)                   -- (2)
 \end{lstlisting}
 
 The cache is a hash table which is keyed by an MD5~\cite{Rivest:1992va} digest
@@ -1748,7 +1750,7 @@ home directory so that it is available across separate runs of the program, or
 indeed different programs. This information is stored in a persistent cache:
 %
 \begin{lstlisting}[style=haskell,numbers=none]
-type PersistentCache = HashTable KernelKey ()
+type PersistentCache = MVar ( HashTable KernelKey () )
 \end{lstlisting}
 
 The persistent cache is a hash table indexed by the same key used by the
@@ -1775,7 +1777,7 @@ at the start of the file, followed by the keys.
 restore :: FilePath -> IO PersistentCache
 restore db = do
   exist <- doesFileExist db
-  case exist of
+  pt    <- case exist of
     False       -> encodeFile db (0::Int) >> HashTable.new
     True        -> do
       store         <- L.readFile db
@@ -1786,6 +1788,8 @@ restore db = do
           go (!k:xs) = HashTable.insert pt k () >> go xs
       --
       go (runGet (getMany n) rest)
+  --
+  newMVar pt
 \end{lstlisting}
 
 The \texttt{binary} package is used to deserialise the data from file. Note that
@@ -1872,7 +1876,7 @@ encapsulates the entire process of compiling and executing a program on the
 \GPU~(\S\ref{sec:executing_programs}):
 %
 \begin{lstlisting}[style=haskell,numbers=none]
-    run :: Arrays a => Acc a -> a
+CUDA.run :: Arrays a => Acc a -> a
 \end{lstlisting}
 %
 The result of evaluating this program is made available for use in vanilla
@@ -1892,7 +1896,7 @@ copied when data is transferred between the host and device. The function
 implies host-to-device data transfer:
 %
 \begin{lstlisting}[style=haskell,numbers=none]
-    use :: Arrays arrays => arrays -> Acc arrays
+use :: Arrays arrays => arrays -> Acc arrays
 \end{lstlisting}
 %
 % The @Arrays@ class constrains the type to either a single array of type
@@ -2475,7 +2479,7 @@ data AccKernel a where
 \end{lstlisting}
 %
 \begin{enumerate}
-\item The name of the @\_\_global\_\_@ kernel function that the function
+\item The name of the @__global__@ kernel function that the function
     object (second parameter) implements. The compiled object code is linked
     into the CUDA context as part of the binary module (third parameter).
 
@@ -2547,6 +2551,7 @@ build1 acc = do
   --
   return $ AccKernel name fun mdl occ cta smem blocks
 \end{lstlisting}
+\marginnote{tk: put into compilation section?}
 
 
 \subsection{Launch configuration \& thread occupancy}

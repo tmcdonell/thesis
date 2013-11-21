@@ -281,9 +281,9 @@ This example also demonstrates a subtle behavioural tendency of optimising
 program transformations: while the second (target) program does not produce any
 intermediate data structures as desired, we can no longer interpret the program
 as a sequence of combinators. This observation is critical if the combinators
-represent \emph{collective} operations expressed as algorithmic
-\emph{skeletons}, as they do in Accelerate: while the second program compiles to
-an efficient scalar loop, its \emph{parallel} interpretation has been lost.
+represent collective operations expressed as algorithmic skeletons, as they do
+in Accelerate: while the second program compiles to an efficient \emph{scalar}
+loop, its \emph{parallel} interpretation has been lost.
 
 
 \subsection{Considerations}
@@ -379,36 +379,38 @@ operations into two categories:
     float=t,
     label={lst:operations},
     caption={[Core Accelerate array operations] Summary of Accelerate's core
-        collective array operations, omitting @Shape@ and @Elt@
+        collective array operations, omitting \code{Shape} and \code{Elt}
         class constraints for brevity. In addition, there are other flavours of
         folds and scans as well as segmented versions of these.}]
 %\makebox[\textwidth]{\rm\bf Producers}%
 
-map         :: (Exp a -> Exp b) -> Acc (Array sh a) -> Acc (Array sh b)       %\rm map a function over an array%
-zipWith     :: (Exp a -> Exp b -> Exp c) -> Acc (Array sh a)                  %\rm apply funciton to\ldots%
-            -> Acc (Array sh b) -> Acc (Array sh c)                           %\rm \ldots a pair of arrays%
+map         :: (Exp a -> Exp b) -> Acc (Array sh a)                   %\rm map a function over an array%
+            -> Acc (Array sh b)
+zipWith     :: (Exp a -> Exp b -> Exp c) -> Acc (Array sh a)          %\rm apply funciton to a\ldots%
+            -> Acc (Array sh b) -> Acc (Array sh c)                   %\rm \ldots pair of arrays%
 
-backpermute :: Exp sh' -> (Exp sh' -> Exp sh) -> Acc (Array sh a)             %\rm backwards permutation%
+backpermute :: Exp sh' -> (Exp sh' -> Exp sh) -> Acc (Array sh a)     %\rm backwards permutation%
             -> Acc (Array sh' e)
-replicate   :: Slice slix                                                     %\rm extend array across\ldots%
-            => Exp slix -> Acc (Array (SliceShape slix) e)                    %\rm \ldots new dimensions%
+replicate   :: Slice slix                                             %\rm extend array across\ldots%
+            => Exp slix -> Acc (Array (SliceShape slix) e)            %\rm \ldots new dimensions%
             -> Acc (Array (FullShape slix) e)
-slice       :: Slice slix                                                     %\rm remove existing dimensions%
+slice       :: Slice slix                                             %\rm remove existing dimensions%
             => Acc (Array (FullShape  slix) e) -> Exp slix
             -> Acc (Array (SliceShape slix) e)
 
-generate    :: Exp sh -> (Exp sh -> Exp a) -> Acc (Array sh a)                %\rm array from index mapping%
+generate    :: Exp sh -> (Exp sh -> Exp a) -> Acc (Array sh a)        %\rm array from index mapping%
 
 %\makebox[\textwidth]{\rm\bf Consumers}%
 
-fold        :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Array (sh:.Int) a)  %\rm tree reduction along\ldots%
-            -> Acc (Array sh a)                                               %\rm \ldots innermost dimension%
-scan{l,r}   :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Vector a)           %\rm left-to-right or right-to-left%
-            -> Acc (Vector a)                                                 %\rm \ldots vector pre-scan%
-permute     :: (Exp a -> Exp a -> Exp a) -> Acc (Array sh' a)                 %\rm forward permutation%
-            -> (Exp sh -> Exp sh') -> Acc (Array sh a) -> Acc (Array sh' a)
-stencil     :: Stencil sh a stencil => (stencil -> Exp b) -> Boundary a       %\rm map a function with local\ldots%
-            -> Acc (Array sh a) -> Acc (Array sh b)                           %\rm \ldots neighbourhood context%
+fold        :: (Exp a -> Exp a -> Exp a) -> Exp a                     %\rm tree reduction along\ldots%
+            -> Acc (Array (sh:.Int) a) -> Acc (Array sh a)            %\rm \ldots innermost dimension%
+scan{l,r}   :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Vector a)   %\rm left-to-right or right-to-left%
+            -> Acc (Vector a)                                         %\rm \ldots vector pre-scan%
+permute     :: (Exp a -> Exp a -> Exp a) -> Acc (Array sh' a)         %\rm forward permutation%
+            -> (Exp sh -> Exp sh') -> Acc (Array sh a)
+            -> Acc (Array sh' a)
+stencil     :: Stencil sh a stencil => (stencil -> Exp b)             %\rm map a function with local\ldots%
+            -> Boundary a -> Acc (Array sh a) -> Acc (Array sh b)     %\rm \ldots neighbourhood context%
 \end{lstlisting}
 
 Listing~\ref{lst:operations} summarises the collective array operations that we
@@ -631,8 +633,8 @@ for combining producer terms in Accelerate:
     ,label=lst:Embed
     ,caption={Representation of fused producer arrays in Accelerate}]
 data Embed acc aenv a where
-  Embed :: Extend     acc aenv aenv'            -- additional bindings to bring into scope, to evaluate the\ldots
-        -> Cunctation acc      aenv' a          -- \ldots representation of (fused) producer terms
+  Embed :: Extend     acc aenv aenv'        -- additional bindings to bring into scope, to evaluate the\ldots
+        -> Cunctation acc      aenv' a      -- \ldots representation of (fused) producer terms
         -> Embed      acc aenv       a
 \end{lstlisting}
 
@@ -652,9 +654,9 @@ and then we would not require this additional data structure. For example, the
 following is a valid alternative definition for the @Yield@ constructor:
 %
 \begin{lstlisting}[style=haskell]
-  Yield' :: (Shape sh, Elt e)                           -- Alternative definition (bad)
-         => Extend     acc aenv aenv'                   -- NEW: supplementary environment bindings
-         -> PreExp     acc      aenv' sh                -- CHANGED: terms now defined w.r.t. \texttt{aenv'}
+  Yield' :: (Shape sh, Elt e)                   -- Alternative definition (bad)
+         => Extend     acc aenv aenv'           -- NEW: supplementary environment bindings
+         -> PreExp     acc      aenv' sh        -- CHANGED: terms now defined w.r.t. \texttt{aenv'}
          -> PreFun     acc      aenv' (sh -> e)
          -> Cunctation acc aenv       (Array sh e)
 \end{lstlisting}
@@ -819,7 +821,7 @@ sure to let-bind the intermediate results along the way.
 %
 \begin{lstlisting}[style=haskell
     ,name=zipWithD
-    ,caption={Fused definition of the @zipWith@ operation}
+    ,caption={Fused definition of the \code{zipWith} operation}
     ,escapeinside={(*}{*)}]
   where
     combine :: forall acc aenv a b c e. (Elt a, Elt b, Elt c)
@@ -828,9 +830,9 @@ sure to let-bind the intermediate results along the way.
             -> PreFun acc aenv (e -> b)
             -> PreFun acc aenv (e -> c)
     combine c ixa ixb
-      | Lam (Lam (Body c'))     <- weakenFE SuccIdx c   :: PreOpenFun acc ((),e) aenv (a -> b -> c) (*\label{lst:zipwithD_combine_weaken}*)
-      , Lam (Body ixa')         <- ixa
-      , Lam (Body ixb')         <- ixb
+      | Lam (Lam (Body c')) <- weakenFE SuccIdx c :: PreOpenFun acc ((),e) aenv (a->b->c) (*\label{lst:zipwithD_combine_weaken}*)
+      , Lam (Body ixa')     <- ixa
+      , Lam (Body ixb')     <- ixb
       = Lam $ Body $ Let ixa' $ Let (weakenE SuccIdx ixb') c'
 \end{lstlisting}
 %
@@ -942,10 +944,10 @@ we defer that discussion until section~\ref{sec:binder_elimination}.
 embedPreAcc :: PreOpenAcc acc aenv arrs -> Embed acc aenv arrs
 embedPreAcc pacc =
   case pacc of
-    Alet bnd body       -> aletD bnd body                               -- see section~\ref{sec:binder_elimination}
-    Use arrs            -> done  (Use arrs)                             -- non-computation node
-    Map f a             -> fuse  (into  mapD (cvtF f)) a                -- producers
-    Fold f z a          -> embed (into2 Fold (cvtF f) (cvtE z)) a       -- consumers
+    Alet bnd body       -> aletD bnd body                           -- see section~\ref{sec:binder_elimination}
+    Use arrs            -> done  (Use arrs)                         -- non-computation node
+    Map f a             -> fuse  (into  mapD (cvtF f)) a            -- producers
+    Fold f z a          -> embed (into2 Fold (cvtF f) (cvtE z)) a   -- consumers
     ...
 \end{lstlisting}
 
@@ -987,7 +989,8 @@ further fused into later terms.
 
 \begin{lstlisting}[style=haskell,name=embedPreAcc]
     fuse :: Arrays as
-         => (forall aenv'. Extend acc aenv aenv' -> Cunctation acc aenv' as -> Cunctation acc aenv' bs)
+         => (forall aenv'. Extend acc aenv aenv' -> Cunctation acc aenv' as
+                                            -> Cunctation acc aenv' bs)
          ->       acc aenv as
          -> Embed acc aenv bs
     fuse op (embedAcc -> Embed env cc) = Embed env (op env cc)
@@ -1057,14 +1060,21 @@ care to recover optimisation opportunities such as linear indexing of the
 underlying array data.
 
 \begin{lstlisting}[style=haskell,name=fuseOpenAcc]
-    delayed :: (Shape sh, Elt e) => OpenAcc aenv (Array sh e) -> DelayedOpenAcc aenv (Array sh e)
+    delayed :: (Shape sh, Elt e)
+            => OpenAcc        aenv (Array sh e)
+            -> DelayedOpenAcc aenv (Array sh e)
     delayed (embedOpenAcc -> Embed BaseEnv cc) = case cc of
-      Done v                            -> Delayed (arrayShape v) (indexArray v) (linearIndex v)
-      Yield (cvtE -> sh) (cvtF -> f)    -> Delayed sh f (f `compose` fromIndex sh)
+      Done v
+        -> Delayed (arrayShape v) (indexArray v) (linearIndex v)
+
+      Yield (cvtE -> sh) (cvtF -> f)
+        -> Delayed sh f (f `compose` fromIndex sh)
+
       Step  (cvtE -> sh) (cvtF -> p) (cvtF -> f) v
         | Just REFL <- match sh (arrayShape v)
         , Just REFL <- isIdentity p
         -> Delayed sh (f `compose` indexArray v) (f `compose` linearIndex v)
+
         | f'        <- f `compose` indexArray v `compose` p
         -> Delayed sh f' (f' `compose` fromIndex sh)
 \end{lstlisting}
@@ -1274,15 +1284,17 @@ algorithm that re-traverses the whole reduct whenever a redex is reduced,
 although more efficient imperative algorithms exist
 \cite{Appel:1997gs,Benton:2004ua,Kennedy:2007cb}.
 
-The only interesting case of the @shrink@ function is that of a
+The only interesting case of the @shrink@ function shown in
+Listing~\ref{lst:shrinking} is that of a
 $\beta$-redex where the number of uses is less than or equal to one. The
 implementation, outlined below, uses the \indext{de Bruijn} manipulation
 techniques developed in sections~\ref{sec:equality} and \ref{sec:substitution}.
 This also suffices to eliminate dead code, as Accelerate does not have separate
 forms for let-bindings and lambda abstractions.
-%
+
 \begin{lstlisting}[
     style=Haskell,
+    float,
     label={lst:shrinking},
     caption={The shrinking reduction}]
 usesOf :: Idx env s -> Term env t -> Int
@@ -1820,11 +1832,17 @@ any impact in practice. Unlike those systems of the prior two decades,
 \emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007kp} succeeded in this
 goal and at the same time stayed simple and useful in practice.
 
-Stream fusion has a similar structure to @foldr/build@: a single rule
-eliminates matching pairs of constructor and destructor, and operations need to
-be expressed in terms of these constructors:
+As shown in Listing~\ref{lst:stream_fusion}, stream fusion has a similar
+structure to @foldr/build@: a single rule eliminates matching pairs of
+constructor and destructor, and operations need to be expressed in terms of
+these constructors.
 %
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \emph{stream fusion} transformation}]
+\begin{lstlisting}[style=Haskell
+    ,numbers=none
+    ,mathescape
+    ,float
+    ,label=lst:stream_fusion
+    ,caption={The stream fusion transformation}]
 %\bf$\langle$ stream fusion $\rangle$% forall s. stream (unstream s) $\mapsto$ s
 
 stream   :: [a] -> Stream a
@@ -1875,9 +1893,16 @@ compiler identify and remove adjacent constructor/destructor pairs. In contrast,
 the Repa~\cite{Keller:2010er} library uses a functional representation of
 \emph{delayed arrays}\index{fusion!delayed arrays} that instead \emph{avoids}
 creating unnecessary intermediate structures, rather than relying on a
-subsequent fusion transformation to remove them.
+subsequent fusion transformation to remove them. The basic definition of delayed
+arrays --- without the use of indexed types~\cite{Chakravarty:2005kg} to specify
+the representation and computation method~\cite{Lippmeier:2012gx} --- is shown
+in Listing~\ref{lst:repa_arrays}.
 
-\begin{lstlisting}[style=Haskell,numbers=none,caption={Repa-1 style array definition},label={lst:repa_arrays}]
+\begin{lstlisting}[style=Haskell
+    ,numbers=none
+    ,float
+    ,label={lst:repa_arrays}
+    ,caption={Repa-1 style array definition}]
 data Array sh e = Manifest sh (Vector e)    -- unboxed data
                 | Delayed  sh (sh -> e)     -- array shape and indexing function
 \end{lstlisting}
@@ -1931,25 +1956,25 @@ more global reasoning than short-cut fusion.
 \section{Discussion}
 
 
-\section*{NOTES}
-
-MMTC: Chapter 5: This set up where you put the related work for fusion in the
-middle of the chapter doesn't work IMO\@. Always lead with the interesting
-material (your contribution) and not with the boring stuff (previous work that
-expert readers already know anyway). Put the related work at the end of the
-chapter.
-
-Section 5.3 (typed equality) seems out of place. (You have got a remark to maybe
-move it to implementation. I'm not sure whether that is the right place, but the
-current place is definitely not good.)
-
-Section 5.4 \& 5.5 (simultaneous substitution and environment manipulation) also
-seem like a distraction in the middle of explaining fusion. First you have the
-general fusion setup in 5.2 and then the details in 5.6. They should one
-straight after the other without any distraction in between. If you need 5.4 \&
-5.5 for 5.6, then make sure you discuss this stuff earlier. Maybe it should be
-part of the background or the implementation chapter.
-
-MMTC: Section numbers with 4 parts (5.2.2.1 etc) look silly. Use unnumbered
-paragraph's or revise your structure.
+% \section*{NOTES}
+% 
+% MMTC: Chapter 5: This set up where you put the related work for fusion in the
+% middle of the chapter doesn't work IMO\@. Always lead with the interesting
+% material (your contribution) and not with the boring stuff (previous work that
+% expert readers already know anyway). Put the related work at the end of the
+% chapter.
+% 
+% Section 5.3 (typed equality) seems out of place. (You have got a remark to maybe
+% move it to implementation. I'm not sure whether that is the right place, but the
+% current place is definitely not good.)
+% 
+% Section 5.4 \& 5.5 (simultaneous substitution and environment manipulation) also
+% seem like a distraction in the middle of explaining fusion. First you have the
+% general fusion setup in 5.2 and then the details in 5.6. They should one
+% straight after the other without any distraction in between. If you need 5.4 \&
+% 5.5 for 5.6, then make sure you discuss this stuff earlier. Maybe it should be
+% part of the background or the implementation chapter.
+% 
+% MMTC: Section numbers with 4 parts (5.2.2.1 etc) look silly. Use unnumbered
+% paragraph's or revise your structure.
 

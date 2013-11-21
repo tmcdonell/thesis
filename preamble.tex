@@ -260,7 +260,10 @@
 \newcommand{\code}[1]{\lstinline[style=inline];#1;}
 \newcommand{\footcode}[1]{\lstinline[style=inline];#1;}
 
-\lstMakeShortInline[style=inline]@
+\newcommand{\makeatactive}{\lstMakeShortInline[style=inline]@}
+\newcommand{\makeatchar}{\lstDeleteShortInline@}
+
+\makeatactive
 
 
 % Chapter page style

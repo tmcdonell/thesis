@@ -761,7 +761,7 @@ data PreOpenExp acc env aenv t where
 To apply @heq@ to the body expression, we need to know something about
 the type of the bound terms to ensure that the scalar environments are the same,
 namely \lstinline[style=inline,mathescape]{a $\sim$ bnd_t $\sim$ b}.%
-\footnote{Alternatively we can use @Data.Typeable.gcast@ to provide a
+\footnote{Alternatively we can use \footcode{Data.Typeable.gcast} to provide a
 type-safe cast, but this quickly becomes unwieldy and is a little
 unsatisfactory.} To do this we must equip terms with a runtime witness to the
 existentially quantified type. Our reified dictionaries will allow us to do
@@ -876,7 +876,7 @@ rebuild :: Syntactic f
 The @Syntactic@ class\footnote{Since Accelerate is a stratified language
 there are separate implementations of this toolkit on syntactic elements for the
 scalar and collective operations, but the details are identical. The discussion
-uses the generic @Term@ to mean either of these operations.} tells us
+uses the generic \footcode{Term} to mean either of these operations.} tells us
 everything we need to know about @f@ --- our notion of ``stuff'' --- in
 order to rebuild terms: a mapping in from variables, a mapping out to terms, and
 a weakening map which extends the context. Renaming will instantiate @f@
@@ -1185,6 +1185,7 @@ data Cunctation acc aenv a where
         -> Cunctation acc aenv (Array sh' b)
 \end{lstlisting}
 %
+\makeatchar
 The representation\footnote{%
 cunc$\cdot$ta$\cdot$tion
 \textcolor{gray}{|
@@ -1192,6 +1193,7 @@ k\textipa{@}NGk\textquotesingle t\={a}SH\textipa{@}n
 \enspace\textipa{k@Nk}\textquotesingle \textipa{te\;IS@n}
 % kəNGkˈtāSHən\enspace kəŋkˈteɪʃən
 |} (n) the action or an instance of delaying; tardy action.}
+\makeatactive
 %
 is parameterised by the recursive closure of array computations @acc@, the
 array environment @aenv@, and has three constructors:

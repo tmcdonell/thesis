@@ -1081,7 +1081,7 @@ static __inline__ __device__ DIM1 shape(const int a)
 }
 \end{lstlisting}
 %
-Thus, @v3@ and @v4@ map, indirectly, to @v2@ and --- luckily --- the CUDA
+Thus, @v3@ and @v4@ map, indirectly, to @v2@, and --- luckily --- the CUDA
 compiler is able to remove the superfluous assignments in this case. With the
 new code generator method, we produce the following code which does not
 introduce the redundant assignment, and thus does not rely on optimisations
@@ -2327,7 +2327,47 @@ The design of the stream @Reservoir@ is similar to that of the device memory
 @Nursery@; see section~\ref{sec:memory_manager_implementation} for details. We
 use finalisers on events and streams handle deallocation.
 
+At an example, Listing~\ref{lst:concurrent_kernels} contains an example program
+that is able to execute the nine @map@ operations concurrently on devices of
+compute capability 2.0 and greater. Not that, to keep the example simple, fusion
+is disabled, to prevent the @map@ operations from fusing into the @zip9@. The
+corresponding execution trace from the NVIDIA Visual Profiler application is
+shown in Figure~\ref{fig:concurrent_kernels}, which demonstrates each of the
+@map@ operations executing in separate streams and overlapping with each other.
 
+\begin{lstlisting}[style=haskell
+    ,float
+    ,label=lst:concurrent_kernels
+    ,caption={[Example program that executes kernels concurrently]
+        An example program that executes each of the \code{map} kernels
+        concurrently, on devices of compute capability 2.0 and greater.}]
+loop :: Exp Int -> Exp Int
+loop ticks = A.while (\i -> i <* clockRate * ticks) (+1) 0
+  where
+    clockRate   = 900000
+
+concurrentTest :: Acc (Vector (Int,Int,Int,Int,Int,Int,Int,Int,Int))
+concurrentTest
+  = A.zip9 (A.map loop (use $ fromList Z [1]))
+           (A.map loop (use $ fromList Z [1]))
+           ...
+\end{lstlisting}
+
+\begin{figure}[tbp]
+    \centering
+    \includegraphics[width=\textwidth]{images/sec-4/concurrent_kernels}
+    \caption[Profiling trace of a program which executes kernels
+    concurrently]{Trace from the NVIDIA Visual Profiler application for the
+    program shown in Listing~\ref{lst:concurrent_kernels}, where the nine
+    \code{map} kernels execute concurrently on devices of compute capability 2.0
+    and greater. Each \code{map} operation takes $226.7$~ms to execute. As
+    shown, an equivalent of $2.04$~seconds of GPU time is execute in a wall
+    clock time of $266.4$~ms, which includes program initialisation.}
+    \label{fig:concurrent_kernels}
+\end{figure}
+
+
+\subsection{Conclusion}
 
 %
 % END

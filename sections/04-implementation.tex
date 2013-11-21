@@ -193,8 +193,7 @@ machines. Because of their fundamental importance to many algorithms,
 implementing efficient scan operations in \CUDA has received much
 attention~\cite{Sengupta:2007tc,Dotsenko:2008fo,Harris:2012fy}.
 
-TK: A basic description (in pictures) of how the scan and segmented scan
-algorithms work.
+TK: A basic description (in pictures) of how the scan and segmented scan algorithms work.
 
 
 \subsection{Permute}
@@ -782,7 +781,7 @@ Listing~\ref{lst:map_skeleton} shows the skeleton code for the @map@
 operation. The @[cunit|...|]@ brackets enclose \CUDA C definitions
 comprising this skeleton template. \CUDA uses the @__global__@ keyword to
 indicate that @map@ is a \emph{GPU} \indexe{kernel}~\cite{NVIDIA:2012wf}
---- a single data-parallel computation launch on the \GPU by the CPU.
+--- a single data-parallel computation launch on the \GPU by the CPU\@.
 \emph{Antiquotations}\index{antiquotation} @$params:var@, @$exp:var@,
 @$items:var@, and @$stms:var@ denote template parameters using a
 Haskell variable @var@ to splice \CUDA C parameters, expressions, items,
@@ -856,7 +855,7 @@ onto the \GPU, and executed.
 
 For the most part, translating Accelerate scalar expressions to plain \CUDA C
 code is a straightforward syntactic translation of the \indext{de Bruijn} \AST
-to C. The quasiquoting library \texttt{language-c-quote}%
+to C\@. The quasiquoting library \texttt{language-c-quote}%
 \footnote{\url{http://hackage.haskell.org/package/language-c-quote}} allows the
 \CUDA \AST to be constructed using concrete syntax. The following sections
 describe some particular features of code generation.
@@ -1870,7 +1869,7 @@ considerations in order to realise this.
 
 Evaluating Accelerate expressions is done with the following function, which
 encapsulates the entire process of compiling and executing a program on the
-\GPU (\S tk):
+\GPU~(\S\ref{sec:executing_programs}):
 %
 \begin{lstlisting}[style=haskell,numbers=none]
     run :: Arrays a => Acc a -> a
@@ -2269,7 +2268,8 @@ While it is possible to overlap memory transfers with both kernel executions and
 tasks such as compilation and optimisation, the current implementation does not
 completely implement this. To support asynchronous memory transfer requires the
 use of non-default streams and event waiting, the same as required for
-concurrent kernel execution (\S tk). Additionally, the array on the host needs
+concurrent kernel execution (\S\ref{sec:executing_programs}).
+Additionally, the array on the host needs
 to be \emph{page-locked} or \emph{pinned} so that it can be accessed directly by
 the \GPU using direct memory access (DMA). Regular memory allocations are
 \emph{pageable} by default, which means the host operating system is free to
@@ -2341,7 +2341,7 @@ such as GPU memory and the compiled kernel code.
 Nevertheless, that we are under the hood manipulating CUDA through the FFI and
 that we need to maintain internal state should not distract from the property
 that @run@ is a pure function at the level of the user-level Accelerate
-API. In fact, Accelerate provides an alternative backend implemented as a purely
+API\@. In fact, Accelerate provides an alternative backend implemented as a purely
 functional interpreter. The interpreter forms an executable specification of the
 denotational semantics of any Accelerate backend, and can be used to verify
 accelerated backends.
@@ -2520,7 +2520,7 @@ the program (\S\ref{sec:instantiating_skeletons}), returning a new program AST
 where each node is annotated in the manner described above. The @run1@
 operation then returns a function that uses
 @executeAfun1 :: ExecAfun (a -> b) -> a -> CIO b@
-to evaluate the annotated program AST. Since we return this operation in a new
+to evaluate the annotated program AST\@. Since we return this operation in a new
 closure, the first compilation phase producing @afun@ will only be executed
 once.
 
@@ -2574,13 +2574,12 @@ maximum possible occupancy, but once a kernel has been compiled and its resource
 usage known (in particular, the number of registers and bytes of shared memory
 each thread requires), we can calculate an ideal launch configuration. The CUDA
 backend does this for every kernel, to make optimal use of physical resources
-which vary from GPU to GPU. Additionally, we limit the number of threads blocks
+which vary from GPU to GPU\@. Additionally, we limit the number of threads blocks
 per multiprocessor to that which can be physically resident. This requires the
 generated kernels to be able to process multiple elements per thread, but
 reduces the overhead of launching thread blocks.
 
-TK: perhaps a graph of how occupancy calculations change for a given kernel on
-different GPU architectures?
+TK: perhaps a graph of how occupancy calculations change for a given kernel on different GPU architectures?
 
 
 \subsection{Kernel execution}
@@ -2744,6 +2743,8 @@ concurrentTest
 
 
 \subsection{Conclusion}
+
+\section{Discussion}
 
 %
 % END

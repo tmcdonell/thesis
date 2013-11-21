@@ -209,7 +209,7 @@ At the same time, we convert the AST into nameless \indext{de Bruijn} form by
 introducing de Bruijn indices at the same time as introducing the lets.
 
 
-\section{Common Subexpression Elimination}
+\section{Common subexpression elimination}
 \label{sec:cse}
 
 \emph{Common subexpression elimination} finds computations that are performed at
@@ -240,7 +240,7 @@ there are insufficient registers available. We sidestep this tricky and
 target-dependent issue by, for now, simply ignoring it.
 
 
-\section{Array Fusion}
+\section{Array fusion}
 \label{sec:fusion}
 
 Fusion, or deforestation, is a term used to describe techniques for having a
@@ -446,7 +446,7 @@ optimisation techniques.
 
 \subsubsection{Data Parallel Haskell}
 tk: @split/join@\index{fusion!split/join} fusion from
-DPH.\index{data-parallel Haskell}\index{DPH|see{data-parallel Haskell}}
+DPH\@.\index{data-parallel Haskell}\index{DPH|see{data-parallel Haskell}}
 \citet{Chakravarty:2007tc,Jones:2008uu}.
 
 
@@ -654,7 +654,7 @@ producers and consumers, the fusion transform is split into two distinct phases:
 \begin{itemize}
     \item \emph{Producer/producer:} fuse sequences of producers into a single
         producer. This is implemented as a source-to-source transformation on
-        the \index{abstract syntax tree}AST.
+        the \index{abstract syntax tree}AST\@.
 
     \item \emph{Producer/consumer:} fuse producers followed by a consumer into
         the consumer. This happens during code generation, where we specialise
@@ -1085,7 +1085,7 @@ This consists of two collective operations: the first multiplies values from the
 two input arrays element-wise, and the second sums this result. The fusion
 system should translate this into a single collective operation, in much the
 same way as a human would write if working directly in a low-level language such
-as C or \CUDA.
+as C or \CUDA\@.
 
 The basic idea is to pass producers encoded in the @Cunctation@
 representation directly to consumers, and implementation of the consumer can
@@ -1142,7 +1142,7 @@ The fusion transformation of Accelerate array programs consists of two phases:
 \begin{enumerate}
     \item A bottom-up contraction of the AST that fuses sequences of producer
         terms into a single producer. This is a source-to-source transformation
-        of the AST.
+        of the AST\@.
 
     \item A top-down transformation that annotates the AST as to which nodes
         should be computed to manifest data and which should be embedded into
@@ -1803,7 +1803,7 @@ we use an observable technique?}
 % lower-level code generation optimisations in a backend.
 
 
-\section{The Transformations Interacting}
+\section{The transformations interacting}
 
 This section follows a few examples to discuss the effect of applying the
 transformations described in the preceding sections. Many of these motivating
@@ -1919,11 +1919,11 @@ transformations were:
 \note{TK: Do some work dis/proving these two things, then write about it here.}
 
 
-\section{Compiling the TK program}
-
-\note{TK: Step through compiling a particular program, the effect each
-optimisation has, needing to iterate simplifications etc. Probably need a few
-different example programs.}
+% \section{Compiling the TK program}
+% 
+% \note{TK: Step through compiling a particular program, the effect each
+% optimisation has, needing to iterate simplifications etc. Probably need a few
+% different example programs.}
 
 
 \section{Discussion}
@@ -1934,7 +1934,7 @@ different example programs.}
 \section*{NOTES}
 
 MMTC: Chapter 5: This set up where you put the related work for fusion in the
-middle of the chapter doesn't work IMO. Always lead with the interesting
+middle of the chapter doesn't work IMO\@. Always lead with the interesting
 material (your contribution) and not with the boring stuff (previous work that
 expert readers already know anyway). Put the related work at the end of the
 chapter.

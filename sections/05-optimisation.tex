@@ -738,7 +738,7 @@ integration with successive producers. For example, the following is the fused
 version of @map@:
 %
 \begin{lstlisting}[style=haskell,
-    caption={Fused definition of the @map@ operation},
+    caption={Fused definition of the \code{map} operation},
     label=lst:mapD]
 mapD :: Elt b
      => PreFun     acc aenv (a -> b)
@@ -783,7 +783,7 @@ of the input arguments.
 \begin{lstlisting}[style=haskell
     ,name=zipWithD
     ,label=lst:zipWithD
-    ,caption={[Fused definition of the @zipWith@ operation]}]
+    ,caption={[Fused definition of the \code{zipWith} operation]}]
 zipWithD :: (Shape sh, Elt a, Elt b, Elt c)
          => PreFun     acc aenv (a -> b -> c)
          -> Cunctation acc aenv (Array sh a)
@@ -1765,7 +1765,10 @@ fusion}~\cite{Gill:1996tf,Gill:1993de}.
 Like the deforestation algorithm, @foldr/build@ fusion is a rule-based
 source-to-source transformation. In fact, it is based on a single rule:
 %
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The @foldr/build@ transformation}]
+\begin{lstlisting}[style=Haskell
+    ,numbers=none
+    ,mathescape
+    ,caption={The \code{foldr/build} transformation}]
 %\bf$\langle$ foldr/build fusion $\rangle$% forall g k z. foldr k z (build g) $\mapsto$ g k z
 
 build :: (forall b. (a -> b -> b) -> b -> b) -> [a]

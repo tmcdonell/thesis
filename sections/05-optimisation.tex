@@ -695,6 +695,7 @@ ultimately remain the same, for performance reasons this separation is critical.
 Finally, we convert the delayed representations into manifest data using the
 @compute@ function. It inspects the argument terms of the representation to
 identify special cases, such as @map@s or @backpermute@s.
+\marginnote{tk: float figure}
 %
 \begin{lstlisting}[style=haskell
     ,label=lst:compute
@@ -709,11 +710,11 @@ compute' cc = case simplify cc of
   Step sh p f v
     | Just REFL <- match sh (arrayShape v)
     , Just REFL <- isIdentity p
-    , Just REFL <- isIdentity f            -> Avar v                       -- unmodified manifest array
+    , Just REFL <- isIdentity f -> Avar v                       -- unmodified manifest array
     | Just REFL <- match sh (arrayShape v)
-    , Just REFL <- isIdentity p            -> Map f (avarIn v)             -- linear indexing OK
-    | Just REFL <- isIdentity f            -> Backpermute sh p (avarIn v)  -- pure index transform
-    | otherwise                            -> Transform sh p f (avarIn v)  -- index \& value transform
+    , Just REFL <- isIdentity p -> Map f (avarIn v)             -- linear indexing OK
+    | Just REFL <- isIdentity f -> Backpermute sh p (avarIn v)  -- pure index transform
+    | otherwise                 -> Transform sh p f (avarIn v)  -- index \& value transform
 \end{lstlisting}
 
 The helper functions @match@ and @isIdentity@ check for congruence of

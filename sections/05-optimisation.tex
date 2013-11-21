@@ -281,242 +281,15 @@ This example also demonstrates a subtle behavioural tendency of optimising
 program transformations: while the second (target) program does not produce any
 intermediate data structures as desired, we can no longer interpret the program
 as a sequence of combinators. This observation is critical if the combinators
-represent \emph{collective} operations as they do in Accelerate: while the
-second program compiles to an efficient scalar loop, its \emph{parallel}
-interpretation has been lost.
+represent \emph{collective} operations expressed as algorithmic
+\emph{skeletons}, as they do in Accelerate: while the second program compiles to
+an efficient scalar loop, its \emph{parallel} interpretation has been lost.
 
 
-\subsection{Related Work}
-\label{sec:fusion_related_work}
+\subsection{Considerations}
 
-The desire to program in a functional style while still achieving the
-performance level of an imperative language has been around for as long as
-functional programming itself. Fusion has received plenty of attention in the
-context of functional program. This section briefly summarises some of the key
-milestones in the history of deforestation as a compiler optimisation that
-influences this work.
-
-\subsubsection{Deforestation}
-
-% blugh blurgh
-Inspired by earlier work in @fold/unfold@ methods (for example
-\citet{Burstall:1977kl}), Philip Wadler set out to develop a technique that
-would \emph{automatically} remove intermediate structures from functional
-programs, a technique he (later) dubbed \indexe{deforestation}
-\cite{Wadler:1981hy,Wadler:1990ix}.
-
-The method identifies a core set of list operators that can be used to express a
-large class of computations: @map@, @reduce@ and @generate@ (the
-latter being similar in spirit to @foldr@ and @unfoldr@ respectively),
-together with a collection of rewrite rules that apply to combinations of these
-operators. These rules identify specific patterns of list operators that create
-then consume intermediate lists, then merges these operations to avoid the
-intermediary.
-
-\paragraph{Advantages}
-\begin{itemize}
-    \item Automatic: does not require programmer input, and therefore suitable
-        for integration to a compiler.
-
-    \item Source-to-source: all transformations take valid programs in the
-        source language and output (faster) valid programs in the source
-        language. This makes the output of deforestation easy to integrate as
-        part of a compiler pipeline.
-
-    \item Simple: each rule is easy to understand and obviously correct.
-\end{itemize}
-
-\paragraph{Disadvantages}
-\begin{itemize}
-    \item Each optimisation requires a separate transformation rule. If we want
-        to add new list operators, we need to add a new rule for each
-        combination of the new operator with each existing operator. This does
-        not scale.
-
-    \item Limited: many computations can not be expressed in terms of these
-        three operations, so the framework can not eliminate intermediate lists
-        in these case.
-\end{itemize}
-
-
-\subsubsection{foldr/build}
-
-Building upon the original deforestation algorithm, Andy Gill's doctoral thesis
-introduces another approach to deforestation known as \emph{foldr/build
-fusion}~\cite{Gill:1996tf,Gill:1993de}.
-\index{fusion!foldr/build}\index{foldr/build|see{fusion!foldr/build}}
-% This techniques performs a range of optimisations as broad as previous
-% approaches the listless transformer \cite{Wadler:1984ia,Wadler:2005iw} while
-% addressing their drawbacks.
-Like the deforestation algorithm, @foldr/build@ fusion is a rule-based
-source-to-source transformation. In fact, it is based on a single rule:
-%
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The @foldr/build@ transformation}]
-%\bf$\langle$ foldr/build fusion $\rangle$% forall g k z. foldr k z (build g) $\mapsto$ g k z
-
-build :: (forall b. (a -> b -> b) -> b -> b) -> [a]
-foldr :: (a -> b -> b) -> b -> [a] -> b
-\end{lstlisting}
-
-The idea is to think of @build@ as a function that constructs a list, and
-@foldr@ as a list consumer. Because of this uniform treatment of lists as
-\emph{complete objects}, rather than being composed of many individual
-constructor cells, we can have a single @foldr/build@ rule analogous to
-standard case reduction rules, but instead of removing a single constructor
-removes the \emph{entire data structure}. This method became the first
-non-trivial deforestation system to be included as an active part of a
-production quality functional language compiler.
-
-\paragraph{Advantages}
-\begin{itemize}
-    \item Simple, automatic, source-to-source transformation.
-
-%    \item No limitation on inputs: @foldr/build@ fusion operates over the
-%        entire Haskell language. When a list is produced without using
-%        @build@ or consumed without using @foldr@, the
-%        deforestation scheme is not hampered and simply leaves the list intact.
-
-    \item Single rule: unlike the original deforestation algorithm, a single
-        rule suffices. When new list operations are added, so long as they can
-        be expressed in terms of @foldr@ and @build@, the
-        transformation will apply; there is no need to consider all combinations
-        with the existing operations.
-\end{itemize}
-
-\paragraph{Disadvantages}
-\begin{itemize}
-    \item The transformation can not handle functions that use accumulators,
-        such as @foldl@, or consume multiple inputs, such as @zip@.
-
-    \item Operations that do not produce lists using @build@ or consume them
-        using @foldr@ will not have the intermediate list eliminated.
-\end{itemize}
-
-
-\subsubsection{Stream Fusion}
-
-Following Gill's work, a whole cottage industry of new deforestation approaches
-appeared with the goal of covering the cases left out by
-@foldr/build@\index{fusion!foldr/build}. Most of that work was
-theoretical, a lot of it was based on category theory, and almost none of it had
-any impact in practice. Unlike those systems of the prior two decades,
-\emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007kp} succeeded in this
-goal and at the same time stayed simple and useful in practice.
-
-Stream fusion has a similar structure to @foldr/build@: a single rule
-eliminates matching pairs of constructor and destructor, and operations need to
-be expressed in terms of these constructors:
-%
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \emph{stream fusion} transformation}]
-%\bf$\langle$ stream fusion $\rangle$% forall s. stream (unstream s) $\mapsto$ s
-
-stream   :: [a] -> Stream a
-unstream :: Stream a -> [a]
-
-data Stream a = exists s. Stream (s -> Step a s) s
-data Step a s = Done
-              | Yield a s           -- produce a value and new state
-              | Skip s              -- update the state without producing a value
-\end{lstlisting}
-
-Streams have some abstract state and a \emph{stepper} function that advances the
-stream from one state to the next, possibly yielding a new value. The
-@stream@ constructor @Yield@s values from its input until it runs
-out, and the @unstream@ destructor build a list by consuming its input
-stream until encountering @Done@, discarding @Skip@s along the
-way. The @Stream@ constructors are chosen so as to keep the definition of
-each element as a non-recursive function. When @Stream@s are fused by
-applying the rule, this enables the compiler to aggressively apply standard
-optimisation techniques.
-
-\paragraph{Advantages}
-\begin{itemize}
-    \item Preserves the nice properties of
-        @foldr/build@\index{fusion!foldr/build} fusion.
-    \item Adds supports operations with accumulators and multiple inputs.
-\end{itemize}
-
-\paragraph{Disadvantages}
-\begin{itemize}
-    \item Fuses a sequence of bulk operations into a single scalar loop, losing
-        the parallel interpretation of the program.
-\end{itemize}
-
-
-
-\subsubsection{Data Parallel Haskell}
-tk: @split/join@\index{fusion!split/join} fusion from
-DPH\@.\index{data-parallel Haskell}\index{DPH|see{data-parallel Haskell}}
-\citet{Chakravarty:2007tc,Jones:2008uu}.
-
-
-\subsubsection{Delayed Arrays}
-
-The previous fusion transformations are based on the idea of expressing
-computations in terms of a builder and consumer function, and then having the
-compiler identify and remove adjacent constructor/destructor pairs. In contrast,
-the Repa~\cite{Keller:2010er} library uses a functional representation of
-\emph{delayed arrays}\index{fusion!delayed arrays} that instead \emph{avoids}
-creating unnecessary intermediate structures, rather than relying on a
-subsequent fusion transformation to remove them.
-
-\begin{lstlisting}[style=Haskell,numbers=none,caption={Repa-1 style array definition},label={lst:repa_arrays}]
-data Array sh e = Manifest sh (Vector e)    -- unboxed data
-                | Delayed  sh (sh -> e)     -- array shape and indexing function
-\end{lstlisting}
-
-The key principle of the design is to avoid generating an explicit
-(@Manifest@) representation of intermediate arrays that can instead be
-represented as a transformation function from array indices to values.
-
-% Repa retains the functional programming style by exposing an interface of
-% collective operations over arrays --- such as maps, folds, and permutations ---
-% instead of the imperative style of reading and writing individual array
-% elements.
-
-\paragraph{Advantages}
-\begin{itemize}
-    \item Explicitly avoids intermediate structures by design, rather than
-        relying on potentially fragile post-hoc compiler transformations.
-\end{itemize}
-
-\paragraph{Disadvantages}
-\begin{itemize}
-    \item Requires the user to explicitly state when arrays should be computed
-        (made manifest), else performance suffers due to redundant computation.
-\end{itemize}
-
-\subsubsection{Hylomorphism fusion?}
-tk: \citet{Takano:1995}
-
-\subsubsection{Loop fusion (from imperative languages)?}
-tk: \citet{Warren:1984ka,Sarkar:1991ff}
-
-
-\subsubsection{Conclusion}
-
-The most practically successful fusion systems ---
-@foldr/build@\index{fusion!foldr/build} fusion, stream\index{fusion!stream}
-fusion and delayed arrays\index{fusion!delayed arrays} --- are \emph{short-cut
-fusion}\index{fusion!short-cut} methods that rely on local program
-transformations. These methods are implemented as simple but specific rewrite
-rules combined with general purpose program transformations.
-
-In contrast, \emph{loop fusion}\index{fusion!loop} methods used in imperative
-languages merge multiple loop nests, typically using dependency
-graphs to determine whether fusion is legal and beneficial.
-When a producer and consumer loop are merged, array
-contraction can then remove or reduce the size of the
-intermediate arrays. These systems require fusion-specific compiler support and
-more global reasoning than short-cut fusion.
-
-
-\subsection{Accelerate Arrays, Accelerated}
-
-In the previous section, we briefly reviewed some related work on fusion
-systems, particularly in the context of functional languages. Fusion in a
-massively data-parallel (embedded) language such as Accelerate requires several
-considerations:
+Fusion in a massively data-parallel (embedded) language such as Accelerate
+requires several uncommon considerations:
 
 \paragraph{Parallelism:} While fusing parallel collective operations, we must be
 careful not to lose information essential to parallel execution. For example,
@@ -579,7 +352,7 @@ Maintaining type information adds complexity to the definitions and rules, but
 amounts to a partial proof of correctness checked by the type checker.
 
 
-\subsubsection{The Main Idea}
+\subsection{The Main Idea}
 \label{sec:the_main_idea}
 
 All collective operations in Accelerate are array-to-array transformations.
@@ -1926,9 +1699,232 @@ transformations were:
 % different example programs.}
 
 
+\section{Related Work}
+\label{sec:fusion_related_work}
+
+The desire to program in a functional style while still achieving the
+performance level of an imperative language has been around for as long as
+functional programming itself. Fusion has received plenty of attention in the
+context of functional program. This section briefly summarises some of the key
+milestones in the history of deforestation as a compiler optimisation that
+influences this work.
+
+\subsection{Deforestation}
+
+% blugh blurgh
+Inspired by earlier work in @fold/unfold@ methods (for example
+\citet{Burstall:1977kl}), Philip Wadler set out to develop a technique that
+would \emph{automatically} remove intermediate structures from functional
+programs, a technique he (later) dubbed \indexe{deforestation}
+\cite{Wadler:1981hy,Wadler:1990ix}.
+
+The method identifies a core set of list operators that can be used to express a
+large class of computations: @map@, @reduce@ and @generate@ (the
+latter being similar in spirit to @foldr@ and @unfoldr@ respectively),
+together with a collection of rewrite rules that apply to combinations of these
+operators. These rules identify specific patterns of list operators that create
+then consume intermediate lists, then merges these operations to avoid the
+intermediary.
+
+\paragraph{Advantages}
+\begin{itemize}
+    \item Automatic: does not require programmer input, and therefore suitable
+        for integration to a compiler.
+
+    \item Source-to-source: all transformations take valid programs in the
+        source language and output (faster) valid programs in the source
+        language. This makes the output of deforestation easy to integrate as
+        part of a compiler pipeline.
+
+    \item Simple: each rule is easy to understand and obviously correct.
+\end{itemize}
+
+\paragraph{Disadvantages}
+\begin{itemize}
+    \item Each optimisation requires a separate transformation rule. If we want
+        to add new list operators, we need to add a new rule for each
+        combination of the new operator with each existing operator. This does
+        not scale.
+
+    \item Limited: many computations can not be expressed in terms of these
+        three operations, so the framework can not eliminate intermediate lists
+        in these case.
+\end{itemize}
+
+
+\subsection{foldr/build}
+
+Building upon the original deforestation algorithm, Andy Gill's doctoral thesis
+introduces another approach to deforestation known as \emph{foldr/build
+fusion}~\cite{Gill:1996tf,Gill:1993de}.
+\index{fusion!foldr/build}\index{foldr/build|see{fusion!foldr/build}}
+% This techniques performs a range of optimisations as broad as previous
+% approaches the listless transformer \cite{Wadler:1984ia,Wadler:2005iw} while
+% addressing their drawbacks.
+Like the deforestation algorithm, @foldr/build@ fusion is a rule-based
+source-to-source transformation. In fact, it is based on a single rule:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The @foldr/build@ transformation}]
+%\bf$\langle$ foldr/build fusion $\rangle$% forall g k z. foldr k z (build g) $\mapsto$ g k z
+
+build :: (forall b. (a -> b -> b) -> b -> b) -> [a]
+foldr :: (a -> b -> b) -> b -> [a] -> b
+\end{lstlisting}
+
+The idea is to think of @build@ as a function that constructs a list, and
+@foldr@ as a list consumer. Because of this uniform treatment of lists as
+\emph{complete objects}, rather than being composed of many individual
+constructor cells, we can have a single @foldr/build@ rule analogous to
+standard case reduction rules, but instead of removing a single constructor
+removes the \emph{entire data structure}. This method became the first
+non-trivial deforestation system to be included as an active part of a
+production quality functional language compiler.
+
+\paragraph{Advantages}
+\begin{itemize}
+    \item Simple, automatic, source-to-source transformation.
+
+%    \item No limitation on inputs: @foldr/build@ fusion operates over the
+%        entire Haskell language. When a list is produced without using
+%        @build@ or consumed without using @foldr@, the
+%        deforestation scheme is not hampered and simply leaves the list intact.
+
+    \item Single rule: unlike the original deforestation algorithm, a single
+        rule suffices. When new list operations are added, so long as they can
+        be expressed in terms of @foldr@ and @build@, the
+        transformation will apply; there is no need to consider all combinations
+        with the existing operations.
+\end{itemize}
+
+\paragraph{Disadvantages}
+\begin{itemize}
+    \item The transformation can not handle functions that use accumulators,
+        such as @foldl@, or consume multiple inputs, such as @zip@.
+
+    \item Operations that do not produce lists using @build@ or consume them
+        using @foldr@ will not have the intermediate list eliminated.
+\end{itemize}
+
+
+\subsection{Stream Fusion}
+
+Following Gill's work, a whole cottage industry of new deforestation approaches
+appeared with the goal of covering the cases left out by
+@foldr/build@\index{fusion!foldr/build}. Most of that work was
+theoretical, a lot of it was based on category theory, and almost none of it had
+any impact in practice. Unlike those systems of the prior two decades,
+\emph{stream fusion}\index{fusion!stream}~\cite{Coutts:2007kp} succeeded in this
+goal and at the same time stayed simple and useful in practice.
+
+Stream fusion has a similar structure to @foldr/build@: a single rule
+eliminates matching pairs of constructor and destructor, and operations need to
+be expressed in terms of these constructors:
+%
+\begin{lstlisting}[style=Haskell,numbers=none,mathescape,caption={The \emph{stream fusion} transformation}]
+%\bf$\langle$ stream fusion $\rangle$% forall s. stream (unstream s) $\mapsto$ s
+
+stream   :: [a] -> Stream a
+unstream :: Stream a -> [a]
+
+data Stream a = exists s. Stream (s -> Step a s) s
+data Step a s = Done
+              | Yield a s           -- produce a value and new state
+              | Skip s              -- update the state without producing a value
+\end{lstlisting}
+
+Streams have some abstract state and a \emph{stepper} function that advances the
+stream from one state to the next, possibly yielding a new value. The
+@stream@ constructor @Yield@s values from its input until it runs
+out, and the @unstream@ destructor build a list by consuming its input
+stream until encountering @Done@, discarding @Skip@s along the
+way. The @Stream@ constructors are chosen so as to keep the definition of
+each element as a non-recursive function. When @Stream@s are fused by
+applying the rule, this enables the compiler to aggressively apply standard
+optimisation techniques.
+
+\paragraph{Advantages}
+\begin{itemize}
+    \item Preserves the nice properties of
+        @foldr/build@\index{fusion!foldr/build} fusion.
+    \item Adds supports operations with accumulators and multiple inputs.
+\end{itemize}
+
+\paragraph{Disadvantages}
+\begin{itemize}
+    \item Fuses a sequence of bulk operations into a single scalar loop, losing
+        the parallel interpretation of the program.
+\end{itemize}
+
+
+
+\subsection{Data Parallel Haskell}
+tk: @split/join@\index{fusion!split/join} fusion from
+DPH\@.\index{data-parallel Haskell}\index{DPH|see{data-parallel Haskell}}
+\citet{Chakravarty:2007tc,Jones:2008uu}.
+
+
+\subsection{Delayed Arrays}
+
+The previous fusion transformations are based on the idea of expressing
+computations in terms of a builder and consumer function, and then having the
+compiler identify and remove adjacent constructor/destructor pairs. In contrast,
+the Repa~\cite{Keller:2010er} library uses a functional representation of
+\emph{delayed arrays}\index{fusion!delayed arrays} that instead \emph{avoids}
+creating unnecessary intermediate structures, rather than relying on a
+subsequent fusion transformation to remove them.
+
+\begin{lstlisting}[style=Haskell,numbers=none,caption={Repa-1 style array definition},label={lst:repa_arrays}]
+data Array sh e = Manifest sh (Vector e)    -- unboxed data
+                | Delayed  sh (sh -> e)     -- array shape and indexing function
+\end{lstlisting}
+
+The key principle of the design is to avoid generating an explicit
+(@Manifest@) representation of intermediate arrays that can instead be
+represented as a transformation function from array indices to values.
+
+% Repa retains the functional programming style by exposing an interface of
+% collective operations over arrays --- such as maps, folds, and permutations ---
+% instead of the imperative style of reading and writing individual array
+% elements.
+
+\paragraph{Advantages}
+\begin{itemize}
+    \item Explicitly avoids intermediate structures by design, rather than
+        relying on potentially fragile post-hoc compiler transformations.
+\end{itemize}
+
+\paragraph{Disadvantages}
+\begin{itemize}
+    \item Requires the user to explicitly state when arrays should be computed
+        (made manifest), else performance suffers due to redundant computation.
+\end{itemize}
+
+\subsection{Hylomorphism fusion}
+tk: \citet{Takano:1995}
+
+\subsection{Loop fusion}
+From imperative languages. tk: \citet{Warren:1984ka,Sarkar:1991ff}
+
+
+\subsection{Conclusion}
+
+The most practically successful fusion systems ---
+@foldr/build@\index{fusion!foldr/build} fusion, stream\index{fusion!stream}
+fusion and delayed arrays\index{fusion!delayed arrays} --- are \emph{short-cut
+fusion}\index{fusion!short-cut} methods that rely on local program
+transformations. These methods are implemented as simple but specific rewrite
+rules combined with general purpose program transformations.
+
+In contrast, \emph{loop fusion}\index{fusion!loop} methods used in imperative
+languages merge multiple loop nests, typically using dependency
+graphs to determine whether fusion is legal and beneficial.
+When a producer and consumer loop are merged, array
+contraction can then remove or reduce the size of the
+intermediate arrays. These systems require fusion-specific compiler support and
+more global reasoning than short-cut fusion.
+
+
 \section{Discussion}
-\subsection{Related Work}
-\subsection{Future Work}
 
 
 \section*{NOTES}

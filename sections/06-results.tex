@@ -885,7 +885,7 @@ Canny (\S\ref{sec:canny}), this adds significant
 overhead~\cite{Lippmeier:2011cd}. Separating computation of the border and
 internal region is left for future work.
 
-\note{tk: example showing performance of @map (+1)@ versus the equivalent
+\note{tk: example showing performance of \code{map (+1)} versus the equivalent
 of using a stencil: extra addressing arithmetic should be significant. For fluid
 flow, the actual computation time (probably) greatly outweighs the extra
 arithmetic.}
@@ -949,7 +949,7 @@ convolutions.
 
 \subsection{Stencil fusion}
 
-\note{Fusion of @stencil s . map f@ may be beneficial if @f@ is
+\note{Fusion of \code{stencil s . map f} may be beneficial if \code{f} is
 simple. Shares concerns with previous.}
 
 

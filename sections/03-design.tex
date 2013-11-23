@@ -8,9 +8,14 @@
 % collection. Caching.
 %
 
-\chapter{Design}
+\chapter{A better title}  % Design of an embedded language
 \epigraph{You see a wile, you thwart. Am I right?}%
 {\textsc{---terry pratchett and neil gaiman}\\\textit{Good Omens}}
+
+
+
+
+\endinput
 
 MMTC: Chapter 3 (Design): Maybe you should call the chapter ``Design and Related
 Work''. It seems that you want to cover related work there and it is a good idea
@@ -25,37 +30,21 @@ my thesis for an example of that style.)
 
 
 \begin{itemize}
-\item other significant parallel/GPGPU programming models/languages; limitations
-    to avoid/embrace and what features to steal (1.5 weeks)
+\item Why another parallel programming language? (1 day)
+
+\item Accelerate design (3 weeks)
     \begin{itemize}
-        \item Repa \cite{Keller:2010er,Lippmeier:2011cd,Lippmeier:2012gx} (Haskell)
-        \item SkeTo \cite{Matsuzaki:2011ew} (C++)
-        \item list homomorphism based \cite{Sato:2009cq} (C++)
-        \item Delite/LMS \cite{Rompf:2013er} (Scala)
-        \item NDP2GPU \cite{Bergstrom:2012bi} (Haskell)
-        \item Nikola \cite{Mainland:2010vj} (Haskell)
-        \item Obsidian \cite{Svensson:2008a,Claessen:2012hl} (Haskell)
-        \item Baracuda \cite{Larsen:2011fa} (Haskell)
-        \item Jacket/ArrayFire \cite{AccelerEyes:vq} (Matlab)
-        \item Anaconda Accelerate \cite{AnacondaAccelerate:2013vn} (Python)
-        \item NOVA \cite{Collins:2013wn} (lisp?)
-    \end{itemize}
-
-    \item Why another parallel programming language? (1 day)
-
-    \item Accelerate design (3 weeks)
-        \begin{itemize}
-            \item rank-polymorphic array language of collective operations
-            \item programming model
-            \item algorithmic skeletons
-            \item stratified language: using the type system to exclude nesting
-            \item richly typed terms; environments \& types (type safe evaluator)
-            \item types help catch bugs in the compiler; important since
-                compilation happens at program \emph{runtime}
-            \item surface vs.\ internal (core) languages
+        \item rank-polymorphic array language of collective operations
+        \item programming model
+        \item algorithmic skeletons
+        \item stratified language: using the type system to exclude nesting
+        \item richly typed terms; environments \& types (type safe evaluator)
+        \item types help catch bugs in the compiler; important since
+            compilation happens at program \emph{runtime}
+        \item surface vs.\ internal (core) languages
             %\item representing different constructs (c.f. nesting?)
-            \item examples: operator expressiveness (application driven)
-        \end{itemize}
+        \item examples: operator expressiveness (application driven)
+    \end{itemize}
 
 \end{itemize}
 

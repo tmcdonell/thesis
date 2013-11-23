@@ -1,9 +1,8 @@
 
-\chapter{Accelerating array computations}
+\chapter{Accelerated array code}
 \label{ch:implementation}
 \epigraph{The trouble with opportunity is that it always comes disguised as hard work.}%
 {\textsc{---herbert v.\ prochnow}}
-
 
 The previous chapter described the design of the Accelerate language, an
 embedded DSL of operations over arrays, rich enough to express some interesting
@@ -2827,7 +2826,10 @@ shown in Figure~\ref{fig:concurrent_kernels}, which demonstrates each of the
     ,label=lst:concurrent_kernels
     ,caption={[Example program that executes kernels concurrently]
         An example program that executes each of the \code{map} kernels
-        concurrently, on devices of compute capability 2.0 and greater.}]
+        concurrently, on devices of compute capability 2.0 and greater. Note
+        that in order to keep the example simple, the displayed behaviour is
+        only seen when fusion is disabled, to prevent the operations from being
+        combined into a singel kernel.}]
 loop :: Exp Int -> Exp Int
 loop ticks = A.while (\i -> i <* clockRate * ticks) (+1) 0
   where
@@ -2857,6 +2859,28 @@ concurrentTest
 \subsection{Conclusion}
 
 \section{Discussion}
+
+\subsection{Related Work}
+\marginnote{perhaps split differently: real vs. embedded languages?}
+
+Other significant parallel or GPGPU programming models and languages.
+Limitations that we share/avoid. Where we differ
+\begin{itemize}
+\item Repa \cite{Keller:2010er,Lippmeier:2011cd,Lippmeier:2012gx} (Haskell)
+\item SkeTo \cite{Matsuzaki:2011ew} (C++)
+\item list homomorphism based \cite{Sato:2009cq} (C++)
+\item Delite/LMS \cite{Rompf:2013er} (Scala)
+\item NDP2GPU \cite{Bergstrom:2012bi} (Haskell)
+\item Nikola \cite{Mainland:2010vj} (Haskell)
+\item Obsidian \cite{Svensson:2008a,Claessen:2012hl} (Haskell)
+\item Baracuda \cite{Larsen:2011fa} (Haskell)
+\item Jacket/ArrayFire \cite{AccelerEyes:vq} (Matlab)
+\item Anaconda Accelerate \cite{AnacondaAccelerate:2013vn} (Python)
+\item NOVA \cite{Collins:2013wn} (lisp)
+\item Dandelion \cite{tk} (LINQ)
+\end{itemize}
+
+
 
 %
 % END

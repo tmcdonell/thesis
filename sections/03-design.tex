@@ -8,14 +8,76 @@
 % collection. Caching.
 %
 
-\chapter{A better title}  % Design of an embedded language
+% Need a better title
+\chapter{Basics}  % Design of an embedded language
 \epigraph{You see a wile, you thwart. Am I right?}%
 {\textsc{---terry pratchett and neil gaiman}\\\textit{Good Omens}}
+
+
+\section{Data Parallelism}
+
+The major processor manufacturers and architectures have long since run out of
+room with most of the traditional approaches to boosting CPU performance.
+Instead of driving clock speed and straight-line instruction throughput,
+including multiple cores on a single chip has become the dominant mechanism for
+scaling processor performance. Despite this trend being apparent for a number of
+years, programming parallel computers remains an extremely challenging task ---
+even for expert computer programmers, let alone for scientists in other
+disciplines.
+
+One programming model that has shown to make good use of parallel hardware is
+\indexe{data parallelism}.
+% The idea is that the application of an operation over
+% a collection of data, such as an array, can often be performed in parallel.
+Data parallelism focuses on distributing the data over the available processors,
+and for each processor to perform the \emph{same} task on the \emph{different}
+pieces of distributed data. To the programmer, data parallelism exposes a single
+logical thread of execution that is fairly easy to understand and reason about.
+In addition to its simplicity, the data parallel approach to programming
+parallel computers has several advantages:
+%
+\begin{enumerate}
+\item The model is independent of the number of processors, so scales to any
+    number of processors by decomposing data into the appropriate number of
+    chunks.
+
+\item All synchronisation is implicit, so the programming model is safe from
+    race conditions, eliminating a major source of errors in parallel programs.
+
+\item As memory bandwidth is often a limiting factor in modern computers, the
+    emphasis on data layout can assist with both data flow as well as
+    parallelisation.
+\end{enumerate}
+%
+In the world of massively parallel computing with strong locality requirements,
+data parallelism is the well established, demonstrably successful brand leader.
+Examples of data parallel programming environments include High Performance
+Fortran (HPF)~\cite{HPF:1997}, the collective operations of the Message Passing
+Interface (MPI)~\cite{MPI:2012}, NVIDIA's CUDA API for graphics
+processors~\cite{NVIDIA:2012wf}, and Google's Map/Reduce
+framework~\cite{Dean:2008fi}.
+
+
+\subsection{GPGPU programming is data parallel programming}
+
+\section{Embedded languages for data parallelism}
+
+\section{The Accelerate Language}
 
 
 
 
 \endinput
+
+MMTC: Chapter 2 (Background): Don't bother introducing Haskell and things like
+parallelism vs concurrency etc. What you need to discuss is (1) data parallelism
+and (2) how GPGPU programming is data parallel programming. Then, (3) the idea
+of embedded languages and runtime code generation. However, don't go into too
+much details at this point. After all, much of this has been discussed in
+existing literature already. I'd suggest to pick 1-2 examples and use them to
+drive the explanations (and at the same time give people an idea for the feel of
+Accelerate programs).
+
 
 MMTC: Chapter 3 (Design): Maybe you should call the chapter ``Design and Related
 Work''. It seems that you want to cover related work there and it is a good idea

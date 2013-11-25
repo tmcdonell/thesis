@@ -15,6 +15,7 @@
 
 
 \section{Data Parallelism}
+\label{sec:data_parallelism}
 
 The major processor manufacturers and architectures have long since run out of
 room with most of the traditional approaches to boosting CPU performance.
@@ -53,14 +54,112 @@ In the world of massively parallel computing with strong locality requirements,
 data parallelism is the well established, demonstrably successful brand leader.
 Examples of data parallel programming environments include High Performance
 Fortran (HPF)~\cite{HPF:1997}, the collective operations of the Message Passing
-Interface (MPI)~\cite{MPI:2012}, NVIDIA's CUDA API for graphics
-processors~\cite{NVIDIA:2012wf}, and Google's Map/Reduce
-framework~\cite{Dean:2008fi}.
+Interface (MPI)~\cite{MPI:2012}, Google's Map/Reduce
+framework~\cite{Dean:2008fi}, and NVIDIA's CUDA API for graphics
+processors~\cite{NVIDIA:2012wf}.
 
 
-\subsection{GPGPU programming is data parallel programming}
+\section{GPU computing} % {GPGPU programming is data parallel programming}
+\label{sec:gpu_computing}
 
-\section{Embedded languages for data parallelism}
+General-purpose computing on graphics processing units
+(\indext{GPGPU}\index{GPGPU|see {general-purpose computing on graphics
+processing units}}) is the utilisation of a graphics processing unit (\GPU),
+which typically handles the computations for computer graphics, to perform
+computations in applications typically handled by the central processing unit
+(CPU). Since general purpose CPUs are designed to optimise the performance of a
+single thread of execution, much of the processor's resources (die area and
+power) to non-computational tasks such as caching and branch prediction.
+Conversely, the highly parallel nature of graphics processing (rasterisation)
+means the GPU architecture instead uses these resources to be able to execute
+many tasks in parallel, improving the computational throughput for parallel
+workloads at the expense of decreased single threaded performance. This
+difference in architectures between the CPU and GPU is illustrated in
+Figure~\ref{fig:cpu_gpu_block_diagram}.
+
+\begin{figure}[tbp]
+    \centering
+    \includegraphics[width=0.4\textwidth]{images/sec-3/block_cpu}
+    \includegraphics[width=0.4\textwidth]{images/sec-3/block_gpu}
+    \caption[The GPU devotes more transistors to data processing]{Block diagram
+    comparing the relative use of transistors in a CPU (left) compared to a GPU
+    (right). The GPU is specialised for highly parallel, compute intensive
+    workloads, and so is designed such that the majority of its transistors are
+    devoted to data processing, rather than data caching and control flow.
+    Images from~\cite{NVIDIA:2012wf}.}
+    \label{fig:cpu_gpu_block_diagram}
+\end{figure}
+
+More specifically, the GPU is especially well suited to expressing problems that
+can be expressed as data parallel computations, where the same program is
+executed by many processors on many different data elements in parallel
+(\S\ref{sec:data_parallelism}). Because the same program is executed by many
+processors, there is no need for sophisticated control flow, and because it is
+executed on many data elements, memory access latency can be hidden with
+calculations rather than by big caches. Many applications that process large
+data sets can use the data parallel programming model to speed up calculations.
+
+
+\subsection{CUDA}
+
+\CUDA is the parallel computing platform and programming model created by
+NVIDIA, which gives programmers direct access to the memory and parallel
+computation units of their GPUs. Using CUDA, the massively parallel multicore
+architecture of the GPU becomes accessible for general purpose computing, not
+just graphics.
+
+CUDA extends the C programming language by allowing the C programmer to define
+functions, called \emph{kernels}\index{GPU!kernel}, that, when called, are
+executed $n$ times in $n$ data parallel threads on the available processing
+elements, rather than only once like regular C functions. These functions are
+executed by threads arranged in a multidimensional structure of \emph{thread
+blocks}\index{GPU!thread block}. Thread blocks execute independently of each
+other, so a GPU with a higher number of CUDA cores --- or \emph{streaming
+multiprocessors}\index{GPU!streaming multiprocessor} (SM) --- will execute the
+program in less time than a GPU with fewer multiprocessors.
+
+At an example, Listing~\ref{lst:cuda_vecadd} illustrates the pair wise addition
+of two vectors $A$ and $B$ of size $N$ each, and stores the result in a vector
+$C$. The kernel is defined with the @__global__@ declaration specifier. The
+number of CUDA thread blocks and the number of threads in each block that
+execute the kernel at each invocation is specified in the @<<<...>>>@ syntax.
+% Moreover, Listing~\ref{lst:cuda_vecadd} demonstrates that the GPU programming
+% model as exposed by CUDA is data parallel --- $N$ threads execute $N$ individual
+% instances of the kernel function @VecAdd@, and each thread operates on a single
+% element of each input array to create a single value in the result.
+%
+\begin{lstlisting}[style=cuda
+    ,float
+    ,label=lst:cuda_vecadd
+    ,caption={[CUDA kernel for pair wise addition of two vectors]A CUDA kernel
+        that illustrates pair wise addition of two vectors. The
+        \code{__global__} keyword marks a function as a kernel that should be
+        executed on the GPU in data parallel. The execution configuration syntax
+        \code{<<<...>>>} specifies the number of threads that will each execute
+        the function in data parallel.}]
+// Kernel definition
+__global__ void VecAdd(float *A, float *B, float *C, int N)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (i < N) {
+        C[i]  = A[i] + B[i];
+    }
+}
+
+int main()
+{
+    ...
+    // Kernel invocation with N threads
+    int threadsPerBlock = 128;
+    int numBlocks       = (N + threadsPerBlock - 1) / threadsPerBlock;
+    VecAdd<<<numBlocks, threadsPerBlock>>>(A, B, C, N);
+    ...
+}
+\end{lstlisting}
+
+
+\section{Embedded languages}
 
 \section{The Accelerate Language}
 

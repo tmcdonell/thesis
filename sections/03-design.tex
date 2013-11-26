@@ -97,7 +97,8 @@ executed by many processors on many different data elements in parallel
 processors, there is no need for sophisticated control flow, and because it is
 executed on many data elements, memory access latency can be hidden with
 calculations rather than by big caches. Many applications that process large
-data sets can use the data parallel programming model to speed up calculations.
+data sets can use the data parallel programming model to speed up calculations,
+and these applications can be coded to execute on the GPU.
 
 
 \subsection{CUDA}
@@ -113,21 +114,17 @@ functions, called \emph{kernels}\index{GPU!kernel}, that, when called, are
 executed $n$ times in $n$ data parallel threads on the available processing
 elements, rather than only once like regular C functions. These functions are
 executed by threads arranged in a multidimensional structure of \emph{thread
-blocks}\index{GPU!thread block}. Thread blocks execute independently of each
-other, so a GPU with a higher number of CUDA cores --- or \emph{streaming
-multiprocessors}\index{GPU!streaming multiprocessor} (SM) --- will execute the
-program in less time than a GPU with fewer multiprocessors.
+blocks}\index{GPU!thread block}. Threads within a block can cooperate by sharing
+data through some \emph{shared memory}\index{GPU!shared memory} and by
+synchronising their execution to coordinate memory access. More precisely, the
+programmer can specify synchronisation points in the kernel by calling
+@__syncthreads()@\index{GPU!\code{__syncthreads()}}, which acts as a barrier at
+which all threads in the block must wait before any is allowed to proceed. Each
+thread block executes independently of each other, so a GPU with a higher number
+of CUDA cores --- or \emph{streaming multiprocessors}\index{GPU!streaming
+multiprocessor} (SM) --- will execute the program in less time than a GPU with
+fewer multiprocessors.
 
-At an example, Listing~\ref{lst:cuda_vecadd} illustrates the pair wise addition
-of two vectors $A$ and $B$ of size $N$ each, and stores the result in a vector
-$C$. The kernel is defined with the @__global__@ declaration specifier. The
-number of CUDA thread blocks and the number of threads in each block that
-execute the kernel at each invocation is specified in the @<<<...>>>@ syntax.
-% Moreover, Listing~\ref{lst:cuda_vecadd} demonstrates that the GPU programming
-% model as exposed by CUDA is data parallel --- $N$ threads execute $N$ individual
-% instances of the kernel function @VecAdd@, and each thread operates on a single
-% element of each input array to create a single value in the result.
-%
 \begin{lstlisting}[style=cuda
     ,float
     ,label=lst:cuda_vecadd
@@ -158,6 +155,16 @@ int main()
 }
 \end{lstlisting}
 
+At an example, Listing~\ref{lst:cuda_vecadd} illustrates the pair wise addition
+of two vectors $A$ and $B$ of size $N$ each, and stores the result in a vector
+$C$. The kernel is defined with the @__global__@ declaration specifier. The
+number of CUDA thread blocks and the number of threads in each block that
+execute the kernel, at this invocation, is specified in the @<<<...>>>@ syntax.
+Moreover, Listing~\ref{lst:cuda_vecadd} demonstrates that the GPU programming
+model as exposed by CUDA is a data parallel programming model --- $N$ threads
+execute $N$ individual instances of the kernel function @VecAdd@, and each
+thread operates on a single element of each input array to create a single value
+in the result.
 
 \section{Embedded languages}
 

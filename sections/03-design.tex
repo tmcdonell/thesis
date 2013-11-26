@@ -166,7 +166,67 @@ execute $N$ individual instances of the kernel function @VecAdd@, and each
 thread operates on a single element of each input array to create a single value
 in the result.
 
-\section{Embedded languages}
+
+\section{Embedded domain-specific languages}
+
+A \indexe{domain-specific language} (DSL) is a computer language specialised to
+a specific problem domain. The DOT language~\cite{Graphviz:1998ui,Ellson:2001wf}
+is an example of a DSL for describing graphs. This is in contrast to a general
+purpose language such as Haskell~\cite{Haskell:1998}, which is broadly
+applicable across domains but may lack specialised features for a particular
+domain. A domain specific language is created to solve problems in a particular
+domain, and is not intended to solve problems outside it (although this may be
+technically possible). Restricting the problem domain the language is intended
+to solve may allow for more optimisations during compilation, or increased
+expressivity when representing problems or defining solutions in that domain.
+
+An \emph{embedded} (or \emph{internal}) \emph{domain-specific
+language}\index{domain-specific language!embedded} (EDSL) is a domain-specific
+language that is designed to be used from within another host language. The
+embedded language is implemented as a library, so is able to reuse the syntax
+and features of the general purpose host language compiler, including
+compilation phases such as lexing, parsing, and semantic analyses such as type
+checking, while adding domain specific elements such as data types, or domain
+specific optimisations and code generation.
+
+There are two major degrees in which an embedded language can be implemented.
+
+\subsection{Shallow embedding}
+
+In a shallow embedding, operations in the embedded language translate directly
+into operations in the target language. A shallow embedding captures the
+semantics of the data of the domain in a data type, and provides a \emph{fixed}
+interpretation of that data. Thus, it is easy to add new constructs to the
+language --- so long as they can be interpreted in the semantic domain --- and
+the embedded language can reuse features of the host language, such as variable
+binding.
+
+
+\subsection{Deep embedding}
+
+A deep embedding captures the semantics of the embedding by reflecting the
+operations of the object language into a data structure. This data structure ---
+an \indexe{abstract syntax tree} (AST) --- then permits transformations, such as
+optimisations, before being translated into the target language. Deeply embedded
+languages therefore enable a \emph{variable} interpretation of operations in the
+domain, so it is easy to add new interpretations of the embedding, for example,
+compiling to a different target language. However, adding new language
+constructs requires extending the AST data type, and the implementation must
+deal explicitly with binding of variables. Sharing and recursion are common
+problems when implementing deeply embedded languages.
+
+As the deeply embedded language runs inside of the host language, reflecting
+operations into an AST, an interpreter for the embedded language must be
+embedded within the host application.
+% This interpreter may execute instructions in the internal language directly,
+% or it may generate code that is compiled into machine language instructions to
+% be executed.
+As the interpreter executes code for the embedded language at program runtime,
+code in the embedded language may either be written by the user or generated
+dynamically by the application. If the target language is different to that of
+the host language, this entails the interpreter generating, compiling, and
+executing code for the target language at program runtime.
+
 
 \section{The Accelerate Language}
 

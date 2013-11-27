@@ -323,6 +323,52 @@ applications.} but allows for an implementation using a parallel tree
 reduction~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
 
 
+\subsection{Arrays, shapes, and indices}
+\label{sec:arrays_shapes_and_indices}
+
+Parallelism in Accelerate takes the form of collective operations on arrays of
+type @Array sh e@, where @sh@ is the \emph{shape} and @e@ the \emph{element
+type} of the array. Following the approach taken in Repa~\cite{Keller:2010er},
+we represent both the shapes and indices of an array using an inductive notation
+of tuples as heterogeneous \emph{snoc} lists to enable rank-polymorphic
+definitions of array functions.
+
+As shown in Listing~\ref{lst:shapes_and_indices}, on both the type and value
+level, the constructor @Z@ is used to represent the shape of a rank-0 array, and
+the infix operator @(:.)@ to increase the rank by adding a new (innermost)
+dimension to the right of the shape. Thus, a rank-3 index with components @x@,
+@y@, and @z@, is written @(Z:.z:.y:.x)@ and has type @(Z:.Int:.Int:.Int)@, where
+the component @x@ is innermost and varies most rapidly, while the component @z@
+varies least rapidly.
+
+\begin{lstlisting}[style=haskell
+    ,float
+    ,label=lst:shapes_and_indices
+    ,caption={Types of array shapes and indices}]
+data Z            = Z                   -- rank zero
+data tail :. head = tail :. head        -- increase rank by one
+
+type DIM0 = Z
+type DIM1 = DIM0 :. Int
+type DIM2 = DIM1 :. Int
+type DIM3 = DIM2 :. Int
+  -- $\langle$ and so on $\rangle$
+
+type Array DIM0 e = Scalar e
+type Array DIM1 e = Vector e
+\end{lstlisting}
+
+Overall, an array of type @Array (Z:.Int:.Int) Float@ is a rank-2 array of
+single precision floating-point numbers. Listing~\ref{lst:shapes_and_indices}
+also defines synonyms for common array types: a singleton array of shape @DIM0@
+represent a single scalar value, while an array of shape @DIM1@ represents a
+vector, and so on. While it may appear that the explicit mentioning of @Int@ in
+each dimension is redundant, we require indices over types other than @Int@ for
+rank polymorphic functions, such as replicating an array into one or more
+additional dimensions or slicing a lower-dimensional subarray out of a larger
+array~\cite{Keller:2010er}.
+
+
 \endinput
 
 MMTC: Chapter 2 (Background): Don't bother introducing Haskell and things like

@@ -240,7 +240,7 @@ target-dependent issue by, for now, simply ignoring it.
 
 
 \section{Array fusion}
-\label{sec:fusion}
+\label{sec:array_fusion}
 
 Fusion, or deforestation, is a term used to describe techniques for having a
 compiler automatically eliminate intermediate data structures in a computation
@@ -482,7 +482,7 @@ implement the transformation.
 \section{Implementing array fusion}
 \label{sec:implementing_array_fusion}
 
-Section~\ref{sec:fusion} outlined the basic approach to fusion. To reiterate, we
+Section~\ref{sec:array_fusion} outlined the basic approach to fusion. To reiterate, we
 partition array operations into two categories as per
 Listing~\ref{lst:operations}:
 %
@@ -1084,7 +1084,7 @@ underlying array data.
 
 \note{tk: update for fixed version of aletD}
 
-As mentioned previously (\S\ref{sec:fusion}), we need to be careful about fusing
+As mentioned previously (\S\ref{sec:array_fusion}), we need to be careful about fusing
 shared array computations to avoid duplicating work. However, \emph{scalar}
 Accelerate computations that manipulate \emph{array shapes}, as opposed to the
 bulk array data, can lead to terms that employ sharing but can never duplicate
@@ -1543,7 +1543,7 @@ we use an observable technique?}
 % must read and write the values $z$ and $n$ to memory at each step of the
 % computation, rather than keeping these values in registers, computing the entire
 % recurrence relation and storing only the final result to memory. Later, we will
-% see how the technique of \emph{array fusion} (\S\ref{sec:fusion}) can be used to
+% see how the technique of \emph{array fusion} (\S\ref{sec:array_fusion}) can be used to
 % eliminate this intermediate memory traffic by combining the \emph{depth}
 % applications of the collective operation @zipWith iter@ into a single
 % operation containing @depth@ instances of the scalar function

@@ -102,6 +102,7 @@ and these applications can be coded to execute on the GPU.
 
 
 \subsection{CUDA}
+\label{sec:cuda}
 
 \CUDA is the parallel computing platform and programming model created by
 NVIDIA, which gives programmers direct access to the memory and parallel
@@ -168,6 +169,7 @@ in the result.
 
 
 \section{Embedded domain-specific languages}
+\label{sec:EDSLs}
 
 A \indexe{domain-specific language} (DSL) is a computer language specialised to
 a specific problem domain. The DOT language~\cite{Graphviz:1998ui,Ellson:2001wf}
@@ -189,7 +191,7 @@ compilation phases such as lexing, parsing, and semantic analyses such as type
 checking, while adding domain specific elements such as data types, or domain
 specific optimisations and code generation.
 
-There are two major degrees in which an embedded language can be implemented.
+There are two major degrees in which an embedded language can be implemented:
 
 \subsection{Shallow embedding}
 
@@ -228,8 +230,47 @@ the host language, this entails the interpreter generating, compiling, and
 executing code for the target language at program runtime.
 
 
-\section{The Accelerate Language}
+\section{The Accelerate EDSL}
 
+The current generation of graphical processing units (GPUs) are massively
+multicore processors (\S\ref{sec:gpu_computing}). They are optimised for
+workloads with a large degree of data parallelism (\S\ref{sec:data_parallelism})
+and good performance depends on highly idiomatic programs with low SIMD
+divergence and regular memory-access patterns. Hence, the development of
+applications that use the graphics processors for general purpose computations
+(\S\ref{sec:gpu_computing}) is work intensive and requires a substantial degree
+of expert knowledge.
+
+Accelerate is our approach to reducing the complexity of GPU programming: a
+high-level, deeply embedded domain-specific language (\S\ref{sec:EDSLs}) of
+array computations that captures appropriate GPGPU idioms in the form of
+parameterised, \emph{rank-polymorphic}~\cite{Keller:2010er}, collective
+operations on arrays. Our choice of operations was informed by the
+\emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is suitable for a wide
+range of algorithms, and of which Sengupta et al.\ demonstrated that these
+operations can be efficiently implemented on modern GPUs~\cite{Sengupta:2007tc}.
+
+We regard Accelerate's collective array operations as algorithmic
+skeletons~(\S\ref{sec:code_generation}) that capture appropriate GPU programming
+idioms. The dynamic code generator instantiates CUDA implementations of these
+skeletons~(\S\ref{sec:parallel_algorithms_in_cuda}) to implement embedded array
+programs~(\S\ref{sec:instantiating_skeletons}). Dynamic code generation exploits
+runtime information of the target hardware to optimise GPU code, and enables
+on-the-fly generation of embedded array programs by the host
+program~(\S\ref{sec:dynamic_compilation}). The evaluator minimises the overhead
+of dynamic code generation by caching binaries of previously compiled skeleton
+instantiations and by parallelising code generation, data
+transfer~(\S\ref{sec:memory_management}), and GPU kernel loading, configuration,
+and execution~(\S\ref{sec:executing_programs}).
+
+The achieve performance competitive with hand-written CUDA, we implement two
+primary optimisation techniques: sharing recovery~(\S\ref{sec:sharing_recovery})
+tackles code explosion due to the embedding in Haskell, while array
+fusion~(\S\ref{sec:implementing_array_fusion}) eliminates superfluous
+intermediate structures, which often arise due to the high-level nature of the
+language. Both of these techniques are well known from other contexts, but they
+present unique challenges for an embedded language compiled for execution on a
+GPU.
 
 
 

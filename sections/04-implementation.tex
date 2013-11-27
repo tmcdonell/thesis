@@ -11,6 +11,7 @@ a backend for parallel execution on \CUDA hardware.
 
 
 \section{Parallel algorithms in CUDA}
+\label{sec:parallel_algorithms_in_cuda}
 
 The \CUDA architecture is a parallel computing platform and programming model
 created by NVIDIA and implemented by the graphics processing units
@@ -842,6 +843,7 @@ See \cite{Mainland:2007bl} for more information on quasiquoters.
 
 
 \section{Instantiating skeletons}
+\label{sec:instantiating_skeletons}
 
 Accelerate is an \emph{embedded} language, meaning that while we write programs
 using Haskell syntax, we do not compile arbitrary Haskell programs directly to
@@ -1011,7 +1013,7 @@ mkFoldAll dev aenv combine seed (CUDelayed shIn _ getIn)
 
 
 \subsection{Instantiating skeletons with scalar code}
-\label{sec:instantiating_skeletons}
+\label{sec:instantiating_skeletons_with_scalar_code}
 
 Most aggregate array operations in Accelerate are parameterised by scalar
 functions, such as the mapping function for @map@ or the combination

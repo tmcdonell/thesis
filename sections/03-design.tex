@@ -369,6 +369,33 @@ additional dimensions or slicing a lower-dimensional subarray out of a larger
 array~\cite{Keller:2010er}.
 
 
+\subsection{Arrays on the host and device}
+\label{sec:arrays_on_the_host_and_device}
+
+Accelerate is an \emph{embedded language} (\S\ref{sec:EDSLs}) that distinguishes
+between vanilla Haskell arrays and arrays in the embedded language, as well as
+computations on both flavours of arrays. Embedded array computations are
+identified by types formed from the type constructor @Acc@, and must be
+explicitly executed before taking effect. The following function embeds a
+Haskell array into an embedded array computation:
+%
+\begin{lstlisting}[style=haskell]
+  use :: (Shape sh, Elt e)
+      => Array sh e -> Acc (Array sh e)
+\end{lstlisting}
+%
+In the context of GPU programming, GPUs typically have their own
+high-performance memory which is separate from the host CPU's main memory, and
+data must be explicitly transferred to the GPU's memory before it can be used.
+The distinction between regular arrays of type @Array sh e@ and arrays of the
+embedded language @Acc (Array sh e)@ has the added benefit of differentiating
+between arrays allocated in host memory and arrays allocated in GPU device
+memory. Thus, @use@ also implies a host-to-device data transfer. See
+section~\ref{sec:memory_management} for more information on how device memory is
+managed. Similarly, expressions in @Acc@ are computations that are executed on
+the device, whereas regular Haskell code runs on the host.
+
+
 \endinput
 
 MMTC: Chapter 2 (Background): Don't bother introducing Haskell and things like

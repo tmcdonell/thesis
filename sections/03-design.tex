@@ -184,12 +184,12 @@ expressivity when representing problems or defining solutions in that domain.
 
 An \emph{embedded} (or \emph{internal}) \emph{domain-specific
 language}\index{domain-specific language!embedded} (EDSL) is a domain-specific
-language that is designed to be used from within another host language. The
-embedded language is implemented as a library, so is able to reuse the syntax
-and features of the general purpose host language compiler, including
-compilation phases such as lexing, parsing, and semantic analyses such as type
-checking, while adding domain specific elements such as data types, or domain
-specific optimisations and code generation.
+language that is designed to be used from within another host
+language~\cite{Hudak:1996}. The embedded language is implemented as a library,
+so is able to reuse the syntax and features of the general purpose host language
+compiler, including compilation phases such as lexing, parsing, and semantic
+analyses such as type checking, while adding domain specific elements such as
+data types, or domain specific optimisations and code generation.
 
 There are two major degrees in which an embedded language can be implemented:
 
@@ -245,10 +245,10 @@ Accelerate is our approach to reducing the complexity of GPU programming: a
 high-level, deeply embedded domain-specific language (\S\ref{sec:EDSLs}) of
 array computations that captures appropriate GPGPU idioms in the form of
 parameterised, \emph{rank-polymorphic}~\cite{Keller:2010er}, collective
-operations on arrays. Our choice of operations was informed by the
-\emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is suitable for a wide
-range of algorithms, and of which Sengupta et al.\ demonstrated that these
-operations can be efficiently implemented on modern GPUs~\cite{Sengupta:2007tc}.
+operations on arrays~\cite{Chakravarty:2011fr}. Our choice of operations was
+informed by the \emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is
+suitable for a wide range of algorithms, and demonstrated that these operations
+can be efficiently implemented on modern GPUs~\cite{Sengupta:2007tc}.
 
 We regard Accelerate's collective array operations as algorithmic
 skeletons~(\S\ref{sec:code_generation}) that capture appropriate GPU programming
@@ -263,9 +263,10 @@ instantiations and by parallelising code generation, data
 transfer~(\S\ref{sec:memory_management}), and GPU kernel loading, configuration,
 and execution~(\S\ref{sec:executing_programs}).
 
-The achieve performance competitive with hand-written CUDA, we implement two
-primary optimisation techniques: sharing recovery~(\S\ref{sec:sharing_recovery})
-tackles code explosion due to the embedding in Haskell, while array
+The achieve performance competitive with hand-written
+CUDA~\cite{McDonell:2013wi}, we implement two primary optimisation techniques:
+sharing recovery~(\S\ref{sec:sharing_recovery}) tackles code explosion due to
+the embedding in Haskell, while array
 fusion~(\S\ref{sec:implementing_array_fusion}) eliminates superfluous
 intermediate structures, which often arise due to the high-level nature of the
 language. Both of these techniques are well known from other contexts, but they

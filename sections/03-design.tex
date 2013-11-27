@@ -273,6 +273,54 @@ language. Both of these techniques are well known from other contexts, but they
 present unique challenges for an embedded language compiled for execution on a
 GPU.
 
+In the following, we briefly introduce some features of the design and use of
+Accelerate.
+
+
+\subsection{Computing a vector dot product}
+\label{sec:computing_dotp}
+
+Consider computing the dot product of two vectors, using standard Haskell lists:
+%
+\begin{lstlisting}[style=haskell]
+dotp_list :: [Float] -> [Float] -> Float
+dotp_list xs ys = foldl (+) 0 (zipWith (*) xs ys)
+\end{lstlisting}
+%
+The two input vectors @xs@ and @ys@ are pointwise multiplied, and the resulting
+list of products is summed, yielding the scalar result.
+
+Using Accelerate, we implement this computation on arrays as follows:
+%
+\begin{lstlisting}[style=haskell]
+dotp :: Vector Float -> Vector Float -> Acc (Scalar Float)                         -- (1)
+dotp xs ys
+  = let xs' = use xs                                                               -- (2)
+        ys' = use ys
+    in
+    fold (+) 0 (zipWith (*) xs' ys')                                               -- (3)
+\end{lstlisting}
+%
+Here, @fold@ and @zipWith@ are taken from the Accelerate library
+@Data.Array.Accelerate@, rather than from the standard Haskell library
+@Data.List@. The Accelerate code differs from the list version in three
+respects:
+%
+\begin{enumerate}
+    \item The result is an Accelerate computation, indicated by the type @Acc@.
+    \item We lift the two plain vectors @xs@ and @ys@ into @Acc@ terms with @use@.
+    \item We use @fold@ instead of @foldl@.
+\end{enumerate}
+%
+The first two points are artefacts of lifting the computation into an embedded
+language, effectively delaying the computation. Concerning the final point, the
+list traversal function @foldl@ guarantees a left-to-right traversal of the
+elements, whereas @fold@ leaves the order in which the elements are combined
+unspecified. This requires that the binary operator supplied to @fold@ is
+associative and commutative,\footnote{Although floating-point arithmetic is not
+strictly associative, it is common to accept the resulting error in parallel
+applications.} but allows for an implementation using a parallel tree
+reduction~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
 
 
 \endinput

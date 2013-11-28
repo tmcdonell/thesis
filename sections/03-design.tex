@@ -244,7 +244,7 @@ of expert knowledge.
 Accelerate is our approach to reducing the complexity of GPU programming: a
 high-level, deeply embedded domain-specific language (\S\ref{sec:EDSLs}) of
 array computations that captures appropriate GPGPU idioms in the form of
-parameterised, \emph{rank-polymorphic}~\cite{Keller:2010er}, collective
+parameterised, \indexe{rank-polymorphic}~\cite{Keller:2010er}, collective
 operations on arrays~\cite{Chakravarty:2011fr}. Our choice of operations was
 informed by the \emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is
 suitable for a wide range of algorithms, and demonstrated that these operations
@@ -461,18 +461,19 @@ Accelerate distinguishes the types of collective and scalar computations to
 achieve a stratified language. Collective operations in @Acc@ comprise many
 scalar computations in @Exp@ that are executed in parallel. However, scalar
 computations \emph{can not} contain collective operations. This stratification
-excludes \emph{nested irregular} data parallelism statically --- instead,
+excludes \emph{nested, irregular} data parallelism statically --- instead,
 Accelerate is limited to \emph{flat data-parallelism} involving only regular,
 multi-dimensional arrays.
 
 Compared to regular Haskell, @Exp@ computations are rather limited in order to
-meet the restrictions of what can be efficiently executed on GPUs. Scalar
-expressions support Haskell's standard arithmetic operations by overloading the
-standard type classes such as @Num@, @Integaral@, as well as bitwise operations
-from @Bits@. Although we can not overload functions on @Bool@ in standard
-Haskell, we support equality and comparison operators as well as logical
-connectives using the operators @(==*)@, @(/=*)@, @(<*)@,
-\lstinline[style=inline,literate=]{(<=*)},      % don't turn into (≤*)
+meet the restrictions of what can be efficiently executed on GPUs. In
+particular, we do not support recursion, and provide only a limited form of
+explicit iteration. Scalar expressions support Haskell's standard arithmetic
+operations by overloading the standard type classes such as @Num@, @Integaral@,
+as well as bitwise operations from @Bits@. Although we can not overload
+functions on @Bool@ in standard Haskell, we support equality and comparison
+operators as well as logical connectives using the operators @(==*)@, @(/=*)@,
+@(<*)@, \lstinline[style=inline,literate=]{(<=*)},      % don't turn into (≤*)
 and so on. We also have conditional expressions in the form of @c ? (t, e)@,
 which evaluates to @t@ if @c@ yields @True@, otherwise to @e@. There are also
 scalar operations that take array valued arguments; namely, @arr!ix@ indexes an
@@ -480,6 +481,142 @@ array and @shape@ queries an arrays extent. The argument to these operations is
 guaranteed to only be a previously let-bound variable, thus each invocation of
 the scalar function will not initiate additional parallel work. Finally, we have
 tupling and projection, and auxiliary functions for computing with indices.
+
+
+\subsection{Computing an N-body gravitational simulation}
+\label{sec:computing_nbody}
+
+At a second example, consider simulating the Newtonian gravitational forces on a
+set of massive bodies in 3D space, using a na\"ive O($n^2$) algorithm. In a
+data-parallel setting, the natural implementation first computes the forces
+between every pair of bodies, before reducing the components applied to each
+body using a segmented sum. In Accelerate, we can calculate the acceleration
+each body experiences as it interacts with all other bodies in the system as
+follows:
+%
+\begin{lstlisting}[style=haskell]
+type Mass      = Float
+type Position  = (Float, Float, Float)
+type PointMass = (Position, Mass)
+
+type Accel     = (Float, Float, Float)
+
+calcAccels :: Exp R -> Acc (Vector PointMass) -> Acc (Vector Accel)
+calcAccels epsilon bodies
+  = let n       = A.size bodies
+        cols    = A.replicate (lift $ Z :. n :. All) bodies                        -- (1)
+        rows    = A.replicate (lift $ Z :. All :. n) bodies
+    in
+    A.fold (.+.) (vec 0) $ A.zipWith (accel epsilon) rows cols                     -- (2)
+\end{lstlisting}
+%
+\begin{enumerate}
+\item @replicate@ expands the vector of @n@ bodies into an @n@$\times$@n@
+    matrix, where we replicate @All@ elements of the source array such that
+    every element down the columns or along the rows of the matrix are
+    identical, respectively. The operation @lift@ is used to push the shape
+    constructors into the expression; that is, in this instance we have @lift ::
+    (Z :. Exp Int :. All) -> Exp (Z :. Int :. All)@.
+
+\item @zipWith@ calculates the interaction between each pair of particles by
+    element wise combining the @n@$\times$@n@ matrices. @fold@ reduces the
+    result along the innermost dimension only, yielding a vector containing the
+    sum of interactions for each particle between all others. The auxiliary
+    function performs @(.+.)@ is component-wise addition of the 3-vector.
+\end{enumerate}
+
+This is an example of using the rank polymorphic operations of Accelerate. The
+function @fold@ requires an argument array of at least rank-1 (such as a
+matrix), and the result is computed by reducing the array along the innermost
+dimension, reducing the rank of the array by one (in this case a vector). The
+functions @replicate@ and @slice@ are rank polymorphic as well, but require more
+complex shape constraints that we characterise with the type family @FullShape@
+and @SliceShape@ that statically track changing array dimensions. For details on
+the various forms of shape polymorphism, see~\cite{Keller:2010er}. Overall, as
+shown in Listing~\ref{lst:acc_operations}, the collective operations of
+Accelerate are a multi-dimensional variant of those underlying the scan-vector
+model~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
+
+
+\subsubsection{Computing gravitational potential}
+
+We briefly explain how to compute the gravitational potential between a pair of
+bodies. Given $n$ bodies with position $\mathbf{x}_i$ and velocity
+$\mathbf{v}_i$ for $i \in [1,n]$ (bold face indicates a 3-component vector), the
+force $\mathbf{f}_{ij}$ on a body $i$ is caused by its gravitational attraction
+to body $j$:
+%
+\begin{equation*}
+    \mathbf{f}_{ij}
+      = G \frac{m_i m_j}{\|\mathbf{r}_{ij}\|^2}
+        \cdot
+        \frac{\mathbf{r}_{ij}}{\|\mathbf{r}_{ij}\|}
+\end{equation*}
+%
+where $m_i$ and $m_j$ are the masses of the bodies, $\mathbf{r}_{ij} =
+\mathbf{x}_j - \mathbf{x}_i$ is the vector from body $i$ to body $j$, and $G$ is
+the gravitational constant. The factor on the left represents the
+\emph{magnitude} of the acceleration, and is proportional to the product of the
+masses and diminishes as the square of the separation of the masses. The right
+factor is the \emph{direction} of the force, and is the unit vector from $i$ in
+the direction of $j$.
+
+The total force $\mathbf{F}_i$ on a body $i$ due to its interactions with the
+other bodies is thus:
+%
+\begin{equation*}
+    \mathbf{F}_i
+      = \sum_{\substack{1 \le j \le n\\j \ne i}} \mathbf{f}_{ij}
+      = G m_i \cdot \sum_{\substack{1 \le j \le n\\j \ne i}}
+            \frac{m_j \mathbf{r}_{ij}}{\|\mathbf{r}_{ij}\|^3}
+\end{equation*}
+%
+Note that as the bodies approach each other, the force between them grows
+without bound, which is undesirable for numerical simulations. In astrophysical
+simulation, collisions between bodies are generally precluded, which is
+reasonable if the bodies represent galaxies that may pass through each other. A
+\emph{softening factor} $\epsilon^2 > 0$ is added, which models the interaction
+of two Plummer point masses~\cite{Aarseth:2003uz,Dyer:1993bk}. In effect,
+softening limits the magnitude of forces between bodies. The denominator is
+rewritten as follows:
+%
+\begin{equation*}
+    \mathbf{F}_i \approx G m_i \cdot \sum_{1 \le j \le n}
+        \frac{m_j \mathbf{r}_{ij}}
+             {\left( \|\mathbf{r}_{ij}\| + \epsilon^2 \right)^{\sfrac{3}{2}}}
+\end{equation*}
+%
+The condition $j \ne i$ is no longer needed, because $\mathbf{f}_{ii} = 0$ when
+$\epsilon^2 > 0$.
+
+Finally, the acceleration experienced by a body is $\mathbf{a}_i =
+\mathbf{F}_i/m_i$, and we can now present the Accelerate routine to compute the
+accelerate between two bodies.
+%
+%\begin{equation*}
+%    \mathbf{a}_i \approx
+%    G \sum_{1 \le j \le n}
+%      \frac{m_j \mathbf{r}_{ij}}
+%           {\left( \|\mathbf{r}_{ij}\|^2 + \epsilon^2 \right)^{\sfrac{3}{2}}}
+%\end{equation*}
+%
+%
+\begin{lstlisting}[style=haskell]
+accel :: Exp R -> Exp PointMass -> Exp PointMass -> Exp Accel
+accel epsilon pmi pmj = (mj * invr3) *. r
+  where
+    mj          = massOfPointMass pmj
+    r           = positionOfPointMass pmj .-. positionOfPointMass pmi
+    rsqr        = dot r r + epsilon * epsilon
+    invr        = 1 / sqrt rsqr
+    invr3       = invr * invr * invr
+\end{lstlisting}
+%
+Here, a @PointMass@ is represented as a tuple containing the body's position in
+3D space together with its mass, and functions @positionOfPointMass@ and
+@massOfPointMass@ extract each component, respectively. The function @(.-.)@ is
+component-wise subtraction applied to the 3-vector, and @(*.)@ multiplies each
+component of a 3-vector by a scalar value.
 
 
 

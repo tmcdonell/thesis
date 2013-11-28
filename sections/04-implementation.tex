@@ -1367,33 +1367,11 @@ these issues to future work.
 \subsection{Shapes and indices}
 
 Parallelism in Accelerate takes the form of collective operations on arrays of
-type @Array sh e@, where @sh@ is the \emph{shape} and \emph{e} is the
-element type of the array. Following the approach taken in
-Repa~\cite{Keller:2010er,Lippmeier:2012gx}, we represent both the shape and
-indices of an array using an inductive notation of tuples as heterogenous
-\emph{snoc} lists to enable rank-polymorphic definitions of array functions.
-
-As shown in Listing~\ref{lst:shapes_and_indices}, on both the type and value
-level, the constructor @Z@ is used to represent the shape of a rank-0
-array, and the infix operator @(:.)@ to increase the rank by adding a new
-(innermost) dimension to the right of the shape.
-
-\begin{lstlisting}[style=haskell
-    ,float
-    ,label=lst:shapes_and_indices
-    ,caption={Types of array shapes and indices}]
-data Z            = Z                   -- rank zero
-data tail :. head = tail :. head        -- increase rank by one
-
-type DIM0 = Z
-type DIM1 = DIM0 :. Int
-type DIM2 = DIM1 :. Int
-type DIM3 = DIM2 :. Int
-  %$\langle$ and so on $\rangle$%
-
-type Array DIM0 e = Scalar e
-type Array DIM1 e = Vector e
-\end{lstlisting}
+type @Array sh e@, where @sh@ is the \emph{shape} and @e@ is the \emph{element
+type} of the array. As discussed in section~\ref{sec:arrays_shapes_and_indices},
+we use an inductive notation of snoc lists to enable rank-polymorphic
+definitions of array functions. Listing~\ref{lst:shapes_and_indices} shows the
+types of array shapes and indices.
 
 During code generation, the old version of Accelerate~\cite{Chakravarty:2011fr}
 represented multidimensional shapes and indices as a @struct@.

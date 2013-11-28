@@ -399,8 +399,18 @@ the device, whereas regular Haskell code runs on the host.
 \subsection{Array computations versus scalar expressions}
 \label{sec:array_computations_vs_scalar_expressions}
 
-\begin{lstlisting}[
-    style=haskell,
+The signatures of the two operations @zipWith@ and @fold@, using in the
+definition of @dotp@, are shown in Listing~\ref{lst:acc_operations}. These
+operations follow the signatures of the corresponding list functions, but with
+arrays wrapped in @Acc@. In addition to @Acc@, which marks embedded array
+computations, we also have @Exp@, which marks \emph{embedded scalar}
+computations: a term of type @Exp Int@ represents an embedded expression
+yielding a value of type @Int@, and similarly @Exp Float -> Exp (Float,Float)@
+characterises an embedded scalar function that takes an argument of type @Float@
+and yields a pair of @Float@s as the result. As with computations embedded in
+@Acc@, computations in @Exp@ are executed on the device.
+
+\begin{lstlisting}[style=haskell,
     numbers=none,
     float=t,
     label={lst:acc_operations},
@@ -446,17 +456,6 @@ permute     :: (Exp a -> Exp a -> Exp a) -> Acc (Array sh' a)
 stencil :: Stencil sh a stencil
         => (stencil -> Exp b) -> Boundary a -> Acc (Array sh a) -> Acc (Array sh b)
 \end{lstlisting}
-
-The signatures of the two operations @zipWith@ and @fold@, using in the
-definition of @dotp@, are shown in Listing~\ref{lst:acc_operations}. These
-operations follow the signatures of the corresponding list functions, but with
-arrays wrapped in @Acc@. In addition to @Acc@, which marks embedded array
-computations, we also have @Exp@, which marks \emph{embedded scalar}
-computations: a term of type @Exp Int@ represents an embedded expression
-yielding a value of type @Int@, and similarly @Exp Float -> Exp (Float,Float)@
-characterises an embedded scalar function that takes an argument of type @Float@
-and yields a pair of @Float@s as the result. As with computations embedded in
-@Acc@, computations in @Exp@ are executed on the device.
 
 Accelerate distinguishes the types of collective and scalar computations to
 achieve a stratified language. Collective operations in @Acc@ comprise many

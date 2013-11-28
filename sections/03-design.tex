@@ -396,6 +396,94 @@ managed. Similarly, expressions in @Acc@ are computations that are executed on
 the device, whereas regular Haskell code runs on the host.
 
 
+\subsection{Array computations versus scalar expressions}
+\label{sec:array_computations_vs_scalar_expressions}
+
+\begin{lstlisting}[
+    style=haskell,
+    numbers=none,
+    float=t,
+    label={lst:acc_operations},
+    caption={[Core Accelerate array operations] Summary of Accelerate's core
+        collective array operations, omitting \code{Shape} and \code{Elt} class
+        constraints for brevity. In addition, there are other flavours of folds
+        and scans as well as segmented versions of these.}]
+-- Embed an array
+use :: Array sh e -> Acc (Array sh e)
+
+-- Create a singleton array
+unit :: Exp e -> Acc (Scalar e)
+
+-- Impose a new shape on an array
+reshape :: Exp sh -> Acc (Array sh' e) -> Acc (Array sh e)
+
+-- Create an array from an index mapping
+generate :: Exp sh -> (Exp sh -> Exp a) -> Acc (Array sh a)
+
+-- Extend an array across new dimensions; remove existing dimensions
+replicate :: Slice slix
+          => Exp slix -> Acc (Array (SliceShape slix) e) -> Acc (Array (FullShape slix) e)
+slice     :: Slice slix
+          => Acc (Array (FullShape  slix) e) -> Exp slix -> Acc (Array (SliceShape slix) e)
+
+-- May a function over an array; over a pair of arrays
+map     :: (Exp a -> Exp b) -> Acc (Array sh a) -> Acc (Array sh b)
+zipWith :: (Exp a -> Exp b -> Exp c)
+        -> Acc (Array sh a) -> Acc (Array sh b) -> Acc (Array sh c)
+
+-- Tree reduction along the innermost dimension
+fold :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Array (sh:.Int) a) -> Acc (Array sh a)
+
+-- Left-to-right or right-to-left vector pre-scan
+scan{l,r} :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Vector a) -> Acc (Vector a)
+
+-- Rearrange elements based on backwards, forwards index mapping
+backpermute :: Exp sh' -> (Exp sh' -> Exp sh) -> Acc (Array sh a) -> Acc (Array sh' e)
+permute     :: (Exp a -> Exp a -> Exp a) -> Acc (Array sh' a)
+            -> (Exp sh -> Exp sh') -> Acc (Array sh a) -> Acc (Array sh' a)
+
+-- Map a function with local neighbourhood context
+stencil :: Stencil sh a stencil
+        => (stencil -> Exp b) -> Boundary a -> Acc (Array sh a) -> Acc (Array sh b)
+\end{lstlisting}
+
+The signatures of the two operations @zipWith@ and @fold@, using in the
+definition of @dotp@, are shown in Listing~\ref{lst:acc_operations}. These
+operations follow the signatures of the corresponding list functions, but with
+arrays wrapped in @Acc@. In addition to @Acc@, which marks embedded array
+computations, we also have @Exp@, which marks \emph{embedded scalar}
+computations: a term of type @Exp Int@ represents an embedded expression
+yielding a value of type @Int@, and similarly @Exp Float -> Exp (Float,Float)@
+characterises an embedded scalar function that takes an argument of type @Float@
+and yields a pair of @Float@s as the result. As with computations embedded in
+@Acc@, computations in @Exp@ are executed on the device.
+
+Accelerate distinguishes the types of collective and scalar computations to
+achieve a stratified language. Collective operations in @Acc@ comprise many
+scalar computations in @Exp@ that are executed in parallel. However, scalar
+computations \emph{can not} contain collective operations. This stratification
+excludes \emph{nested irregular} data parallelism statically --- instead,
+Accelerate is limited to \emph{flat data-parallelism} involving only regular,
+multi-dimensional arrays.
+
+Compared to regular Haskell, @Exp@ computations are rather limited in order to
+meet the restrictions of what can be efficiently executed on GPUs. Scalar
+expressions support Haskell's standard arithmetic operations by overloading the
+standard type classes such as @Num@, @Integaral@, as well as bitwise operations
+from @Bits@. Although we can not overload functions on @Bool@ in standard
+Haskell, we support equality and comparison operators as well as logical
+connectives using the operators @(==*)@, @(/=*)@, @(<*)@,
+\lstinline[style=inline,literate=]{(<=*)},      % don't turn into (≤*)
+and so on. We also have conditional expressions in the form of @c ? (t, e)@,
+which evaluates to @t@ if @c@ yields @True@, otherwise to @e@. There are also
+scalar operations that take array valued arguments; namely, @arr!ix@ indexes an
+array and @shape@ queries an arrays extent. The argument to these operations is
+guaranteed to only be a previously let-bound variable, thus each invocation of
+the scalar function will not initiate additional parallel work. Finally, we have
+tupling and projection, and auxiliary functions for computing with indices.
+
+
+
 \endinput
 
 MMTC: Chapter 2 (Background): Don't bother introducing Haskell and things like

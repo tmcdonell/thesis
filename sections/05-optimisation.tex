@@ -376,11 +376,12 @@ operations into two categories:
     style=haskell,
     numbers=none,
     float=t,
-    label={lst:operations},
-    caption={[Core Accelerate array operations] Summary of Accelerate's core
-        collective array operations, omitting \code{Shape} and \code{Elt}
-        class constraints for brevity. In addition, there are other flavours of
-        folds and scans as well as segmented versions of these.}]
+    label={lst:producer_consumer_operations},
+    caption={[Producer and consumer operations in Accelerate] Summary of Accelerate's core
+        collective array operations, classified as either producer of consumer
+        operations. We omit the \code{Shape} and \code{Elt} class constraints
+        for brevity. In addition, there are other flavours of folds and scans as
+        well as segmented versions of these.}]
 %\makebox[\textwidth]{\rm\bf Producers}%
 
 map         :: (Exp a -> Exp b) -> Acc (Array sh a)                   %\rm map a function over an array%
@@ -412,7 +413,7 @@ stencil     :: Stencil sh a stencil => (stencil -> Exp b)             %\rm map a
             -> Boundary a -> Acc (Array sh a) -> Acc (Array sh b)     %\rm \ldots neighbourhood context%
 \end{lstlisting}
 
-Listing~\ref{lst:operations} summarises the collective array operations that we
+Listing~\ref{lst:producer_consumer_operations} summarises the collective array operations that we
 support. In a parallel context, producers are much more pleasant to deal with
 because independent element-wise operations have an obvious mapping to massively
 parallel processors such as GPUs\index{graphics processing unit}. Consumers are
@@ -484,7 +485,7 @@ implement the transformation.
 
 Section~\ref{sec:array_fusion} outlined the basic approach to fusion. To reiterate, we
 partition array operations into two categories as per
-Listing~\ref{lst:operations}:
+Listing~\ref{lst:producer_consumer_operations}:
 %
 \begin{enumerate}
     \item \index{producer}\emph{Producer} operations consist of independent
@@ -525,7 +526,7 @@ others~\cite{Claessen:2012hl}.
 
 The use of delayed arrays [in Repa] was originally motived by the desire to
 avoid superfluous copying of array elements during index space transformations
-such as @backpermute@ (see Listing~\ref{lst:operations}). Another major
+such as @backpermute@ (see Listing~\ref{lst:producer_consumer_operations}). Another major
 benefit of delayed arrays is that it offers by-default automatic fusion.
 Moreover, this fusion does not require sophisticated compiler transformations or
 for the two fusible terms to be statically juxtaposed; fusion is a property of
@@ -777,7 +778,7 @@ step cc = case cc of
 \end{lstlisting}
 
 The only interesting case is that of @zipWith@, which is the only producer
-that consumes multiple arrays (see Listing~\ref{lst:operations}). In contrast
+that consumes multiple arrays (see Listing~\ref{lst:producer_consumer_operations}). In contrast
 to, for example, @foldr/build@\index{fusion!foldr/build}, we fuse in both
 of the input arguments.
 %

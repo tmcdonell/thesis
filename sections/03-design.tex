@@ -629,6 +629,71 @@ component-wise subtraction applied to the 3-vector, and @(*.)@ multiplies each
 component of a 3-vector by a scalar value.
 
 
+\subsection{Non-parametric array representation}
+
+In the type signature of @use@ in
+section~\ref{sec:arrays_on_the_host_and_device}, the type classes @Shape@ and
+@Elt@ characterise the types that may be used as array indices and array
+elements respectively. We discussed the nature of array indices in
+section~\ref{sec:arrays_shapes_and_indices}. The @Elt@ characterises the types
+of values that can be used as array elements, and hence appear in scalar
+Accelerate expressions. The supported @Elt@ are signed \& unsigned integers (8,
+16, 32, and 64-bit wide), floating point numbers (single \& double precision),
+as well as @Char@, @Bool@, and array indices formed from @Z@ and @(:.)@.
+Furthermore, there are tuples of all of those, including nested tuples, as was
+seen in the N-body example~(\S\ref{sec:computing_nbody}).
+
+Accelerate arrays of primitive type, such as @Int@ and @Float@, are easily
+represented as arrays of the corresponding integral and floating point types.
+More interesting is the case of arrays of tuples, where we use a non-parametric
+array representation so that arrays of tuples are represented in memory as a
+tuple of arrays, one array for each primitive type in the structure. By virtue
+of this representation, Accelerate is able to make optimal use of the available
+memory bandwidth. See section~\ref{sec:representing_tuples} for details.
+
+Moreover, consider the following types:
+%
+\begin{lstlisting}[style=haskell]
+data Point = P Int Int
+
+point :: Exp Point
+sh    :: Exp (Z :. Int :. Int)
+tup   :: Exp (Int, Int)
+\end{lstlisting}
+%
+The salient feature of each expression is that it returns two integers, albeit
+each is wrapped in different constructors. We call this the \emph{surface} type
+of a term. However, an Accelerate backend implementation should not need to know
+about the surface type representation, and certainly, we should not need to
+extend the backend to support user-defined types such as @Point@. The @Elt@
+class tells us how to convert between the surface type of an expression that a
+user programs in, into the \emph{representation} type that an implementation
+stores and computes data in. We use a type family~\cite{Chakravarty:2005dx} of
+nested tuples to represent types as heterogenous snoc-lists of primitive types.
+%
+\begin{lstlisting}[style=haskell]
+type family EltRepr a :: *
+type instance EltRepr ()        = ()
+type instance EltRepr Int       = ((), Int)
+type instance EltRepr Float     = ((), Float)
+type instance EltRepr (a, b)    = (EltRepr a, EltRepr' b)
+type instance EltRepr (a, b, c) = (EltRepr (a, b), EltRepr' c)
+  -- and so on\ldots
+
+type family EltRepr' a :: *
+type instance EltRepr' ()        = ()
+type instance EltRepr' Int       = Int
+type instance EltRepr' Float     = Float
+type instance EltRepr' (a, b)    = (EltRepr a, EltRepr' b)
+type instance EltRepr' (a, b, c) = (EltRepr (a, b), EltRepr' c)
+  -- using a flattened representation at the leaves to avoid overly nested pairs
+\end{lstlisting}
+
+Arrays of tuples have a similar mapping into a tuple of arrays of primitive
+type.
+
+
+
 
 \endinput
 

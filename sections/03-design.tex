@@ -487,20 +487,30 @@ tupling and projection, and auxiliary functions for computing with indices.
 \label{sec:computing_nbody}
 
 At a second example, consider simulating the Newtonian gravitational forces on a
-set of massive bodies in 3D space, using a na\"ive O($n^2$) algorithm. In a
-data-parallel setting, the natural implementation first computes the forces
+set of massive bodies in 3D space, using a na\"ive O($n^2$) algorithm. We use
+the following type synonyms to represent bodies in the simulation:
+%
+\begin{lstlisting}[style=haskell]
+type Vec a      = (a, a, a)
+type Position   = Vec Float
+type Accel      = Vec Float
+
+type Mass       = Float
+type PointMass  = (Position, Mass)
+\end{lstlisting}
+%
+@Vec@ is the type of 3-component vectors, which are used to store the $x$-, $y$,
+and $z$-components of the particle's position in 3D space and velocity component
+along each dimension in @Position@ and @Accel@ respectively. A @PointMass@
+is represented as a tuple containing the body's @Mass@ and @Position@.
+
+In a data-parallel setting, the natural implementation first computes the forces
 between every pair of bodies, before reducing the components applied to each
 body using a segmented sum. In Accelerate, we can calculate the acceleration
 each body experiences as it interacts with all other bodies in the system as
 follows:
 %
 \begin{lstlisting}[style=haskell]
-type Mass      = Float
-type Position  = (Float, Float, Float)
-type PointMass = (Position, Mass)
-
-type Accel     = (Float, Float, Float)
-
 calcAccels :: Exp R -> Acc (Vector PointMass) -> Acc (Vector Accel)
 calcAccels epsilon bodies
   = let n       = A.size bodies
@@ -515,8 +525,8 @@ calcAccels epsilon bodies
     matrix, where we replicate @All@ elements of the source array such that
     every element down the columns or along the rows of the matrix are
     identical, respectively. The operation @lift@ is used to push the shape
-    constructors into the expression; that is, in this instance we have @lift ::
-    (Z :. Exp Int :. All) -> Exp (Z :. Int :. All)@.
+    constructors into the expression; that is, in this instance we have
+    @lift :: (Z :. Exp Int :. All) -> Exp (Z :. Int :. All)@.
 
 \item @zipWith@ calculates the interaction between each pair of particles by
     element wise combining the @n@$\times$@n@ matrices. @fold@ reduces the

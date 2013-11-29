@@ -662,7 +662,7 @@ tup   :: Exp (Int, Int)
 \end{lstlisting}
 %
 The salient feature of each expression is that it returns two integers, albeit
-each is wrapped in different constructors. We call this the \emph{surface} type
+each wrapped in different constructors. We call this the \emph{surface} type
 of a term. However, an Accelerate backend implementation should not need to know
 about the surface type representation, and certainly, we should not need to
 extend the backend to support user-defined types such as @Point@. The @Elt@
@@ -679,18 +679,12 @@ type instance EltRepr Float     = ((), Float)
 type instance EltRepr (a, b)    = (EltRepr a, EltRepr' b)
 type instance EltRepr (a, b, c) = (EltRepr (a, b), EltRepr' c)
   -- and so on\ldots
-
-type family EltRepr' a :: *
-type instance EltRepr' ()        = ()
-type instance EltRepr' Int       = Int
-type instance EltRepr' Float     = Float
-type instance EltRepr' (a, b)    = (EltRepr a, EltRepr' b)
-type instance EltRepr' (a, b, c) = (EltRepr (a, b), EltRepr' c)
-  -- using a flattened representation at the leaves to avoid overly nested pairs
 \end{lstlisting}
-
-Arrays of tuples have a similar mapping into a tuple of arrays of primitive
-type.
+%
+Here @EltRepr'@ is similar, except that we use a flattened representation at the
+leaves in order to avoid overly nested pairs; that is, primitive types are
+represented as @EltRepr' Int = Int@. Arrays of tuples have a similar mapping
+into a nested tuple of arrays of primitive type.
 
 
 

@@ -704,6 +704,7 @@ into a nested tuple of arrays of primitive type.
 
 \subsection{Richly typed terms}
 
+\marginnote{tk: this bit is very implementation-y}
 As a deeply embedded language, the operations of both the array and scalar
 sub-language do not directly issue computations; instead, they build term trees
 to represent embedded computations (\S\ref{sec:EDSLs}). The terms in the surface
@@ -712,8 +713,8 @@ function-valued scalar expressions as well as type class overloading to reflect
 arithmetic expressions. For example, the body of the @dotp@ function
 % @fold (+) 0 (zipWith (*) xs' ys')@
 is translated into:\footnote{The subterms to \footcode{add} and \footcode{mul}
-here are inline into the term, we only use a \footcode{where}-clause to improve
-readability.}
+here are inline into the \footcode{Fold} and \code{ZipWith} terms respectively,
+we only use a \footcode{where}-clause to improve readability.}
 %
 \begin{lstlisting}[style=haskell]
   Fold add (Const 0) (ZipWith mul xs' ys')

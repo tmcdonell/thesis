@@ -263,7 +263,7 @@ instantiations and by parallelising code generation, data
 transfer~(\S\ref{sec:memory_management}), and GPU kernel loading, configuration,
 and execution~(\S\ref{sec:executing_programs}).
 
-The achieve performance competitive with hand-written
+To achieve performance competitive with hand-written
 CUDA~\cite{McDonell:2013wi}, we implement two primary optimisation techniques:
 sharing recovery~(\S\ref{sec:sharing_recovery}) tackles code explosion due to
 the embedding in Haskell, while array
@@ -273,8 +273,22 @@ language. Both of these techniques are well known from other contexts, but they
 present unique challenges for an embedded language compiled for execution on a
 GPU.
 
-In the following, we briefly introduce some features of the design and use of
-Accelerate.
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{images/sec-3/outline-s}
+    \caption[The overall structure of Accelerate]{The overall structure of
+    Accelerate. It comprises a frontend and supports multiple backends that can
+    target a variety of architectures.}
+    \label{fig:outline}
+\end{figure}
+
+Figure~\ref{fig:outline} summarises the overall structure of Accelerate. It
+comprises a frontend and support for multiple backends that can target a variety
+of architectures. Here, we are only concerned with the CUDA generating GPU
+backend, but the approach is amenable to targeting multicore CPU backends
+exploiting SIMD instructions, backends for OpenCL, and for reconfigurable
+hardware such as FPGAs. In the following, we briefly introduce some features of
+the design and use of Accelerate.
 
 
 \subsection{Computing a vector dot product}

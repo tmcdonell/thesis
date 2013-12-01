@@ -804,6 +804,56 @@ type means that these invariants are checked at \emph{compile} time, reducing
 the number of possible runtime errors in type-correct programs.
 
 
+\section{Related work}
+
+The development of general-purpose applications that run on the GPU is highly
+work intensive, and has been estimated to require at least $10\times$ as much
+effort as developing an efficient single-threaded
+application~\cite{Sweeney:2009ua}. Several researchers have proposed to
+ameliorate the status quo by either using a high-level library to compose GPU
+code or by compiling a subset of a high-level language to low-level GPU code.
+This section explores some of these approaches.
+
+
+\paragraph{Haskell-based approaches}
+
+Vertigo~\cite{Elliott:2004hh} is an embedded language in Haskell for GPGPU
+programming. Vertigo is a statically compiled graphics language targeting the
+DirectX 9 shader model, and does not offer higher-order combinators such as
+@map@ and @fold@.
+
+Obsidian~\cite{Svensson:2008a} and Nikola~\cite{Mainland:2010vj} are also
+Haskell EDSLs for GPGPU programming, and are in aim and spirit the embeddings
+closest to Accelerate. Both Nikola and Obsidian produce CUDA code as we do,
+however while we use algorithmic skeletons (\S\ref{sec:code_generation}), Nikola
+explicitly schedules loops, and Obsidian is a lower level language where more
+details of the GPU hardware are exposed to the programmer. Moreover, the
+Accelerate language is more expressive, supporting generative functions such as
+@replicate@, and Accelerate computations can span multiple GPU kernels, whereas
+both Nikola and Obsidian can only express array computations that can be
+implemented in a single GPU kernel. Algorithms spanning multiple kernels need to
+be explicitly scheduled by the application programmer and incur additional
+host-device data transfer overhead, which can be rather significant.
+
+\marginnote{tk: to related work for fusion?}
+Recent versions of Obsidian~\cite{Claessen:2012hl} implement
+Repa-style~\cite{Keller:2010er} delayed \emph{pull arrays} as well as \emph{push
+arrays}. Whereas a pull array represents a general producer, a push array
+represents a general consumer. Pull arrays allow intermediate programs to be
+written in continuation passing style (CPS)\index{continuation passing style},
+which helps to compile (and fuse) append-like operations.
+
+Baracuda~\cite{Larsen:2011fa} is another Haskell EDSL producing CUDA GPU
+kernels, though it is intended to be used offline, with the kernels called
+directly from a C++ application.
+
+Paraiso~\cite{Muranushi:2012eh} is a Haskell EDSL for solving systems of
+\indext{partial differential equation}s (PDEs), such as hydrodynamics equations,
+and generates both CUDA code for GPUs as well as OpenMP~\cite{OpenMP:2008} code
+for multicore CPUs. Accelerate supports @stencil@ operations for expressing this
+type of operation, but currently lacks a backend for multicore CPUs. Paraiso
+also includes an automated tuning framework to search for faster implementations
+of the algorithm.
 
 
 \endinput

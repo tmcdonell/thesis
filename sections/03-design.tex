@@ -812,10 +812,10 @@ effort as developing an efficient single-threaded
 application~\cite{Sweeney:2009ua}. Several researchers have proposed to
 ameliorate the status quo by either using a high-level library to compose GPU
 code or by compiling a subset of a high-level language to low-level GPU code.
-This section explores some of these approaches.
+% This section explores some of these approaches.
 
 
-\paragraph{Haskell-based approaches}
+%% Haskell-based approaches
 
 Vertigo~\cite{Elliott:2004hh} is an embedded language in Haskell for GPGPU
 programming. Vertigo is a statically compiled graphics language targeting the
@@ -843,10 +843,6 @@ host-device data transfer overhead, which can be rather significant.
 % written in continuation passing style (CPS)\index{continuation passing style},
 % which helps to compile (and fuse) append-like operations.
 
-Baracuda~\cite{Larsen:2011fa} is a Haskell EDSL producing CUDA GPU kernels,
-though it is intended to be used offline, with the kernels called directly from
-a C++ application.
-
 Paraiso~\cite{Muranushi:2012eh} is a Haskell EDSL for solving systems of
 \indext{partial differential equation}s (PDEs), such as hydrodynamics equations,
 and generates both CUDA code for GPUs as well as OpenMP~\cite{OpenMP:2008} code
@@ -855,9 +851,14 @@ type of operation, but currently lacks a backend for multicore CPUs. Paraiso
 also includes an automated tuning framework to search for faster implementations
 of the algorithm.
 
-\paragraph{C++-based approaches}
+Baracuda~\cite{Larsen:2011fa} is a Haskell EDSL producing CUDA GPU kernels,
+though it is intended to be used offline, with the kernels called directly from
+a C++ application. It supports only @map@ and @fold@ operations.
 
-Accelerator~\cite{Bond:2010bd,Tarditi:2006} is a library-based approach with
+
+%% C++-based approaches
+
+Accelerator~\cite{Bond:2010bd,Tarditi:2006} is a C++ library-based approach with
 less syntactic sugar for the programmer, but bindings to functional languages.
 In contrast to our current work, it already targets multiple architectures,
 namely GPUs, FPGAs, and multicore CPUs. However, the code generated for GPUs
@@ -874,12 +875,30 @@ GPUs was integrated. GPU++~\cite{Jansen:2008vw} is an embedded language in C++
 using similar techniques to RapidMind and Sh, but provides a more abstract
 interface than the other C++ based methods listed here.
 
+Thrust~\cite{ThrustAParallelT:ub} is a library of algorithms written in CUDA,
+with an interface similar to the C++ Standard Template Library.
 \citet{Sato:2009cq} describe a C++ skeleton library for GPGPU programming that
-includes a fusion mechanism. Finally, Thrust~\cite{ThrustAParallelT:ub} is a
-library of algorithms written in CUDA, with an interface similar to the C++
-Standard Template Library.
+additionally includes a fusion mechanism based on list homomorphisms. Both of
+these libraries can be used to generate both CUDA code for the GPU as well as
+OpenMP code targeting multicore CPUs.
 
 
+%% other approaches
+
+PyCUDA~\cite{Klockner:2012tj} uses Python as a host language to provide access
+to the low level CUDA driver API and to facilitate runtime code generation for
+the GPU. A similar approach is taken by CLyther~\cite{CLyther:EvXSiruK} which
+targets OpenCL. Copperhead~\cite{Catanzaro:2011cn} uses PyCUDA and Thrust
+internally to provide a higher level of abstraction to compile, link, cache, and
+execute CUDA code. Both Parakeet~\cite{Rubinsteyn:2012ve} and Anaconda
+Accelerate~\cite{AnacondaAccelerate:2013vn} are Python libraries that attempt to
+just-in-time compile a subset of Python code that uses the
+NumPy~\cite{NumPy:2006uq} array library to instead target the GPU.
+
+The Jacket~\cite{AccelerEyes:vq} extension to Matlab supports offloading matrix
+computations to GPUs by introducing new datatypes for matrices allocated in GPU
+device memory, and overloading existing operations so that operations on these
+matrices triggers execution of suitable GPU kernels.
 
 
 \endinput

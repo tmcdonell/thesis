@@ -2840,6 +2840,7 @@ concurrentTest
 \subsection{Conclusion}
 
 \section{Related work}
+\label{sec:implementation_related}
 
 The development of general-purpose applications that run on the GPU is highly
 work intensive, and has been estimated to require at least $10\times$ as much
@@ -2916,7 +2917,11 @@ interface than the other C++ based methods listed here.
 
 Thrust~\cite{ThrustAParallelT:ub} is a library of algorithms written in CUDA,
 with an interface similar to the C++ Standard Template Library.
-\citet{Sato:2009cq} describe a C++ skeleton library for GPGPU programming that
+\citet{Sato:2009cq} describe a C++ library for GPGPU programming based on
+algorithmic skeletons.
+
+
+skeleton library for GPGPU programming that
 additionally includes a fusion mechanism based on list homomorphisms. Both of
 these libraries can be used to generate both CUDA code for the GPU as well as
 OpenMP code targeting multicore CPUs.
@@ -2949,9 +2954,8 @@ matrices triggers execution of suitable GPU kernels.
 
 \subsection{Other approaches}
 
-Delite/LMS~\cite{Rompf:2013er} is a parallelisation framework for DSLs in Scala
-that uses library-based multi-pass staging to specify optimisations in a modular
-manner, and has several backend targets including CPUs and GPUs.
+Delite/LMS~\cite{Rompf:2013er} is a parallelisation framework for DSLs in Scala,
+and has several backend targets including CPUs and GPUs.
 
 NDP2GPU~\cite{Bergstrom:2012bi} compiles NESL~\cite{Blelloch:1995ut} code to
 CUDA. Performance suffers because the implementation relies on the legacy NESL

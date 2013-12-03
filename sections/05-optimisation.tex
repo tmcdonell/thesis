@@ -5,11 +5,11 @@
 {\textsc{---chris lee}}
 
 The previous chapter discussed the architecture of the Accelerate language
-embedding and execution on \CUDA\ hardware. Through a set of benchmarks, we
+embedding and execution on CUDA hardware. Through a set of benchmarks, we
 identify the two most pressing performance limitations: operator fusion and data
 sharing. This chapter describes the method used to overcome these issues,
 focusing primarily on the approach to operator fusion in the context of the
-stratified Accelerate language and skeleton-based implementation of the \CUDA\
+stratified Accelerate language and skeleton-based implementation of the CUDA
 backend.
 
 It should be noted that ``optimisation'' is a misnomer; only rarely does
@@ -97,8 +97,8 @@ such that all individual applications of the formula are executed in parallel.
 The function @callput@ introduces a significant amount of sharing: the helper functions
 @cnd'@ and hence also @horner@ are used twice --- for @d1@ and @d2@ --- and its
 argument @d@ is used multiple times in the body. Worse, the conditional expression leads to a
-growing number of predicated instructions which incurs a large penalty on the \SIMD architecture of
-a \GPU\@. A lack of sharing recovery was a significant shortcoming of our initial implementation of
+growing number of predicated instructions which incurs a large penalty on the SIMD architecture of
+a GPU\@. A lack of sharing recovery was a significant shortcoming of our initial implementation of
 Accelerate~\cite{Chakravarty:2011fr}.
 
 % As described in section~TK, operations of the embedded language do not
@@ -301,7 +301,7 @@ split into sequential and parallel subcomputations, the granularity of the
 parallel operations is rather coarse and the sequential component again consists
 of tail-recursive loops, both of which are ill suited for a massively parallel
 target such as GPUs\index{graphics processing unit}. Accelerate compiles
-massively parallel array combinators to \CUDA\ code via template skeleton
+massively parallel array combinators to CUDA code via template skeleton
 instantiation, so any fusion system must preserve the combinator representation
 of the intermediate code.
 
@@ -861,7 +861,7 @@ This consists of two collective operations: the first multiplies values from the
 two input arrays element-wise, and the second sums this result. The fusion
 system should translate this into a single collective operation, in much the
 same way as a human would write if working directly in a low-level language such
-as C or \CUDA\@.
+as C or CUDA\@.
 
 The basic idea is to pass producers encoded in the @Cunctation@
 representation directly to consumers, and implementation of the consumer can

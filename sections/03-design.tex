@@ -855,6 +855,10 @@ Baracuda~\cite{Larsen:2011fa} is a Haskell EDSL producing CUDA GPU kernels,
 though it is intended to be used offline, with the kernels called directly from
 a C++ application. It supports only @map@ and @fold@ operations.
 
+NDP2GPU~\cite{Bergstrom:2012bi} compiles NESL~\cite{Blelloch:1995ut} code to
+CUDA. Performance suffers because the implementation relies on the legacy NESL
+compiler, which produces a significant number of intermediate computations.
+
 
 %% C++-based approaches
 
@@ -884,6 +888,17 @@ OpenMP code targeting multicore CPUs.
 
 
 %% other approaches
+
+Delite/LMS~\cite{Rompf:2013er} is a parallelisation framework for DSLs in Scala
+that uses library-based multi-pass staging to specify optimisations in a modular
+manner, and has several backend targets including GPUs.
+
+Dandelion~\cite{Rossbach:2013bj} is a library of data-parallel operations,
+specified as comprehensions on arrays using the LINQ framework for .NET
+(programmers can write in either C@#@ or F@#@). Operations are compiled for the
+GPU as well as the CPU, and the runtime system distributes the computation over
+all of the available processors in a heterogeneous cluster.
+
 
 PyCUDA~\cite{Klockner:2012tj} uses Python as a host language to provide access
 to the low level CUDA driver API and to facilitate runtime code generation for

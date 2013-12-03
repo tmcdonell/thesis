@@ -2839,28 +2839,156 @@ concurrentTest
 
 \subsection{Conclusion}
 
-\section{Related Work}
-\marginnote{perhaps split differently: real vs. embedded languages?}
+\section{Related work}
 
-Other significant parallel or GPGPU programming models and languages.
-Limitations that we share/avoid. Where we differ
-\begin{itemize}
-\item Repa \cite{Keller:2010er,Lippmeier:2011cd,Lippmeier:2012gx} (Haskell)
-\item SkeTo \cite{Matsuzaki:2011ew} (C++)
-\item list homomorphism based \cite{Sato:2009cq} (C++)
-\item Delite/LMS \cite{Rompf:2013er} (Scala)
-\item NDP2GPU \cite{Bergstrom:2012bi} (Haskell)
-\item Nikola \cite{Mainland:2010vj} (Haskell)
-\item Obsidian \cite{Svensson:2008a,Claessen:2012hl} (Haskell)
-\item Baracuda \cite{Larsen:2011fa} (Haskell)
-\item Jacket/ArrayFire \cite{AccelerEyes:vq} (Matlab)
-\item Anaconda Accelerate \cite{AnacondaAccelerate:2013vn} (Python)
-\item NOVA \cite{Collins:2013wn} (lisp)
-\item Dandelion \cite{tk} (LINQ)
-\end{itemize}
+The development of general-purpose applications that run on the GPU is highly
+work intensive, and has been estimated to require at least $10\times$ as much
+effort as developing an efficient single-threaded
+application~\cite{Sweeney:2009ua}. Several researchers have proposed to
+ameliorate the status quo by either using a high-level library to compose GPU
+code or by compiling a subset of a high-level language to low-level GPU code.
+This section explores some of these approaches.
+
+
+\subsection{Embedded languages}
+
+%% Haskell-based approaches
+
+Vertigo~\cite{Elliott:2004hh} is an embedded language in Haskell for GPGPU
+programming. Vertigo is a statically compiled graphics language targeting the
+DirectX 8.1 shader model, and does not offer higher-order combinators such as
+@map@ and @fold@.
+
+Obsidian~\cite{Svensson:2008a} and Nikola~\cite{Mainland:2010vj} are also
+Haskell EDSLs for GPGPU programming, and are in aim and spirit the embeddings
+closest to Accelerate. Both Nikola and Obsidian produce CUDA code as we do,
+however while we use algorithmic skeletons (\S\ref{sec:code_generation}), Nikola
+explicitly schedules loops, and Obsidian is a lower level language where more
+details of the GPU hardware are exposed to the programmer. Moreover, the
+Accelerate language is more expressive, supporting generative functions such as
+@replicate@, and Accelerate computations can span multiple GPU kernels, whereas
+both Nikola and Obsidian can only express array computations that can be
+implemented in a single GPU kernel. Algorithms spanning multiple kernels need to
+be explicitly scheduled by the application programmer and incur additional
+host-device data transfer overhead, which can be rather significant.
+
+% \marginnote{tk: to related work for fusion?}
+% Recent versions of Obsidian~\cite{Claessen:2012hl} implement
+% Repa-style~\cite{Keller:2010er} delayed \emph{pull arrays} as well as \emph{push
+% arrays}. Whereas a pull array represents a general producer, a push array
+% represents a general consumer. Pull arrays allow intermediate programs to be
+% written in continuation passing style (CPS)\index{continuation passing style},
+% which helps to compile (and fuse) append-like operations.
+
+Paraiso~\cite{Muranushi:2012eh} is a Haskell EDSL for solving systems of
+\indext{partial differential equation}s (PDEs), such as hydrodynamics equations,
+and generates both CUDA code for GPUs as well as OpenMP~\cite{OpenMP:2008} code
+for multicore CPUs. Accelerate supports @stencil@ operations for expressing this
+type of operation, but currently lacks a backend for multicore CPUs. Paraiso
+also includes an automated tuning framework to search for faster implementations
+of the algorithm.
+
+Baracuda~\cite{Larsen:2011fa} is a Haskell EDSL producing CUDA GPU kernels,
+though it is intended to be used offline, with the kernels called directly from
+a C++ application. It supports only @map@ and @fold@ operations.
+
+
+\subsection{Parallel libraries}
+
+%% C++-based approaches
+
+Accelerator~\cite{Bond:2010bd,Tarditi:2006} is a C++ library-based approach with
+less syntactic sugar for the programmer, but bindings to functional languages.
+In contrast to our current work, it already targets multiple architectures,
+namely GPUs, FPGAs, and multicore CPUs. However, the code generated for GPUs
+uses the DirectX 9 API, which does not provide access to several modern GPU
+features, negatively impacting performance and preventing some operations such
+as scatted writes.
+
+RapidMind~\cite{LinXu:2008ig}, which targets the GPU using OpenCL, and its
+predecessor Sh~\cite{McCool:2004,McCool:2004un} which used pixel shaders of the
+graphics API, are C++ meta programming libraries for data parallel programming.
+RapidMind was merged into Intel's Ct compiler to create the Array Building
+Blocks (ArBB) library. However, the ArBB project was retired before support for
+GPUs was integrated. GPU++~\cite{Jansen:2008vw} is an embedded language in C++
+using similar techniques to RapidMind and Sh, but provides a more abstract
+interface than the other C++ based methods listed here.
+
+Thrust~\cite{ThrustAParallelT:ub} is a library of algorithms written in CUDA,
+with an interface similar to the C++ Standard Template Library.
+\citet{Sato:2009cq} describe a C++ skeleton library for GPGPU programming that
+additionally includes a fusion mechanism based on list homomorphisms. Both of
+these libraries can be used to generate both CUDA code for the GPU as well as
+OpenMP code targeting multicore CPUs.
+
+
+%% other approaches
+
+Dandelion~\cite{Rossbach:2013bj} is a library of data-parallel operations,
+specified as comprehensions on arrays using the LINQ framework for .NET
+(programmers write in either C@#@ or F@#@). Operations are compiled for the GPU
+as well as the CPU, and the runtime system distributes the computation over all
+of the available processors in a heterogeneous cluster.
+
+
+PyCUDA~\cite{Klockner:2012tj} uses Python as a host language to provide access
+to the low level CUDA driver API and to facilitate runtime code generation for
+the GPU. A similar approach is taken by CLyther~\cite{CLyther:EvXSiruK} which
+targets OpenCL. Copperhead~\cite{Catanzaro:2011cn} uses PyCUDA and Thrust
+internally to provide a higher level of abstraction to compile, link, cache, and
+execute CUDA code. Both Parakeet~\cite{Rubinsteyn:2012ve} and Anaconda
+Accelerate~\cite{AnacondaAccelerate:2013vn} are Python libraries that attempt to
+just-in-time compile a subset of Python code that uses the
+NumPy~\cite{NumPy:2006uq} array library to instead target the GPU.
+
+The Jacket~\cite{AccelerEyes:vq} extension to Matlab supports offloading matrix
+computations to GPUs by introducing new datatypes for matrices allocated in GPU
+device memory, and overloading existing operations so that operations on these
+matrices triggers execution of suitable GPU kernels.
+
+
+\subsection{Other approaches}
+
+Delite/LMS~\cite{Rompf:2013er} is a parallelisation framework for DSLs in Scala
+that uses library-based multi-pass staging to specify optimisations in a modular
+manner, and has several backend targets including CPUs and GPUs.
+
+NDP2GPU~\cite{Bergstrom:2012bi} compiles NESL~\cite{Blelloch:1995ut} code to
+CUDA. Performance suffers because the implementation relies on the legacy NESL
+compiler, which produces a significant number of intermediate computations.
+
+NOVA~\cite{Collins:2013wn} is a high-level lisp-like functional language and
+compiler for parallel operations, targeting both GPUs and CPUs. Compared to
+Accelerate, NOVA supports fewer parallel operations, but does include support
+for nested parallelism, recursion, and sum types.
 
 
 \section{Discussion}
+
+
+%
+% END
+%
+
+
+% \marginnote{perhaps split differently: real vs. embedded languages?}
+% 
+% Other significant parallel or GPGPU programming models and languages.
+% Limitations that we share/avoid. Where we differ
+% \begin{itemize}
+% \item Repa \cite{Keller:2010er,Lippmeier:2011cd,Lippmeier:2012gx} (Haskell)
+% \item SkeTo \cite{Matsuzaki:2011ew} (C++)
+% \item list homomorphism based \cite{Sato:2009cq} (C++)
+% \item Delite/LMS \cite{Rompf:2013er} (Scala)
+% \item NDP2GPU \cite{Bergstrom:2012bi} (Haskell)
+% \item Nikola \cite{Mainland:2010vj} (Haskell)
+% \item Obsidian \cite{Svensson:2008a,Claessen:2012hl} (Haskell)
+% \item Baracuda \cite{Larsen:2011fa} (Haskell)
+% \item Jacket/ArrayFire \cite{AccelerEyes:vq} (Matlab)
+% \item Anaconda Accelerate \cite{AnacondaAccelerate:2013vn} (Python)
+% \item NOVA \cite{Collins:2013wn} (lisp)
+% \item Dandelion \cite{tk} (LINQ)
+% \end{itemize}
 
 
 

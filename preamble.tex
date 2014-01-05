@@ -168,9 +168,9 @@
 % Define the language styles we will use
 %
 \lstset{%
-    frame=single,
+    frame=none,
     rulecolor={\color[gray]{0.7}},
-    numbers=left,
+    numbers=none,
     basicstyle=\scriptsize\sourcecodeprolight,
     numberstyle=\color{Gray}\tiny\it,
     commentstyle=\color{MidnightBlue}\it,
@@ -234,8 +234,6 @@
 
 \lstdefinestyle{inline}{%
     style=haskell,
-    frame=none,
-    numbers=none,
     basicstyle=\ttfamily,
     keywordstyle=[1],
     keywordstyle=[2],
@@ -255,6 +253,20 @@
         {forall}{{$\forall$}}1
         {exists}{{$\exists$}}1
         {...}{{$\cdots$}}3
+}
+
+\lstdefinestyle{haskell_float}{%
+    style=haskell,
+    frame=single,
+    numbers=left,
+    float
+}
+
+\lstdefinestyle{cuda_float}{%
+    style=cuda,
+    frame=single,
+    numbers=left,
+    float
 }
 
 

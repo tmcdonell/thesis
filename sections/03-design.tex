@@ -69,12 +69,12 @@ which typically handles the computations for computer graphics, to perform
 computations in applications typically handled by the central processing unit
 (CPU). Since general purpose CPUs are designed to optimise the performance of a
 single thread of execution, much of the processor's resources (die area and
-power) to non-computational tasks such as caching and branch prediction.
-Conversely, the highly parallel nature of graphics processing (rasterisation)
-means the GPU architecture instead uses these resources to be able to execute
-many tasks in parallel, improving the computational throughput for parallel
-workloads at the expense of decreased single threaded performance. This
-difference in architectures between the CPU and GPU is illustrated in
+power) are dedicated to non-computational tasks such as caching and branch
+prediction. Conversely, the highly parallel nature of graphics processing
+(rasterisation) means the GPU architecture instead uses these resources to be
+able to execute many tasks in parallel, improving the computational throughput
+for parallel workloads at the expense of decreased single threaded performance.
+This difference in architectures between the CPU and GPU is illustrated in
 Figure~\ref{fig:cpu_gpu_block_diagram}.
 
 \begin{figure}[tbp]
@@ -126,8 +126,7 @@ of CUDA cores --- or \emph{streaming multiprocessors}\index{GPU!streaming
 multiprocessor} (SM) --- will execute the program in less time than a GPU with
 fewer multiprocessors.
 
-\begin{lstlisting}[style=cuda
-    ,float
+\begin{lstlisting}[style=cuda_float
     ,label=lst:cuda_vecadd
     ,caption={[CUDA kernel for pair wise addition of two vectors]A CUDA kernel
         that illustrates pair wise addition of two vectors. The
@@ -165,7 +164,7 @@ Moreover, Listing~\ref{lst:cuda_vecadd} demonstrates that the GPU programming
 model as exposed by CUDA is a data parallel programming model --- $N$ threads
 execute $N$ individual instances of the kernel function @VecAdd@, and each
 thread operates on a single element of each input array to create a single value
-in the result.
+in the result. See the CUDA C programming guide for details~\cite{NVIDIA:2012wf}.
 
 
 \section{Embedded domain-specific languages}
@@ -309,10 +308,10 @@ Using Accelerate, we implement this computation on arrays as follows:
 \begin{lstlisting}[style=haskell]
 dotp :: Vector Float -> Vector Float -> Acc (Scalar Float)                         -- (1)
 dotp xs ys
-  = let xs' = use xs                                                               -- (2)
-        ys' = use ys
-    in
-    fold (+) 0 (zipWith (*) xs' ys')                                               -- (3)
+    = let xs' = use xs                                                             -- (2)
+          ys' = use ys
+      in
+      fold (+) 0 (zipWith (*) xs' ys')                                             -- (3)
 \end{lstlisting}
 %
 Here, @fold@ and @zipWith@ are taken from the Accelerate library
@@ -340,12 +339,12 @@ reduction~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
 \subsection{Arrays, shapes, and indices}
 \label{sec:arrays_shapes_and_indices}
 
-Parallelism in Accelerate takes the form of collective operations on arrays of
-type @Array sh e@, where @sh@ is the \emph{shape} and @e@ the \emph{element
-type} of the array. Following the approach taken in Repa~\cite{Keller:2010er},
-we represent both the shapes and indices of an array using an inductive notation
-of tuples as heterogeneous \emph{snoc} lists to enable rank-polymorphic
-definitions of array functions.
+Parallelism in Accelerate takes the form of collective operations such as
+@zipWith@ on arrays of type @Array sh e@, where @sh@ is the \emph{shape} and @e@
+the \emph{element type} of the array. Following the approach taken in
+Repa~\cite{Keller:2010er}, we represent both the shapes and indices of an array
+using an inductive notation of tuples as heterogeneous \emph{snoc} lists to
+enable rank-polymorphic definitions of array functions.
 
 As shown in Listing~\ref{lst:shapes_and_indices}, on both the type and value
 level, the constructor @Z@ is used to represent the shape of a rank-0 array, and
@@ -355,8 +354,7 @@ dimension to the right of the shape. Thus, a rank-3 index with components @x@,
 the component @x@ is innermost and varies most rapidly, while the component @z@
 varies least rapidly.
 
-\begin{lstlisting}[style=haskell
-    ,float
+\begin{lstlisting}[style=haskell_float
     ,label=lst:shapes_and_indices
     ,caption={Types of array shapes and indices}]
 data Z            = Z                   -- rank zero
@@ -366,7 +364,7 @@ type DIM0 = Z
 type DIM1 = DIM0 :. Int
 type DIM2 = DIM1 :. Int
 type DIM3 = DIM2 :. Int
-  -- $\langle$ and so on $\rangle$
+  -- and so on
 
 type Array DIM0 e = Scalar e
 type Array DIM1 e = Vector e
@@ -380,7 +378,7 @@ vector, and so on. While it may appear that the explicit mentioning of @Int@ in
 each dimension is redundant, we require indices over types other than @Int@ for
 rank polymorphic functions, such as replicating an array into one or more
 additional dimensions or slicing a lower-dimensional subarray out of a larger
-array~\cite{Keller:2010er}.
+array~\cite{Keller:2010er,Chakravarty:2011fr}.
 
 
 \subsection{Arrays on the host and device}
@@ -394,8 +392,8 @@ explicitly executed before taking effect. The following function embeds a
 Haskell array into an embedded array computation:
 %
 \begin{lstlisting}[style=haskell]
-  use :: (Shape sh, Elt e)
-      => Array sh e -> Acc (Array sh e)
+use :: (Shape sh, Elt e)
+    => Array sh e -> Acc (Array sh e)
 \end{lstlisting}
 %
 In the context of GPU programming, GPUs typically have their own
@@ -407,7 +405,7 @@ between arrays allocated in host memory and arrays allocated in GPU device
 memory. Thus, @use@ also implies a host-to-device data transfer. See
 section~\ref{sec:memory_management} for more information on how device memory is
 managed. Similarly, expressions in @Acc@ are computations that are executed on
-the device, whereas regular Haskell code runs on the host.
+the device (the GPU), whereas regular Haskell code runs on the host (the CPU).
 
 
 \subsection{Array computations versus scalar expressions}
@@ -424,7 +422,7 @@ characterises an embedded scalar function that takes an argument of type @Float@
 and yields a pair of @Float@s as the result. As with computations embedded in
 @Acc@, computations in @Exp@ are executed on the device.
 
-\begin{lstlisting}[style=haskell,
+\begin{lstlisting}[style=haskell_float,
     numbers=none,
     float=t,
     label={lst:acc_operations},
@@ -432,43 +430,38 @@ and yields a pair of @Float@s as the result. As with computations embedded in
         collective array operations, omitting \code{Shape} and \code{Elt} class
         constraints for brevity. In addition, there are other flavours of folds
         and scans as well as segmented versions of these.}]
--- Embed an array
-use :: Array sh e -> Acc (Array sh e)
+use         :: Array sh e -> Acc (Array sh e)                         %\rm embed an array%
+unit        :: Exp e -> Acc (Scalar e)                                %\rm create singleton array%
 
--- Create a singleton array
-unit :: Exp e -> Acc (Scalar e)
+reshape     :: Exp sh -> Acc (Array sh' e) -> Acc (Array sh e)        %\rm impose a new shape%
 
--- Impose a new shape on an array
-reshape :: Exp sh -> Acc (Array sh' e) -> Acc (Array sh e)
+map         :: (Exp a -> Exp b) -> Acc (Array sh a)                   %\rm map a function over an array%
+            -> Acc (Array sh b)
+zipWith     :: (Exp a -> Exp b -> Exp c) -> Acc (Array sh a)          %\rm apply funciton to a\ldots%
+            -> Acc (Array sh b) -> Acc (Array sh c)                   %\rm \ldots pair of arrays%
 
--- Create an array from an index mapping
-generate :: Exp sh -> (Exp sh -> Exp a) -> Acc (Array sh a)
+generate    :: Exp sh -> (Exp sh -> Exp a) -> Acc (Array sh a)        %\rm array from index mapping%
 
--- Extend an array across new dimensions; remove existing dimensions
-replicate :: Slice slix
-          => Exp slix -> Acc (Array (SliceShape slix) e) -> Acc (Array (FullShape slix) e)
-slice     :: Slice slix
-          => Acc (Array (FullShape  slix) e) -> Exp slix -> Acc (Array (SliceShape slix) e)
+replicate   :: Slice slix                                             %\rm extend array across\ldots%
+            => Exp slix -> Acc (Array (SliceShape slix) e)            %\rm \ldots new dimensions%
+            -> Acc (Array (FullShape slix) e)
+slice       :: Slice slix                                             %\rm remove existing dimensions%
+            => Acc (Array (FullShape  slix) e) -> Exp slix
+            -> Acc (Array (SliceShape slix) e)
 
--- May a function over an array; over a pair of arrays
-map     :: (Exp a -> Exp b) -> Acc (Array sh a) -> Acc (Array sh b)
-zipWith :: (Exp a -> Exp b -> Exp c)
-        -> Acc (Array sh a) -> Acc (Array sh b) -> Acc (Array sh c)
+fold        :: (Exp a -> Exp a -> Exp a) -> Exp a                     %\rm tree reduction along\ldots%
+            -> Acc (Array (sh:.Int) a) -> Acc (Array sh a)            %\rm \ldots innermost dimension%
+scan{l,r}   :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Vector a)   %\rm left-to-right or right-to-left\ldots%
+            -> Acc (Vector a)                                         %\rm \ldots vector pre-scan%
 
--- Tree reduction along the innermost dimension
-fold :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Array (sh:.Int) a) -> Acc (Array sh a)
+backpermute :: Exp sh' -> (Exp sh' -> Exp sh) -> Acc (Array sh a)     %\rm backwards permutation%
+            -> Acc (Array sh' e)
+permute     :: (Exp a -> Exp a -> Exp a) -> Acc (Array sh' a)         %\rm forward permutation%
+            -> (Exp sh -> Exp sh') -> Acc (Array sh a)
+            -> Acc (Array sh' a)
 
--- Left-to-right or right-to-left vector pre-scan
-scan{l,r} :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Vector a) -> Acc (Vector a)
-
--- Rearrange elements based on backwards, forwards index mapping
-backpermute :: Exp sh' -> (Exp sh' -> Exp sh) -> Acc (Array sh a) -> Acc (Array sh' e)
-permute     :: (Exp a -> Exp a -> Exp a) -> Acc (Array sh' a)
-            -> (Exp sh -> Exp sh') -> Acc (Array sh a) -> Acc (Array sh' a)
-
--- Map a function with local neighbourhood context
-stencil :: Stencil sh a stencil
-        => (stencil -> Exp b) -> Boundary a -> Acc (Array sh a) -> Acc (Array sh b)
+stencil     :: Stencil sh a stencil => (stencil -> Exp b)             %\rm map a function with local\ldots%
+            -> Boundary a -> Acc (Array sh a) -> Acc (Array sh b)     %\rm \ldots neighbourhood context%
 \end{lstlisting}
 
 Accelerate distinguishes the types of collective and scalar computations to
@@ -480,10 +473,10 @@ Accelerate is limited to \emph{flat data-parallelism} involving only regular,
 multi-dimensional arrays.
 
 Compared to regular Haskell, @Exp@ computations are rather limited in order to
-meet the restrictions of what can be efficiently executed on GPUs. In
+meet the restrictions of what can be efficiently executed on GPUs\@. In
 particular, we do not support recursion, and provide only a limited form of
-explicit iteration. Scalar expressions support Haskell's standard arithmetic
-operations by overloading the standard type classes such as @Num@, @Integaral@,
+explicit value iteration. Scalar expressions support Haskell's standard arithmetic
+operations by overloading the standard type classes such as @Num@ and @Integaral@,
 as well as bitwise operations from @Bits@. Although we can not overload
 functions on @Bool@ in standard Haskell, we support equality and comparison
 operators as well as logical connectives using the operators @(==*)@, @(/=*)@,
@@ -491,10 +484,11 @@ operators as well as logical connectives using the operators @(==*)@, @(/=*)@,
 and so on. We also have conditional expressions in the form of @c ? (t, e)@,
 which evaluates to @t@ if @c@ yields @True@, otherwise to @e@. There are also
 scalar operations that take array valued arguments; namely, @arr!ix@ indexes an
-array and @shape@ queries an arrays extent. The argument to these operations is
-guaranteed to only be a previously let-bound variable, thus each invocation of
-the scalar function will not initiate additional parallel work. Finally, we have
-tupling and projection, and auxiliary functions for computing with indices.
+array and @shape@ queries the extent of an array. The argument to these
+operations is guaranteed to only be a previously let-bound variable, thus each
+invocation of the scalar function will not initiate additional parallel work.
+Finally, we have tupling and projection, and auxiliary functions for computing
+with indices.
 
 
 \subsection{Computing an N-body gravitational simulation}
@@ -531,7 +525,8 @@ calcAccels epsilon bodies
         cols    = A.replicate (lift $ Z :. n :. All) bodies                        -- (1)
         rows    = A.replicate (lift $ Z :. All :. n) bodies
     in
-    A.fold (.+.) (vec 0) $ A.zipWith (accel epsilon) rows cols                     -- (2)
+    A.fold (.+.) (vec 0)                                                           -- (3)
+      $ A.zipWith (accel epsilon) rows cols                                        -- (2)
 \end{lstlisting}
 %
 \begin{enumerate}
@@ -543,23 +538,27 @@ calcAccels epsilon bodies
     @lift :: (Z :. Exp Int :. All) -> Exp (Z :. Int :. All)@.
 
 \item @zipWith@ calculates the interaction between each pair of particles by
-    element wise combining the @n@$\times$@n@ matrices. @fold@ reduces the
-    result along the innermost dimension only, yielding a vector containing the
-    sum of interactions for each particle between all others. The auxiliary
-    function performs @(.+.)@ is component-wise addition of the 3-vector.
+    element wise combining the @n@$\times$@n@ matrices.
+    % Since we replicated the source vector along the rows and columns, this
+    % computes all $n^{2}$ interactions.
+
+\item @fold@ reduces the result along the innermost dimension only, yielding a
+    vector containing the sum of interactions for each particle between all
+    others. The auxiliary function @(.+.)@ performs component-wise addition of
+    the 3-vector.
 \end{enumerate}
 
 This is an example of using the rank polymorphic operations of Accelerate. The
 function @fold@ requires an argument array of at least rank-1 (such as a
 matrix), and the result is computed by reducing the array along the innermost
-dimension, reducing the rank of the array by one (in this case a vector). The
-functions @replicate@ and @slice@ are rank polymorphic as well, but require more
-complex shape constraints that we characterise with the type family @FullShape@
-and @SliceShape@ that statically track changing array dimensions. For details on
-the various forms of shape polymorphism, see~\cite{Keller:2010er}. Overall, as
-shown in Listing~\ref{lst:acc_operations}, the collective operations of
-Accelerate are a multi-dimensional variant of those underlying the scan-vector
-model~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
+dimension, reducing the rank of the array by one (in this case yielding a
+vector). The functions @replicate@ and @slice@ are rank polymorphic as well, but
+require more complex shape constraints that we characterise with the type family
+@FullShape@ and @SliceShape@ that statically track changing array dimensions.
+For details on the various forms of shape polymorphism,
+see~\cite{Keller:2010er}. Overall, as shown in Listing~\ref{lst:acc_operations},
+the collective operations of Accelerate are a multi-dimensional variant of those
+underlying the scan-vector model~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
 
 
 \subsubsection{Computing gravitational potential}
@@ -636,9 +635,8 @@ accel epsilon pmi pmj = (mj * invr3) *. r
     invr3       = invr * invr * invr
 \end{lstlisting}
 %
-Here, a @PointMass@ is represented as a tuple containing the body's position in
-3D space together with its mass, and functions @positionOfPointMass@ and
-@massOfPointMass@ extract each component, respectively. The function @(.-.)@ is
+Here the functions @positionOfPointMass@ and @massOfPointMass@ extract each
+component of the @PointMass@, respectively. The function @(.-.)@ is
 component-wise subtraction applied to the 3-vector, and @(*.)@ multiplies each
 component of a 3-vector by a scalar value.
 
@@ -649,9 +647,9 @@ In the type signature of @use@ in
 section~\ref{sec:arrays_on_the_host_and_device}, the type classes @Shape@ and
 @Elt@ characterise the types that may be used as array indices and array
 elements respectively. We discussed the nature of array indices in
-section~\ref{sec:arrays_shapes_and_indices}. The @Elt@ characterises the types
+section~\ref{sec:arrays_shapes_and_indices}. The @Elt@ class characterises the types
 of values that can be used as array elements, and hence appear in scalar
-Accelerate expressions. The supported @Elt@ are signed \& unsigned integers (8,
+Accelerate expressions. The supported @Elt@ types are signed \& unsigned integers (8,
 16, 32, and 64-bit wide), floating point numbers (single \& double precision),
 as well as @Char@, @Bool@, and array indices formed from @Z@ and @(:.)@.
 Furthermore, there are tuples of all of those, including nested tuples, as was
@@ -678,13 +676,13 @@ tup   :: Exp (Int, Int)
 The salient feature of each expression is that it returns two integers, albeit
 each wrapped in different constructors. We call this the \emph{surface} type
 of a term. However, an Accelerate backend implementation should not need to know
-about the surface type representation, and certainly, we should not need to
-extend the backend to support user-defined types such as @Point@. The @Elt@
-class tells us how to convert between the surface type of an expression that a
-user programs in, into the \emph{representation} type that an implementation
-stores and computes data in. We use a type
+about the surface type representation. Indeed, we do not want to have to extend
+the backend to support new user-defined types such as @Point@. The @Elt@ class
+tells us how to convert between the surface type of an expression that a user
+programs in, into the \emph{representation} type that an implementation stores
+and computes data in. We use a type
 family~\cite{Chakravarty:2005dx,Schrijvers:2008ir} of nested tuples to represent
-types as heterogenous snoc-lists of primitive types.
+types as heterogenous snoc-lists of primitive types:
 %
 \begin{lstlisting}[style=haskell]
 type family EltRepr a :: *
@@ -703,6 +701,7 @@ into a nested tuple of arrays of primitive type.
 
 
 \subsection{Richly typed terms}
+\label{sec:richly_typed_terms}
 
 \marginnote{tk: this bit is very implementation-y}
 As a deeply embedded language, the operations of both the array and scalar
@@ -717,13 +716,13 @@ here are inline into the \footcode{Fold} and \code{ZipWith} terms respectively,
 we only use a \footcode{where}-clause to improve readability.}
 %
 \begin{lstlisting}[style=haskell]
-  Fold add (Const 0) (ZipWith mul xs' ys')
+Fold add (Const 0) (ZipWith mul xs' ys')
   where
     add = \x y -> PrimAdd (FloatingNumType (TypeFloat FloatingDict))               -- (1)
                   `PrimApp`
                   Tuple (NilTup `SnocTup` x
                                 `SnocTup` y)
-    mul = %$\langle$ ... as \texttt{add}, but using \texttt{PrimMul} ... $\rangle$
+    mul = -- as \emph{\texttt{add}}, but using \emph{\texttt{PrimMul}} ...
 \end{lstlisting}
 %
 This is very much like the approach taken by \citet{Elliott:2004hh},
@@ -733,7 +732,7 @@ families~\cite{Chakravarty:2005dx,Schrijvers:2008ir} to preserve the embedded
 program's type information in the term tree (1), and use type-preserving
 transformations in the front end (\S\ref{sec:manipulating_embedded_programs}).
 
-The HOAS representation, while convenient for a human human reader, is awkward
+The HOAS representation, while convenient for a human reader, is awkward
 for program transformations as it complicates looking under lambdas; i.e.
 inspecting and manipulating the bodies of function abstractions. After the
 frontend reifies the embedded program using HOAS, it recovers sharing
@@ -746,14 +745,14 @@ simultaneously discovered by~\citet{Atkey:2009dj}.
 Overall, the nameless form of @dotp@ is:
 %
 \begin{lstlisting}[style=haskell]
-  Fold add (Const 0) (ZipWith mul xs' ys')
+Fold add (Const 0) (ZipWith mul xs' ys')
   where
     add = Lam (Lam (Body (
         PrimAdd (FloatingNumType (TypeFloat FloatingDict))
                 `PrimApp`
                 Tuple (NilTup `SnocTup` (Var (SuccIdx ZeroIdx))
                               `SnocTup` (Var ZeroIdx)))))
-    mul = %$\langle$ ... as \texttt{add}, but using \texttt{PrimMul} ... $\rangle$
+    mul = -- as \emph{\texttt{add}}, but using \emph{\texttt{PrimMul}} ...
 \end{lstlisting}
 %
 The @Lam@ constructor introduces nameless abstractions and @Var@ wraps a de
@@ -766,16 +765,16 @@ the two constructors:
 %
 \begin{lstlisting}[style=haskell]
 data Val env where
-  Empty :: Val ()
-  Push  :: Val env -> t -> Val (env, t)
+    Empty :: Val ()
+    Push  :: Val env -> t -> Val (env, t)
 \end{lstlisting}
 %
 A nameless de Bruijn index projects out a specific type from the environment:
 %
 \begin{lstlisting}[style=haskell]
-data Idx env t where                            -- an index is either\ldots
-  ZeroIdx ::              Idx (env, t) t        -- \ldots at the top of the stack, or\ldots
-  SuccIdx :: Idx env t -> Idx (env, s) t        -- \ldots under some junk
+data Idx env t where                                -- an index is either\ldots
+    ZeroIdx ::              Idx (env, t) t          -- \ldots at the top of the stack, or\ldots
+    SuccIdx :: Idx env t -> Idx (env, s) t          -- \ldots under some junk
 \end{lstlisting}
 %
 Indices have type @Idx env t@, where the type @env@ keeps track of what
@@ -784,7 +783,7 @@ environment, while @t@ represents the type of a distinguished element in this
 list. At the value level, @Idx@ encodes the index of that element in the list.
 
 As terms are pushed into the environment, the type of the new term becomes
-wrapped in the type of the environment; i.e. @t@ is existentially quantified in
+wrapped in the type of the environment; i.e.\ @t@ is existentially quantified in
 @Push@. Our de Bruijn indices recover the wrapped type of individual elements by
 projecting the index through the environment:
 %
@@ -795,10 +794,10 @@ prj (SuccIdx idx) (Push val _) = prj idx val
 prj _             _            = error "inconsistent valuation"
 \end{lstlisting}
 
-\marginnote{tk: use Let/Alet constructor as further example?}
+% \marginnote{tk: use Let/Alet constructor as further example?}
 Overall, this is an example of using nested datatypes and polymorphic recursion
 to precisely enforce constraints and invariants in the type of a term; in this
-case the type and scope of bound terms. Since an embedded Accelerate program is
+case the type and scope of bound variables. Since an embedded Accelerate program is
 constructed and evaluated at program \emph{runtime}, encoding properties in the
 type means that these invariants are checked at \emph{compile} time, reducing
 the number of possible runtime errors in type-correct programs.

@@ -85,7 +85,10 @@
 % Figures and captions
 % ------------------------------------------------------------------------------
 
-\captionsetup{margin=\parindent/2,font=small,labelfont=bf}
+% \message{The par indent is \the\parindent} ==> 17pt
+\DeclareCaptionFormat{captionWithLine}{%
+    \hspace{-8.5pt}\rule{\textwidth}{0.4pt}\\#1#2#3}
+\captionsetup{margin=8.5pt,font=small,labelfont=bf}
 % \captionsetup[subfloat]{margin=0pt,labelfont=default}
 
 % Reduced bias to floats on their own page
@@ -171,7 +174,7 @@
     frame=none,
     rulecolor={\color[gray]{0.7}},
     numbers=none,
-    basicstyle=\scriptsize\sourcecodeprolight,
+    basicstyle=\scriptsize\sourcecodepro,
     numberstyle=\color{Gray}\tiny\it,
     commentstyle=\color{MidnightBlue}\it,
     stringstyle=\color{Maroon},
@@ -257,15 +260,15 @@
 
 \lstdefinestyle{haskell_float}{%
     style=haskell,
-    frame=single,
-    numbers=left,
+%    frame=single,
+%    numbers=left,
     float
 }
 
 \lstdefinestyle{cuda_float}{%
     style=cuda,
-    frame=single,
-    numbers=left,
+%    frame=single,
+%    numbers=left,
     float
 }
 

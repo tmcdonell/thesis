@@ -737,10 +737,11 @@ for program transformations as it complicates looking under lambdas; i.e.
 inspecting and manipulating the bodies of function abstractions. After the
 frontend reifies the embedded program using HOAS, it recovers sharing
 (\S\ref{sec:sharing_recovery}) while converting the HOAS representation into a
-\emph{nameless} representation using \emph{typed de Bruijn indices} in the style
-of~\citet{Altenkirch:2003kz}. The type preserving conversion from HOAS to a
-nameless de Bruijn representation using GADTs~\cite{Chakravarty:2009uo} was
-simultaneously discovered by~\citet{Atkey:2009dj}.
+\emph{nameless} representation using \emph{typed de Bruijn indices}\index{de
+Bruijn} in the style of~\citet{Altenkirch:2003kz}. The type preserving
+conversion from HOAS to a nameless de Bruijn representation using
+GADTs~\cite{Chakravarty:2009uo} was simultaneously discovered
+by~\citet{Atkey:2009dj}.
 
 Overall, the nameless form of @dotp@ is:
 %
@@ -769,7 +770,8 @@ data Val env where
     Push  :: Val env -> t -> Val (env, t)
 \end{lstlisting}
 %
-A nameless de Bruijn index projects out a specific type from the environment:
+A nameless \indext{de Bruijn} index projects out a specific type from the
+environment:
 %
 \begin{lstlisting}[style=haskell]
 data Idx env t where                                -- an index is either\ldots
@@ -806,47 +808,47 @@ the number of possible runtime errors in type-correct programs.
 
 \section{Discussion}
 
-\endinput
-
-MMTC: Chapter 2 (Background): Don't bother introducing Haskell and things like
-parallelism vs concurrency etc. What you need to discuss is (1) data parallelism
-and (2) how GPGPU programming is data parallel programming. Then, (3) the idea
-of embedded languages and runtime code generation. However, don't go into too
-much details at this point. After all, much of this has been discussed in
-existing literature already. I'd suggest to pick 1-2 examples and use them to
-drive the explanations (and at the same time give people an idea for the feel of
-Accelerate programs).
 
 
-MMTC: Chapter 3 (Design): Maybe you should call the chapter ``Design and Related
-Work''. It seems that you want to cover related work there and it is a good idea
-to make that easy to find.
-
-MMTC: More generally, there are two ways to do related work. Everything in one
-related work chapter or have a related work section at the end of each chapter.
-The latter works better if there is different sorts of related work for the
-different chapters. This may apply here as, eg, the related work for embedded
-languages and the related work for fusion has little overlap. (You can look at
-my thesis for an example of that style.)
-
-
-\begin{itemize}
-\item Why another parallel programming language? (1 day)
-
-\item Accelerate design (3 weeks)
-    \begin{itemize}
-        \item rank-polymorphic array language of collective operations
-        \item programming model
-        \item algorithmic skeletons
-        \item stratified language: using the type system to exclude nesting
-        \item richly typed terms; environments \& types (type safe evaluator)
-        \item types help catch bugs in the compiler; important since
-            compilation happens at program \emph{runtime}
-        \item surface vs.\ internal (core) languages
-            %\item representing different constructs (c.f. nesting?)
-        \item examples: operator expressiveness (application driven)
-    \end{itemize}
-
-\end{itemize}
+% MMTC: Chapter 2 (Background): Don't bother introducing Haskell and things like
+% parallelism vs concurrency etc. What you need to discuss is (1) data parallelism
+% and (2) how GPGPU programming is data parallel programming. Then, (3) the idea
+% of embedded languages and runtime code generation. However, don't go into too
+% much details at this point. After all, much of this has been discussed in
+% existing literature already. I'd suggest to pick 1-2 examples and use them to
+% drive the explanations (and at the same time give people an idea for the feel of
+% Accelerate programs).
+%
+%
+% MMTC: Chapter 3 (Design): Maybe you should call the chapter ``Design and Related
+% Work''. It seems that you want to cover related work there and it is a good idea
+% to make that easy to find.
+%
+% MMTC: More generally, there are two ways to do related work. Everything in one
+% related work chapter or have a related work section at the end of each chapter.
+% The latter works better if there is different sorts of related work for the
+% different chapters. This may apply here as, eg, the related work for embedded
+% languages and the related work for fusion has little overlap. (You can look at
+% my thesis for an example of that style.)
+%
+%
+% \begin{itemize}
+% \item Why another parallel programming language? (1 day)
+%
+% \item Accelerate design (3 weeks)
+%     \begin{itemize}
+%         \item rank-polymorphic array language of collective operations
+%         \item programming model
+%         \item algorithmic skeletons
+%         \item stratified language: using the type system to exclude nesting
+%         \item richly typed terms; environments \& types (type safe evaluator)
+%         \item types help catch bugs in the compiler; important since
+%             compilation happens at program \emph{runtime}
+%         \item surface vs.\ internal (core) languages
+%             %\item representing different constructs (c.f. nesting?)
+%         \item examples: operator expressiveness (application driven)
+%     \end{itemize}
+%
+% \end{itemize}
 
 

@@ -185,6 +185,7 @@ segment as is done currently, is left for future work.
 
 
 \subsection{Scan}
+\label{sec:parallel_scan}
 
 Parallel scan and segmented scan algorithms are a crucial building block for a
 great many data-parallel algorithms~\cite{Blelloch:1990ts,Chatterjee:1990vj}.
@@ -235,6 +236,7 @@ to implement segmented scans directly rather than by operator
 transformation~\cite{Sengupta:2008ut,Dotsenko:2008fo}.
 
 \subsection{Permute}
+\label{sec:parallel_permute}
 
 The @permute@ collective operation defines a forward permutation $f$ as an
 index mapping from one array $X$ onto the result array $Y$, which we can write
@@ -341,6 +343,7 @@ when available is left to future work.
 
 
 \subsection{Stencil}
+\label{sec:parallel_stencil}
 
 Stencil operations are a fundamental building block of many scientific and image
 processing algorithms. A stencil computation is similar to a @map@, that has

@@ -571,9 +571,9 @@ to body $j$:
 %
 \begin{equation*}
     \mathbf{f}_{ij}
-      = G \frac{m_i m_j}{\|\mathbf{r}_{ij}\|^2}
+      = G \frac{m_i m_j}{\left|\mathbf{r}_{ij}\right|^2}
         \cdot
-        \frac{\mathbf{r}_{ij}}{\|\mathbf{r}_{ij}\|}
+        \frac{\mathbf{r}_{ij}}{\left|\mathbf{r}_{ij}\right|}
 \end{equation*}
 %
 where $m_i$ and $m_j$ are the masses of the bodies, $\mathbf{r}_{ij} =
@@ -591,7 +591,7 @@ other bodies is thus:
     \mathbf{F}_i
       = \sum_{\substack{1 \le j \le n\\j \ne i}} \mathbf{f}_{ij}
       = G m_i \cdot \sum_{\substack{1 \le j \le n\\j \ne i}}
-            \frac{m_j \mathbf{r}_{ij}}{\|\mathbf{r}_{ij}\|^3}
+            \frac{m_j \mathbf{r}_{ij}}{\left|\mathbf{r}_{ij}\right|^3}
 \end{equation*}
 %
 Note that as the bodies approach each other, the force between them grows
@@ -606,7 +606,7 @@ rewritten as follows:
 \begin{equation*}
     \mathbf{F}_i \approx G m_i \cdot \sum_{1 \le j \le n}
         \frac{m_j \mathbf{r}_{ij}}
-             {\left( \|\mathbf{r}_{ij}\| + \epsilon^2 \right)^{\sfrac{3}{2}}}
+             {\left( \left|\mathbf{r}_{ij}\right| + \epsilon^2 \right)^{\sfrac{3}{2}}}
 \end{equation*}
 %
 The condition $j \ne i$ is no longer needed, because $\mathbf{f}_{ii} = 0$ when
@@ -620,7 +620,7 @@ accelerate between two bodies.
 %    \mathbf{a}_i \approx
 %    G \sum_{1 \le j \le n}
 %      \frac{m_j \mathbf{r}_{ij}}
-%           {\left( \|\mathbf{r}_{ij}\|^2 + \epsilon^2 \right)^{\sfrac{3}{2}}}
+%           {\left( \left|\mathbf{r}_{ij}\right|^2 + \epsilon^2 \right)^{\sfrac{3}{2}}}
 %\end{equation*}
 %
 %

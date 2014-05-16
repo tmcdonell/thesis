@@ -49,9 +49,9 @@ See section~\ref{sec:cuda} for more information.
 % guide~\cite{NVIDIA:2012wf}; we present only those features required for the
 % discussion.
 
-Some collective operations such as @map@ have an obvious mapping to the
+Some collective operations such as `map` have an obvious mapping to the
 highly parallel CUDA architecture, so we elide discussion of their
-implementation. Other collective operations such as @scan@, where the value
+implementation. Other collective operations such as `scan`, where the value
 of each element depends on the value of the last, may at first seem to not admit
 a parallel interpretation at all. This section outlines the implementation of
 this second kind of collective operation, where efficient parallel
@@ -167,8 +167,8 @@ each segment sequentially, each segment is reduced by a single thread block
 which operates independently of all other thread blocks. A consequence of this
 is that proper device utilisation depends on the shape of the array and not
 simply the total number of elements in the array. For example, reduction of an
-array with shape @(Z :. 1 :. n)@ will use a single thread block, no matter
-how large @n@ is. This simplifies the implementation but is clearly not
+array with shape `(Z :. 1 :. n)` will use a single thread block, no matter
+how large `n` is. This simplifies the implementation but is clearly not
 always ideal.\footnote{The number of multiprocessors on a device various between
 architecture generation and performance of a given card. For example, a Tesla
 T10 processor (compute capability 1.3) has 240 cores split over 30
@@ -206,14 +206,14 @@ depicted in Figure~\ref{fig:fast_scan}, and proceeds in two phases:
 %
 \begin{enumerate}
 \item All blocks are scanned in parallel, and the partial result from each block
-    @i@ is stored into an intermediate array @block_results[i]@.
+    `i` is stored into an intermediate array `block_results[i]`.
 
-\item Perform a scan of the helper array @block_results@. Accelerate is set up
+\item Perform a scan of the helper array `block_results`. Accelerate is set up
     such that the number of blocks in the first step is less than the maximum
     thread block size (\S\ref{sec:executing_programs}), so this step does not
     need to repeatedly apply the global scan algorithm.
 
-\item Each thread of block @i@ adds element @i@ from Step 2 to its output
+\item Each thread of block `i` adds element `i` from Step 2 to its output
     element from Step 1.
 \end{enumerate}
 
@@ -238,7 +238,7 @@ transformation~\cite{Sengupta:2008ut,Dotsenko:2008fo}.
 \subsection{Permute}
 \label{sec:parallel_permute}
 
-The @permute@ collective operation defines a forward permutation $f$ as an
+The `permute` collective operation defines a forward permutation $f$ as an
 index mapping from one array $X$ onto the result array $Y$, which we can write
 as  $f : X \rightarrow Y$. Implementation of the permute function in Accelerate
 is complicated because we have not placed any particular restrictions on $f$,
@@ -262,8 +262,8 @@ namely:
 
 That the permutation function admits partial functions in the index mapping is
 not particularly challenging for the implementation, and indeed is useful for
-implementing the @filter@ operation, shown in Listing~\ref{lst:filter}. The
-special value @ignore@ is used to drop elements of the input vector that do not
+implementing the `filter` operation, shown in Listing~\ref{lst:filter}. The
+special value `ignore` is used to drop elements of the input vector that do not
 satisfy the predicate, by not mapping those indices to an index in the codomain.
 %
 \begin{lstlisting}[style=haskell_float
@@ -280,13 +280,13 @@ filter p vec
     permute const defaults (\ix -> flags!ix ==* 0 ? (ignore, index1 $ targetIdx!ix)) vec
 \end{lstlisting}
 
-On the other hand, because we can not prove that @filter@ is surjective, we
+On the other hand, because we can not prove that `filter` is surjective, we
 require the result vector to be first initialised with default values. Since we
-do not know anything about the element type @a@, the only recourse is to
-copy elements from the input array @vec@. This is doubly wasteful, because
-we must first execute the @backpermute@ kernel to compute the
-@defaults@ array, and then copy those values into the results vector before
-executing the @permute@ kernel, even though we know the initialised values
+do not know anything about the element type `a`, the only recourse is to
+copy elements from the input array `vec`. This is doubly wasteful, because
+we must first execute the `backpermute` kernel to compute the
+`defaults` array, and then copy those values into the results vector before
+executing the `permute` kernel, even though we know the initialised values
 will be completely overwritten.
 
 At a second example, Listing~\ref{lst:histogram} demonstrates the computation of
@@ -321,8 +321,8 @@ compare-and-swap operation is used to implement write combining.\footnote{The
 atomic compare-and-swap operation on 32-bit values into global memory is only
 available for devices of compute capability 1.1 and higher, and for 64-bit
 values on devices of compute capability 1.2 and higher.} For a combination
-function @f@ on elements of type @T@, the following atomically combines a value
-from the source array @x@ with the value of the result array @y@:
+function `f` on elements of type `T`, the following atomically combines a value
+from the source array `x` with the value of the result array `y`:
 
 \begin{lstlisting}[style=cuda]
   T x        = source[i];
@@ -335,10 +335,10 @@ from the source array @x@ with the value of the result array @y@:
 %
 Any atomic operation on simple types can be implemented in terms of
 compare-and-swap in this manner. Tuple types apply the procedure to each
-component separately, as CUDA currently only supports @atomicCAS@ style
+component separately, as CUDA currently only supports `atomicCAS` style
 instructions. Since Accelerate uses a struct-of-arrays style representation,
 atomically committing all components of a tuple would require additional
-hardware support. Utilising more specific atomic operations such as @atomicAdd@
+hardware support. Utilising more specific atomic operations such as `atomicAdd`
 when available is left to future work.
 
 
@@ -346,7 +346,7 @@ when available is left to future work.
 \label{sec:parallel_stencil}
 
 Stencil operations are a fundamental building block of many scientific and image
-processing algorithms. A stencil computation is similar to a @map@, that has
+processing algorithms. A stencil computation is similar to a `map`, that has
 access to the elements in the local neighbourhood surrounding the element. For
 example, at the core of many image processing algorithms is the convolution
 operator $*$, whose definition is as follows:
@@ -399,7 +399,7 @@ That is, how should we implement:
 Exp s == Exp t = ??
 \end{lstlisting}
 %
-There is no reason that @s@ and @t@ should be expressions of the same
+There is no reason that `s` and `t` should be expressions of the same
 type. In some instances we might not care, and as such can define standard
 heterogeneous equality:
 %
@@ -430,7 +430,7 @@ data PreOpenExp acc env aenv t where
     -- other language constructs\ldots
 \end{lstlisting}
 %
-To apply @heq@ to the body expression, we need to know something about
+To apply `heq` to the body expression, we need to know something about
 the type of the bound terms to ensure that the scalar environments are the same,
 namely \lstinline[style=inline,mathescape]{a $\sim$ bnd_t $\sim$ b}.%
 \footnote{Alternatively we can use \footcode{Data.Typeable.gcast} to provide a
@@ -448,10 +448,10 @@ heqIntegralType _            _            = False
 \end{lstlisting}
 %
 However, doing this is perfectly useless as it only gives us a value of type
-@Bool@, with no idea what that value means or to what its truth might
+`Bool`, with no idea what that value means or to what its truth might
 entitle us. The type checker does not gain any useful knowledge about the types
-the dictionaries @a@ and @b@ witness simply by knowing that
-@heqIntegralType a b = True@. A boolean is a bit uninformative.
+the dictionaries `a` and `b` witness simply by knowing that
+`heqIntegralType a b = True`. A boolean is a bit uninformative.
 
 Instead, we can write essentially the same test, but in the positive case
 deliver some \emph{evidence} that the types are equal:
@@ -467,8 +467,8 @@ matchIntegralType (TypeWord _) (TypeWord _) = Just REFL
 matchIntegralType _            _            = Nothing
 \end{lstlisting}
 %
-Matching on @Just REFL@ will inject the knowledge into the type
-checker that the types @s@ and @t@ are the same. Now with our
+Matching on `Just REFL` will inject the knowledge into the type
+checker that the types `s` and `t` are the same. Now with our
 evidence-producing heterogeneous equality test for reified dictionary families,
 we can compare two terms and gain type-level knowledge when they witness the
 same value-level types. These witnesses for existentially quantified types then
@@ -538,7 +538,7 @@ v :: forall t'. Idx env t' -> f env' t'
 Where the operation differs is in the image of variables: renaming maps
 variables to variables and substitution maps variables to terms. We then lift
 this to an operation which traverses terms, with appropriate lifting to push
-under a lambda, and rebuilding the term after applying @v@ to the
+under a lambda, and rebuilding the term after applying `v` to the
 variables:
 %
 \begin{lstlisting}[style=haskell]
@@ -548,14 +548,14 @@ rebuild :: Syntactic f
         -> Term env' t
 \end{lstlisting}
 
-The @Syntactic@ class\footnote{Since Accelerate is a stratified language
+The `Syntactic` class\footnote{Since Accelerate is a stratified language
 there are separate implementations of this toolkit on syntactic elements for the
 scalar and collective operations, but the details are identical. The discussion
 uses the generic \footcode{Term} to mean either of these operations.} tells us
-everything we need to know about @f@ --- our notion of ``stuff'' --- in
+everything we need to know about `f` --- our notion of ``stuff'' --- in
 order to rebuild terms: a mapping in from variables, a mapping out to terms, and
-a weakening map which extends the context. Renaming will instantiate @f@
-with @Idx@, whereas for substitutions we may choose @Term@ instead.
+a weakening map which extends the context. Renaming will instantiate `f`
+with `Idx`, whereas for substitutions we may choose `Term` instead.
 %
 \begin{lstlisting}[style=haskell]
 class Syntactic f where
@@ -577,7 +577,7 @@ vanished. When we use a named representation (or HOAS\index{higher-order
 abstract syntax}\index{HOAS|see{higher-order abstract syntax}}) we get weakening
 for free, but in the de Bruijn\index{de Bruijn} representation weakening takes
 work: we need to shift all the variable references to make room for new
-bindings. To do this we need to explain how to shift the @v@ operation into
+bindings. To do this we need to explain how to shift the `v` operation into
 an extended environment; saying what to do with the new variable and how to
 account for it on the output side.
 %
@@ -590,7 +590,7 @@ shift :: Syntactic f
 %
 Overall, the crucial functionality of simultaneous substitution is to propagate
 a class of operations on variables closed under shifting, which is what
-@Syntactic@ and @rebuild@ offer.
+`Syntactic` and `rebuild` offer.
 
 
 \subsection{Inlining}
@@ -607,19 +607,19 @@ inline :: Term (env, s) t -> Term env s -> Term env t
 inline body bnd = rebuild (subTop bnd) body
 \end{lstlisting}
 
-The final question, then, is how to write the function @v@ which we push
-through terms, as the type @forall t'@ could be anything. After all, what
+The final question, then, is how to write the function `v` which we push
+through terms, as the type `forall t'` could be anything. After all, what
 is the point of having a simultaneous substitution algorithm if we can't
 specialise it to one-at-a-time substitution.
 
-The function @subTop@ in Listing~\ref{lst:inlining} takes a replacement for the
-top variable and returns a simultaneous substitution which eliminates @ZeroIdx@.
+The function `subTop` in Listing~\ref{lst:inlining} takes a replacement for the
+top variable and returns a simultaneous substitution which eliminates `ZeroIdx`.
 If we have a term with one free variable, we can use this to replace that
-variable with a term. That is, @inline@ a term into all use sites of the free
+variable with a term. That is, `inline` a term into all use sites of the free
 variable.
 
 The demonic $\forall$ --- which is to say that the quantifier is in a position
-which gives us obligation, not opportunity --- of the operator @v@ forces
+which gives us obligation, not opportunity --- of the operator `v` forces
 us to respect type: when pattern matching detects the variable we care about,
 happily we discover that it has the type we must respect. The demon is not so
 free to mess with us as one might at first fear.
@@ -630,9 +630,9 @@ free to mess with us as one might at first fear.
 \subsection{Function composition}
 \label{sec:function_composition}
 
-The equivalent of unary function composition @(.)@ on terms can be
-defined in a similar manner. A function @(a -> b)@ is equivalent to a
-@Term@ of type @b@ and free variable @a@. Similar to inlining, we
+The equivalent of unary function composition `(.)` on terms can be
+defined in a similar manner. A function `(a -> b)` is equivalent to a
+`Term` of type `b` and free variable `a`. Similar to inlining, we
 replace an expression that uses the top variable with one that uses another,
 remembering to bind the result of the first expression so that it can be reused
 in the second without duplication.
@@ -652,12 +652,12 @@ compose (Lam (Body f)) (Lam (Body g)) = Lam (Body (f `dot` g))
 compose _              _              = error "compose: impossible case"
 \end{lstlisting}
 
-Note the type of @split@ in Listing~\ref{lst:function_composition}, which
-creates space in the environment at the second index (@SuccIdx ZeroIdx@) for the
-free variable @a@ to appear in the resultant @Term@, as the first index will be
-bound to the result of the first expression @g@.
+Note the type of `split` in Listing~\ref{lst:function_composition}, which
+creates space in the environment at the second index (`SuccIdx ZeroIdx`) for the
+free variable `a` to appear in the resultant `Term`, as the first index will be
+bound to the result of the first expression `g`.
 
-The function @compose@ finally lifts this to function terms by unwrapping the
+The function `compose` finally lifts this to function terms by unwrapping the
 lambda abstractions. Annoyingly, GHC's type checker can not determine that the
 function type prohibits any valid term except those with a single lambda, so we
 need a second catch-all case to suppress a compilation warning. In the remainder
@@ -693,11 +693,11 @@ data Extend acc aenv aenv' where
 \end{lstlisting}
 %
 In the style of the \indext{de Bruijn} indices used for projecting environment
-variables (\S\ref{sec:richly_typed_terms}), @Extend@ uses an inductive notion of
+variables (\S\ref{sec:richly_typed_terms}), `Extend` uses an inductive notion of
 tuples as heterogeneous \emph{snoc} lists. In contrast to environment indices,
 the base case does not refer to an empty environment, but instead the
-environment @aenv@ which we are extending. This witnesses how to construct an
-extended environment @aenv'@ by bringing new terms into scope, one at a time.
+environment `aenv` which we are extending. This witnesses how to construct an
+extended environment `aenv'` by bringing new terms into scope, one at a time.
 %
 \begin{lstlisting}[style=haskell]
 bind :: Arrays a
@@ -708,7 +708,7 @@ bind BaseEnv         = id
 bind (PushEnv env a) = bind env . Alet (inject a) . inject
 \end{lstlisting}
 %
-The auxiliary function @inject :: PreOpenAcc acc aenv a -> acc aenv a@ completes
+The auxiliary function `inject :: PreOpenAcc acc aenv a -> acc aenv a` completes
 the knot tying trick (\S\ref{sec:knot_tying}) to complete the definition of each
 of the array terms.
 
@@ -737,12 +737,12 @@ We define \emph{sinking} as the operation of shifting a term from one (array)
 environment into another, where new things have come into scope according to
 some witness, and no old things have disappeared.
 
-Listing~\ref{lst:sinking} generalises @weaken@ from
-section~\ref{sec:substitution} to increase the environment of an object @f@
+Listing~\ref{lst:sinking} generalises `weaken` from
+section~\ref{sec:substitution} to increase the environment of an object `f`
 based on some function on indices rather than shifting by a single de Bruijn
 index. Thus we only need to traverse a term once no matter how many positions
-the variable indices shift by. Using @sink@, we can weaken terms based on the
-witness provided by @Extend@.
+the variable indices shift by. Using `sink`, we can weaken terms based on the
+witness provided by `Extend`.
 
 
 \section{Embedding GPU programs as skeletons}
@@ -750,8 +750,8 @@ witness provided by @Extend@.
 
 Accelerate offers a range of aggregate operations on multi-dimensional arrays.
 They include operations modelled after Haskell's list library, such as
-@map@ and @fold@, but also array-oriented operations, such as
-@permute@ and stencil convolutions.
+`map` and `fold`, but also array-oriented operations, such as
+`permute` and stencil convolutions.
 
 As a simple example, consider the dot product of two vectors:
 %
@@ -760,15 +760,15 @@ dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
 dotp xs ys = fold (+) 0 (zipWith (*) xs ys)
 \end{lstlisting}
 %
-The crucial difference to vanilla Haskell is the @Acc@ type constructor
+The crucial difference to vanilla Haskell is the `Acc` type constructor
 representing \emph{embedded array-valued computations}. The types
-@Vector e@ and @Scalar e@ represent one-dimensional and
+`Vector e` and `Scalar e` represent one-dimensional and
 zero-dimensional (singleton) arrays, respectively.
 
-The expression @zipwith (*) xs ys@ implements point-wise multiplication of
-the two argument vectors, and @fold (+) 0@ sums the resulting products up
+The expression `zipwith (*) xs ys` implements point-wise multiplication of
+the two argument vectors, and `fold (+) 0` sums the resulting products up
 to yield the final, scalar result, wrapped into a singleton array. The type of
-@fold@ is:
+`fold` is:
 %
 \begin{lstlisting}[style=haskell]
 fold :: (Shape sh, Elt a)
@@ -779,10 +779,10 @@ fold :: (Shape sh, Elt a)
 \end{lstlisting}
 %
 It uses a binary folding function operating on \emph{embedded scalar
-computations} of type @Exp a@ to implement a parallel reduction along the
+computations} of type `Exp a` to implement a parallel reduction along the
 innermost dimension of an $n$-dimensional, embedded array of type \code{Array
-(sh:.Int) a}. The \emph{shape} @sh:.Int@ consist of a polymorphic shape
-@sh@ with one added (innermost) dimension, which is missing from the shape
+(sh:.Int) a}. The \emph{shape} `sh:.Int` consist of a polymorphic shape
+`sh` with one added (innermost) dimension, which is missing from the shape
 of the result array.
 
 
@@ -792,7 +792,7 @@ The Accelerate CUDA backend is based on the idea of \emph{algorithmic
 skeletons}~\cite{Cole:1989vr}, where a parallel program is composed from one or
 more parameterised skeletons, or templates, encapsulating specific parallel
 behaviour. In our case, the backend implements each of the aggregate array
-operations, such as @map@, by way of a CUDA C \emph{code template} that is
+operations, such as `map`, by way of a CUDA C \emph{code template} that is
 parameterised with array types and worker functions, such as the function to be
 mapped, to be injected at predefined points.
 
@@ -841,14 +841,14 @@ Due to the shortcomings of C++ templates and CPP, we instead use Mainland's
 Haskell~\cite{Sheard:2002wu} to define skeletons as quoted CUDA C templates
 with splices for the template parameters.
 
-Listing~\ref{lst:map_skeleton} shows the skeleton code for the @map@
-operation. The @[cunit|...|]@ brackets enclose CUDA C definitions
-comprising this skeleton template. CUDA uses the @__global__@ keyword to
-indicate that @map@ is a GPU kernel --- a single data-parallel computation
+Listing~\ref{lst:map_skeleton} shows the skeleton code for the `map`
+operation. The `[cunit|...|]` brackets enclose CUDA C definitions
+comprising this skeleton template. CUDA uses the `__global__` keyword to
+indicate that `map` is a GPU kernel --- a single data-parallel computation
 launch on the GPU by the CPU (\S\ref{sec:cuda}).
-\emph{Antiquotations}\index{antiquotation} @$params:var@, @$exp:var@,
-@$items:var@, and @$stms:var@ denote template parameters using a
-Haskell expression @var@ to splice CUDA C parameters, expressions, items,
+\emph{Antiquotations}\index{antiquotation} `$params:var`, `$exp:var`,
+`$items:var`, and `$stms:var` denote template parameters using a
+Haskell expression `var` to splice CUDA C parameters, expressions, items,
 and statements, respectively, into the skeleton.
 
 \begin{lstlisting}[style=haskell_float,
@@ -878,25 +878,25 @@ and statements, respectively, into the skeleton.
   |]
 \end{lstlisting}
 
-In order to instantiate the @map@ skeleton, the code generator needs to
+In order to instantiate the `map` skeleton, the code generator needs to
 generate concrete parameters for all of the holes in the skeleton template. In
 particular:
 %
 \begin{enumerate}
-\item The function @f@ which is applied to each individual array element;
+\item The function `f` which is applied to each individual array element;
 
-\item The function @get@, which extracts the appropriate input array
-    element for the array index @ix@; and finally
+\item The function `get`, which extracts the appropriate input array
+    element for the array index `ix`; and finally
 
 \item The types of the input and output array arguments are collected and
-    spliced into @argIn@ and @argOut@, respectively.
+    spliced into `argIn` and `argOut`, respectively.
 
 \end{enumerate}
 %
-The meaning of the auxiliary combinators @get@, @setOut@, @dce@, and @(.=.)@
+The meaning of the auxiliary combinators `get`, `setOut`, `dce`, and `(.=.)`
 will be explained in the following sections.
 
-As the quasiquoter @[cunit|...|]@ is executed at Haskell compile time,
+As the quasiquoter `[cunit|...|]` is executed at Haskell compile time,
 syntactic errors in the quotations and antiquotations, as well as their
 composition, are detected at compilation time. Thus, we can be sure that the
 generated skeleton code will be syntactically correct if the backend compiles.
@@ -942,13 +942,13 @@ dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
 dotp xs ys = fold (+) 0 (zipWith (*) xs ys)
 \end{lstlisting}
 %
-The @zipWith@ and @fold@ operations would each compile to separate
-skeletons, and as a result the execution of @zipWith@ produces an
-intermediate array that the @fold@ kernels immediately consume.
+The `zipWith` and `fold` operations would each compile to separate
+skeletons, and as a result the execution of `zipWith` produces an
+intermediate array that the `fold` kernels immediately consume.
 
 This is not what a CUDA programmer would manually implement. It is more
-efficient to inline the @zipWith@ computation into the kernel of the
-@fold@. This strategy eliminates one GPU kernel, as well as one
+efficient to inline the `zipWith` computation into the kernel of the
+`fold`. This strategy eliminates one GPU kernel, as well as one
 intermediate array that is of the same extent as the [intersection of the] two
 input arrays. To achieve the same performance as handwritten CUDA code, we
 developed the short-cut fusion technique described in
@@ -956,8 +956,8 @@ chapter~\ref{ch:optimising}, and which appeared in \cite{McDonell:2013wi}.
 
 The fusion system distinguishes producer-producer and consumer-producer fusion.
 The former combines two skeletons where threads produce array elements
-independently (such as @map@), from skeletons where threads cooperate to
-produce an array (such as @fold@). Central to this approach is a
+independently (such as `map`), from skeletons where threads cooperate to
+produce an array (such as `fold`). Central to this approach is a
 representation of arrays as functions, which we called \emph{delayed
 arrays}\index{array!delayed} (in contrast to \emph{manifest
 arrays}\index{array!manifest}) which are represented as follows:
@@ -970,17 +970,17 @@ arrays}\index{array!manifest}) which are represented as follows:
     }               -> DelayedOpenAcc aenv (Array sh e)
 \end{lstlisting}
 %
-Instead of generating a skeleton instance for @zipWith@ straight away, we
-represent the computation implemented by @zipWith@ as a scalar function
+Instead of generating a skeleton instance for `zipWith` straight away, we
+represent the computation implemented by `zipWith` as a scalar function
 (actually, a pair of functions) that generates an element of the array at a
 given array index, together with the extent (domain) of the array, as a value of
-type @DelayedOpenAcc@. For details of the representation see
+type `DelayedOpenAcc`. For details of the representation see
 section~\ref{sec:implementing_array_fusion}.
 
 The crucial step in enabling producer-consumer fusion in Accelerate's CUDA
-backend is in the function @codegenAcc@, which turns an AST node of type
-@DelayedOpenAcc aenv a@ producing a manifest array, into an instantiated CUDA
-kernel of type @CUSkeleton aenv a@:
+backend is in the function `codegenAcc`, which turns an AST node of type
+`DelayedOpenAcc aenv a` producing a manifest array, into an instantiated CUDA
+kernel of type `CUSkeleton aenv a`:
 %
 \begin{lstlisting}[style=haskell]
 codegenAcc :: DeviceProperties
@@ -993,15 +993,15 @@ codegenAcc dev (Manifest pacc) aenv
       ...
 \end{lstlisting}
 %
-Here we see that @mkFold@, which generates an instance of the @fold@
+Here we see that `mkFold`, which generates an instance of the `fold`
 template, gets as its last argument the code generated for a delayed array
-resulting from the call to @codegenDelayed@. The use of template meta
+resulting from the call to `codegenDelayed`. The use of template meta
 programming to implement CUDA skeletons is crucial to enable producer-consumer
 fusion by way of template instantiation. In the dot product example, the delayed
-producer is equivalent to the scalar function @\ix -> (xs!ix) * (ys!ix)@.
-The call to @mkFold@ receives a CUDA version of this function, which can be
-inlined directly into the @fold@ skeleton. The delayed producer function is
-bound to the argument @getIn@ in the @mkFold@ definition given in
+producer is equivalent to the scalar function `\ix -> (xs!ix) * (ys!ix)`.
+The call to `mkFold` receives a CUDA version of this function, which can be
+inlined directly into the `fold` skeleton. The delayed producer function is
+bound to the argument `getIn` in the `mkFold` definition given in
 Listing~\ref{lst:mkfold}, which is used in the line marked \emph{(1)} and
 expands to the following CUDA code:
 %
@@ -1010,16 +1010,16 @@ const Int64 v1 = ({ assert(ix >= 0 && ix < min(shIn0_0, shIn1_0)); ix; });
 y0 = arrIn0_0[v1] * arrIn1_0[v1];
 \end{lstlisting}
 %
-Here the @assert@ checks whether the array index is in bounds, and is only
+Here the `assert` checks whether the array index is in bounds, and is only
 active when Accelerate is compiling kernels in debugging mode.\footnote{Kernel
 debug mode is activated when the Accelerate CUDA backend is installed in debug
 mode, and the command line flag \footcode{-ddebug-cc} is provided.} In this case the
-embedded @zipWith@ operation is over two vectors, so no conversion to and
+embedded `zipWith` operation is over two vectors, so no conversion to and
 from multidimensional indices was required.
 
-In contrast to the @map@ skeleton shown in Listing~\ref{lst:map_skeleton}, the
-code generated by @mkFold@ proceeds in two parallel phases. The first phase is a
-sequential @for@ loop including the use of the @getIn@ embedded producer
+In contrast to the `map` skeleton shown in Listing~\ref{lst:map_skeleton}, the
+code generated by `mkFold` proceeds in two parallel phases. The first phase is a
+sequential `for` loop including the use of the `getIn` embedded producer
 function. The second phase begins at the line marked \emph{(2)} and implements a
 parallel tree reduction~\cite{Chatterjee:2009vh}.
 
@@ -1076,8 +1076,8 @@ mkFoldAll dev aenv combine seed (CUDelayed shIn _ getIn)
 \label{sec:instantiating_skeletons_with_scalar_code}
 
 Most aggregate array operations in Accelerate are parameterised by scalar
-functions, such as the mapping function for @map@ or the combination
-function for @fold@. Thus, a crucial part of template instantiation is
+functions, such as the mapping function for `map` or the combination
+function for `fold`. Thus, a crucial part of template instantiation is
 inlining CUDA code implementing scalar Accelerate functions into the predefined
 points of the template code. Inlining of scalar functions is always possible as
 the scalar sub-language of Accelerate is first-order and does not support
@@ -1087,10 +1087,10 @@ higher-order functions).
 
 To splice scalar code fragments into the skeleton code of array operations, we
 define a typeclass of l-values and r-values to define a generic assignment
-operator @(.=.)@. For example, the operator was used in lines \emph{(1)}
+operator `(.=.)`. For example, the operator was used in lines \emph{(1)}
 and \emph{(2)} of Listing~\ref{lst:map_skeleton}. This representation abstracts
 over whether our skeleton uses l-values in single static assignment-style to
-@const@ declarations, or as a statement updating a mutable variable. The
+`const` declarations, or as a statement updating a mutable variable. The
 class declarations are the following:
 %
 \begin{lstlisting}[style=haskell]
@@ -1107,7 +1107,7 @@ instance (Lvalue l, Rvalue r) => Assign l r where
     lhs .=. rhs = [ lvalue lhs (rvalue rhs) ]
 \end{lstlisting}
 
-The @Assign@ class allows for flexibility when dealing with tuples
+The `Assign` class allows for flexibility when dealing with tuples
 (\S\ref{sec:representing_tuples}), shared subexpressions
 (\S\ref{sec:shared_subexpressions}), and the removal of unused expressions
 (\S\ref{sec:eliminating_dead_code}).
@@ -1127,11 +1127,11 @@ The @Assign@ class allows for flexibility when dealing with tuples
 \subsection{Representing tuples}
 \label{sec:representing_tuples}
 
-Accelerate arrays of primitive type, such as @Float@ and @Int@, are
+Accelerate arrays of primitive type, such as `Float` and `Int`, are
 easily represented in CUDA using the corresponding floating point and integral
 types. More interesting is the case of arrays of tuples. A na\"ive
-implementation of tuples in CUDA might use arrays of @struct@ type --- that
-is, we might consider representing values of type @Array DIM1 (Int, Float)@
+implementation of tuples in CUDA might use arrays of `struct` type --- that
+is, we might consider representing values of type `Array DIM1 (Int, Float)`
 in CUDA by the value of type:
 %
 \begin{lstlisting}[style=cuda]
@@ -1165,9 +1165,9 @@ further in the following section.
 This non-parametric array representation also existed in the old version of
 Accelerate~\cite{Chakravarty:2011fr}. However, since code generation was based
 on C++ templates and CPP macros, and moreover, the skeleton code was required to
-abstract over array element types, C @struct@s were used to represent
+abstract over array element types, C `struct`s were used to represent
 tuples of scalar values. A family of getter and setter functions were then
-generated to create and consume these @struct@s when reading and writing
+generated to create and consume these `struct`s when reading and writing
 elements of the non-parametric array representation.
 
 However, this leads to the generation of dead code whenever specific template
@@ -1180,24 +1180,24 @@ fst4 :: Acc (Vector (a,b,c,d)) -> Acc (Vector a)
 fst4 = map (\v -> let (x,_,_,_) = unlift v in x)
 \end{lstlisting}
 %
-The function @unlift@ turns an embedded scalar expression that yields a
+The function `unlift` turns an embedded scalar expression that yields a
 quadruple, into a quadruple comprising four embedded scalar expressions ---
 hence, we can perform pattern matching in the let binding in order to unpack the
-expression. Moreover, in @fst4@ under the old code generation strategy,
-array elements are copied into a @struct@, only for the first element to be
-extracted again and the @struct@ to be discarded. One might hope that the
+expression. Moreover, in `fst4` under the old code generation strategy,
+array elements are copied into a `struct`, only for the first element to be
+extracted again and the `struct` to be discarded. One might hope that the
 CUDA compiler (1) spots the redundant copying of array elements; and (2) that
 the elements of three of the four arrays are never used. Alas, it does not, and
-as a result @fst4@ generates considerable memory traffic.
+as a result `fst4` generates considerable memory traffic.
 
-With template meta programming and the @Assign@ type class introduced
+With template meta programming and the `Assign` type class introduced
 previously, we fare much better. As the entire skeleton template is quasiquoted,
 we can inline the definitions of scalar expressions, including array accesses,
 directly into the skeleton template. Instead of packaging the tuple components
-into a @struct@, we represent it by a list of primitive values, one per
+into a `struct`, we represent it by a list of primitive values, one per
 component. During code generation, we keep track of the values constituting a
 tuple by maintaining a list of expressions, one for each component of the tuple.
-The @(.=.)@ operator allows us to assign all values constituting the tuple
+The `(.=.)` operator allows us to assign all values constituting the tuple
 with one assignment in the meta programming system; i.e., we have lists of
 l-values and r-values:
 %
@@ -1263,7 +1263,7 @@ codegenOpenExp (Let bnd body) env = do
 Recall that Accelerate's CUDA code generator uses a non-parametric
 representation of tuples, where a scalar expression is represented as a list of
 C expressions, one per component of the (flattened) tuple
-(\S\ref{sec:representing_tuples}). The function @pushEnv@ generates a fresh
+(\S\ref{sec:representing_tuples}). The function `pushEnv` generates a fresh
 name for each expression in the tuple, assigns the expression to a new variable,
 and returns the new variable name to be used throughout evaluation of the body
 expression.
@@ -1292,7 +1292,7 @@ generated code such as:
 This observation also simplifies the implementation of dead-code analysis
 (\S\ref{sec:eliminating_dead_code}). The output of code generation is the list
 of C expressions representing the final computation, together with a list of
-local declarations to be evaluated first. With the @Assign@ type class
+local declarations to be evaluated first. With the `Assign` type class
 introduced previously, we can transparently bring these extra terms into scope
 before evaluating the body, with the introduction of the following instance:
 %
@@ -1306,7 +1306,7 @@ instance Assign l r => Assign l ([C.BlockItem], r) where
 
 One disadvantage of the current implementation is that the scope of let bindings
 is lost: once a new variable is declared, it remains in scope for the remainder
-of the C skeleton. This is in contrast to the definition of the @Let@ AST
+of the C skeleton. This is in contrast to the definition of the `Let` AST
 node, where the binding should only be in scope during evaluation of the body.
 Adding explicit scoping to specify the lifetime of expressions may assist the
 CUDA compiler to improve register allocation.
@@ -1326,9 +1326,9 @@ expressions.
 
 As discussed in section~\ref{sec:representing_tuples}, one problem of the
 original code generator based on CPP and C++ templates was its inability to
-remove some forms of dead code. This was seen in the @fst4@ example of
+remove some forms of dead code. This was seen in the `fst4` example of
 section~\ref{sec:representing_tuples}, which generates significant memory
-traffic if tuples are represented as @struct@s, even though three of the
+traffic if tuples are represented as `struct`s, even though three of the
 four values read from memory were never used. With the use of template meta
 programming to inline the definition of scalar expressions directly into the
 skeleton template, the situation is greatly improved.
@@ -1338,7 +1338,7 @@ does not always detect if the values are used. Hence, rather than rely on the
 CUDA compiler, the code generation process explicitly tracks which values are
 used at all in the generated scalar code, and when splicing assignments into a
 skeleton template, we elide statements whose results are not used. The following
-instance of the @Assign@ class uses a flag that is @False@ to indicate
+instance of the `Assign` class uses a flag that is `False` to indicate
 that the assigned value is not used.
 %
 \begin{lstlisting}[style=haskell]
@@ -1348,17 +1348,17 @@ instance Assign l r => Assign (Bool,l) r where
     | otherwise = []
 \end{lstlisting}
 
-The @map@ skeleton of Listing~\ref{lst:map_skeleton} exploits this: when
-generating code for the mapped function @f@, the function \code{dce :: [a]
+The `map` skeleton of Listing~\ref{lst:map_skeleton} exploits this: when
+generating code for the mapped function `f`, the function \code{dce :: [a]
 -> [(Bool,a)]} on the line marked \emph{(2)} is also generated, and determines
 for each term whether it is subsequently used. Thus, when the code generated by
-@get@ reads data from the input array, it doesn't read the unused values.
-Consequently, @fst4@ only touches the array representing the first
+`get` reads data from the input array, it doesn't read the unused values.
+Consequently, `fst4` only touches the array representing the first
 component of the quadruple of arrays.
 
-To generate the function @dce@ we need to determine which inputs to the
+To generate the function `dce` we need to determine which inputs to the
 generated scalar function are ultimately used in the calculation. Code
-generation for a function such as @fst4@ begins by initialising the
+generation for a function such as `fst4` begins by initialising the
 scalar environment of the function body with input variables of a known name
 (1):
 %
@@ -1378,7 +1378,7 @@ codegenFun1 dev aenv (Lam (Body f))
 During code generation we build a set containing the variables that are used in
 the function body. In (2) code generation proceeds with the dummy variables,
 with the final state returned, which contains the set of used variables.
-Dead-code analysis then builds the function @dce@ by testing whether each
+Dead-code analysis then builds the function `dce` by testing whether each
 input variable is present in the set:
 %
 \begin{lstlisting}[style=haskell]
@@ -1389,8 +1389,8 @@ deadCodeElim used vars
 \end{lstlisting}
 
 During code generation, we must decide when to add variables to the set. In
-general, we check the result from each step of @codegenOpenExp@ with the
-function @visit@, and test if the result was a scalar C variable:
+general, we check the result from each step of `codegenOpenExp` with the
+function `visit`, and test if the result was a scalar C variable:
 %
 \begin{lstlisting}[style=haskell]
 visit :: [C.Exp] -> Gen [C.Exp]
@@ -1399,15 +1399,15 @@ visit exp
   | otherwise   =                 return exp
 
 markAsUsed :: C.Exp -> Gen ()
-markAsUsed x@C.Exp{} = modify (\s -> s { usedTerms = Set.insert x (usedTerms s)} )
+markAsUsed x`C.Exp{} = modify (\s -> s { usedTerms = Set.insert x (usedTerms s)} )
 markAsUsed _         = return ()
 \end{lstlisting}
 
 
 \subsubsection{Future work}
 
-Completing our definition of @codegenFun1@, we return the result of
-dead-code analysis produced by @deadCodeElim@, together with a function
+Completing our definition of `codegenFun1`, we return the result of
+dead-code analysis produced by `deadCodeElim`, together with a function
 that \emph{re-runs} code generation with the actual input variables. Thus, our
 method requires performing code generation at least twice for every scalar
 function: once to generates usage information, and then again each time the
@@ -1433,14 +1433,14 @@ these issues to future work.
 \subsection{Shapes and indices}
 
 Parallelism in Accelerate takes the form of collective operations on arrays of
-type @Array sh e@, where @sh@ is the \emph{shape} and @e@ is the \emph{element
+type `Array sh e`, where `sh` is the \emph{shape} and `e` is the \emph{element
 type} of the array. As discussed in section~\ref{sec:arrays_shapes_and_indices},
 we use an inductive notation of snoc lists to enable rank-polymorphic
 definitions of array functions. Listing~\ref{lst:shapes_and_indices} shows the
 types of array shapes and indices.
 
 During code generation, the old version of Accelerate~\cite{Chakravarty:2011fr}
-represented multidimensional shapes and indices as a @struct@.
+represented multidimensional shapes and indices as a `struct`.
 %
 % \begin{lstlisting}[style=cuda]
 % typedef Int32                           Ix;
@@ -1452,30 +1452,30 @@ represented multidimensional shapes and indices as a @struct@.
 % \end{lstlisting}
 %
 This representation additionally came with a family of overloaded C functions
-for operating on shapes and indices, such as @toIndex@ and @fromIndex@, so that
+for operating on shapes and indices, such as `toIndex` and `fromIndex`, so that
 skeletons were not specialised to a particular dimensionality.
 %
 % \begin{lstlisting}[style=cuda,mathescape]
 % int  dim(DIM$n$ sh);                        // number of dimensions in a shape
 % int  size(DIM$n$ sh);                       // total number of elements in a shape
 % Ix   toIndex(DIM$n$ sh, DIM$n$ ix);            // index into a linear row-major format array
-% DIM$n$ fromIndex(DIM$n$ sh, Ix ix);            // inverse of `toIndex'
+% DIM$n$ fromIndex(DIM$n$ sh, Ix ix);            // inverse of 'toIndex'
 % \end{lstlisting}
 
 The new code generation method\footnote{Subsequent to, but not affecting the
-result of \cite{CliftonEverest:2014vi}} does not require the use of @struct@s to
+result of \cite{CliftonEverest:2014vi}} does not require the use of `struct`s to
 represent shapes. The new approach represents shapes during code generation in
 the same manner as tuples; as a list of expressions representing each of the
-individual components of the shape. Operations such as @toIndex@ are implemented
+individual components of the shape. Operations such as `toIndex` are implemented
 directly in the skeleton, rather than packing the shape components into a
-@struct@ and then calling the family of overloaded functions which were provided
+`struct` and then calling the family of overloaded functions which were provided
 separately in a header file.
 
 Recall the vector dot product example from
 section~\ref{sec:fusion_by_template_instantiation}, where the pairwise
 multiplication of the two arrays resulting in the scalar function
-@\ix -> (xs!ix) * (ys!ix)@ being embedded into the consumer template. If a
-@struct@-based representation of shapes is used, this results in the following
+`\ix -> (xs!ix) * (ys!ix)` being embedded into the consumer template. If a
+`struct`-based representation of shapes is used, this results in the following
 C code~\cite{CliftonEverest:2014vi}:
 %
 \begin{lstlisting}[style=cuda]
@@ -1485,7 +1485,7 @@ const int v4 = toIndex(shIn1, shape(v2));
 y0 = arrIn0_a0[v3] * arrIn1_a0[v4];
 \end{lstlisting}
 %
-Here, @shape@ and @toIndex@ are C functions provided by the library, which map
+Here, `shape` and `toIndex` are C functions provided by the library, which map
 multi-dimensional indices to the linear array representation. Since the source
 arrays are vectors, they do not contribute anything to the example, in
 particular, their definitions are:
@@ -1503,7 +1503,7 @@ static __inline__ __device__ DIM1 shape(const int a)
 }
 \end{lstlisting}
 %
-Thus, @v3@ and @v4@ map, indirectly, to @v2@. Luckily, in this case the CUDA
+Thus, `v3` and `v4` map, indirectly, to `v2`. Luckily, in this case the CUDA
 compiler is able to remove the superfluous assignments. With the new code
 generator method, we produce the following code which does not introduce the
 redundant assignment, and thus does not rely on optimisations performed by the
@@ -1527,7 +1527,7 @@ Concerning lambda abstractions, Accelerate's scalar
 expression language is first order, in the sense that, although it includes
 lambda abstractions, it does not include a general application form. This
 ensures that lambda abstractions of scalar expressions can only be used as the
-arguments to collective operations, such as @zipWith@. This restriction is
+arguments to collective operations, such as `zipWith`. This restriction is
 necessary in order to generate code for GPU hardware. As a consequence, lambda
 abstractions are always outermost (in type correct programs) and we can always
 translate them into either (a) plain C functions, or (b) inline them directly
@@ -1551,7 +1551,7 @@ Although we use scalar functions to represent the iteration test (1) and loop
 body (2), the operation is suitably restricted so that, so long as some care is
 taken when generating C code for the loop, we do not need to perform lambda
 lifting of the function valued arguments. However, we can not use the standard
-@codegenFun1@ operation to generate the CUDA code for the unary function,
+`codegenFun1` operation to generate the CUDA code for the unary function,
 as this unfortunately interferes with our implementation of def-use analysis
 (\S\ref{sec:eliminating_dead_code}).
 
@@ -1571,16 +1571,16 @@ cvtF1 (Lam (Body e)) env = do
 %
 Thus, any shared subexpressions (\S\ref{sec:shared_subexpressions}) encountered
 during code generation are evaluated before executing the function body, using
-the @Assign@ class discussed earlier.
+the `Assign` class discussed earlier.
 
 
 \subsection{Array references in scalar code}
 
 Accelerate includes two scalar operations that receive an array-valued argument,
-namely array indexing (@!@ and @!!@) and determining the @shape@
+namely array indexing (`!` and `!!`) and determining the `shape`
 of an array. These are, for example, used in the sparse-matrix vector
 multiplication operation shown in Listing~\ref{lst:smvm}. Specifically, this
-code includes the following use of @backpermute@ to extract the values of
+code includes the following use of `backpermute` to extract the values of
 the vector that are to be multiplied with the non-zero elements of the sparse
 matrix:
 %
@@ -1598,11 +1598,11 @@ A.backpermute (shape inds) (\i -> index1 $ inds!i) vec
 %     foldSeg (+) 0 products segd
 % \end{lstlisting}
 %
-Here the array computation @inds :: Acc (Array DIM1 Float)@ is used in the
-first and second argument of @backpermute@. In the code for @smvm@,
-@inds@ is a previously let-bound variable. If instead, a collective
-operation would have been used in place of @inds@ in the scalar function
-@\i -> index1 $ inds!i@, we would lift it out of the scalar function and
+Here the array computation `inds :: Acc (Array DIM1 Float)` is used in the
+first and second argument of `backpermute`. In the code for `smvm`,
+`inds` is a previously let-bound variable. If instead, a collective
+operation would have been used in place of `inds` in the scalar function
+`\i -> index1 $ inds!i`, we would lift it out of the scalar function and
 let bind it. After all, we do not want to execute an arbitrarily complex array
 computation once for every invocation of a scalar function. In fact, CUDA does
 not permit us to do this, as the scalar function is translated into GPU kernel
@@ -1620,12 +1620,12 @@ the old version of Accelerate~\cite{Chakravarty:2011fr}, skeleton templates were
 static, and were instantiated by the code generator by combining them with
 scalar code fragments at CUDA compilation time. Since the skeleton template ---
 and in particular the parameters to the skeleton function --- were static, we
-could not add a new argument to the prototype of the @backpermute@ function.
+could not add a new argument to the prototype of the `backpermute` function.
 This problem was worked around by using \emph{texture references}, a CUDA
 feature that comes from its graphics heritage, to define what are essentially
 read-only arrays as global tables on a per skeleton instantiation basis. The use
 of texture references also had another happy consequence: skeletons such as
-@backpermute@ allow unconstrained indexing patters, which may not follow the
+`backpermute` allow unconstrained indexing patters, which may not follow the
 strict requirements for coalesced and aligned access to global memory. Not
 following these memory access rules can incur a severe performance
 penalty~\cite{NVIDIA:2012wf}, but since texture memory access is cached, it may
@@ -1701,8 +1701,8 @@ available to embedded code. For the first step, we use the standard Haskell FFI.
 The second step requires an extension to Accelerate.
 
 To address the second step, we extend the Accelerate language with a new AST
-node type @Aforeign@ representing foreign function calls. One instance of an
-@Aforeign@ node encodes the code for one backend, but also contains a fallback
+node type `Aforeign` representing foreign function calls. One instance of an
+`Aforeign` node encodes the code for one backend, but also contains a fallback
 implementation in case a different backend is being used. The AST data
 constructor is defined as:
 %
@@ -1714,15 +1714,15 @@ Aforeign :: (Arrays as, Arrays bs, Foreign f)
          -> Acc bs
 \end{lstlisting}
 %
-When code generation encounters an @Aforeign@ node, it dynamically checks
+When code generation encounters an `Aforeign` node, it dynamically checks
 whether it can execute the foreign function (1). If it can't, it executes the
-fallback implementation (2). The fallback implementation might be another @Aforeign@
+fallback implementation (2). The fallback implementation might be another `Aforeign`
 node with native code for another backend (for example, for C instead of CUDA),
 or it could simply be a vanilla Accelerate implementation of the same function.
-In this way, a cascade of @Aforeign@ nodes can provide an optimised native
+In this way, a cascade of `Aforeign` nodes can provide an optimised native
 implementation of a function for a range of backends.
 
-Similarly, we extend the Accelerate scalar language with a @Foreign@ node, to
+Similarly, we extend the Accelerate scalar language with a `Foreign` node, to
 insert calls to foreign CUDA functions directly into the generated skeleton
 code.
 
@@ -1736,9 +1736,9 @@ the foreign export functionality of the standard Haskell FFI is not sufficient
 for efficiently using Accelerate from other languages such as C.
 
 To export Accelerate functions as C functions, we provide a Template
-Haskell~\cite{Sheard:2002wu} function @exportAfun@ that generates the necessary
+Haskell~\cite{Sheard:2002wu} function `exportAfun` that generates the necessary
 export declarations for a given Accelerate function. Compiling a module, say,
-@M.hs@, that exports Accelerate computations:
+`M.hs`, that exports Accelerate computations:
 %
 \begin{lstlisting}[style=haskell]
 dotp :: Acc (Vector Float, Vector Float) -> Acc (Scalar Float)
@@ -1747,7 +1747,7 @@ dotp = uncurry $ \xs ys -> A.fold (+) 0 (A.zipWith (*) xs ys)
 exportAfun 'dotp "dotp_compile"
 \end{lstlisting}
 %
-generates the additional file @M_stub.h@ containing the C prototype for the
+generates the additional file `M_stub.h` containing the C prototype for the
 foreign exported function:
 %
 \begin{lstlisting}[style=cuda]
@@ -1756,11 +1756,11 @@ foreign exported function:
 extern AccProgram dotp_compile(AccContext a1);
 \end{lstlisting}
 %
-The C function provided by @exportAfun@ compiles the Accelerate code, returning
-a reference to the compiled code. The provided C function @runProgram@ is then
+The C function provided by `exportAfun` compiles the Accelerate code, returning
+a reference to the compiled code. The provided C function `runProgram` is then
 used to marshal input arrays, execute the compiled program, and marshal output
 arrays. This design mirrors the behaviour of separating the compilation and
-execution phases provided by the @run1@ function from Haskell. See
+execution phases provided by the `run1` function from Haskell. See
 section~\ref{sec:executing_programs} for details.
 
 
@@ -1793,7 +1793,7 @@ if those kernels are compiled once and executed many times.
 \subsection{External compilation}
 \label{sec:external_compilation}
 
-In unison with the AST traversal that extracts @Use@ subterms to initiate
+In unison with the AST traversal that extracts `Use` subterms to initiate
 data transfers (\S\ref{sec:host_device_transfers}), the CUDA backend initiates
 code generation for each collective array operation it encounters via skeleton
 instantiation (\S\ref{sec:code_generation}). After the CUDA code is generated,
@@ -1845,9 +1845,9 @@ enqueueProcess nvcc flags = do
     interrupting the main thread. Thus compilation proceeds asynchronously with
     outer host processing tasks.
 
-\item An empty @MVar@ is created that will act as a signal to the main
-    thread that the external process has completed. Since @takeMVar@ on an
-    empty @MVar@ blocks until that @MVar@ is filled, the main thread
+\item An empty `MVar` is created that will act as a signal to the main
+    thread that the external process has completed. Since `takeMVar` on an
+    empty `MVar` blocks until that `MVar` is filled, the main thread
     can wait for the external process to complete if the compiled code is not
     yet available by the time it is required during the execution phase.
 
@@ -1860,7 +1860,7 @@ enqueueProcess nvcc flags = do
 
 \item Once the process completes the worker is returned to the queue where it
     can be assigned to handle any further tasks. Finally, the thread fills the
-    @MVar@ to signal the main thread that the compilation has completed.
+    `MVar` to signal the main thread that the compilation has completed.
 \end{enumerate}
 
 We return to the question of linking in the compiled code below when we discuss
@@ -1876,7 +1876,7 @@ skeleton and the parameters of its instantiation, not to the specific AST node
 used to instantiate the skeleton. As a result, compiled binaries are reusable
 when the same skeleton instantiation is required again, whether that is in the
 same Accelerate computation applied to a different set of input arrays, or an
-entirely different computation. For example, operations such as @scanl (+) 0@
+entirely different computation. For example, operations such as `scanl (+) 0`
 are common, and it would be wasteful to dynamically generate and compile the
 same code multiple times.
 
@@ -1897,9 +1897,9 @@ table value can either refer to:
 \begin{enumerate}
 \item A currently compiling external process. This records the path of the file
     currently being compiled, which will be rooted in a temporary directory, as
-    well as the @MVar@ that will signal when the external process has
+    well as the `MVar` that will signal when the external process has
     completed (\S\ref{sec:external_compilation}). If a kernel is requested that
-    is currently compiling, the thread blocks on the @MVar@ until the
+    is currently compiling, the thread blocks on the `MVar` until the
     result is available and then updates the hash table with;
 
 \item The raw compiled data with a non-empty list of CUDA contexts that the
@@ -1927,6 +1927,7 @@ represented by that key is available to be loaded from disk. The location of the
 object code is determined from the MD5 digest by creating a ASCII representation
 of the digest, replacing special characters with z-encoded strings.
 %
+\maketickchar
 \begin{lstlisting}[style=haskell]
 encode_ch :: Char -> String
 encode_ch c | unencodedChar c = [c]             -- regular characters except `z' and `Z'
@@ -1935,6 +1936,7 @@ encode_ch ')'  = "ZR"
   ...
 encode_ch c    = encode_as_unicode_char c       -- other characters using hexadecimal
 \end{lstlisting}
+\maketickcode
 
 Initialising the persistent cache populates the hash table by reading an index
 file from disk, which is simply a binary file containing the number of entries
@@ -2048,7 +2050,7 @@ CUDA.run :: Arrays a => Acc a -> a
 \end{lstlisting}
 %
 The result of evaluating this program is made available for use in vanilla
-Haskell, so @run@ must copy the final array result back to the host.
+Haskell, so `run` must copy the final array result back to the host.
 However, any intermediate results computed during evaluation of the program are
 \emph{not} copied back to the host.
 
@@ -2060,20 +2062,20 @@ Accelerate distinguishes between vanilla Haskell arrays (in CPU host memory)
 from embedded arrays (in GPU device memory). Every array on the host is
 uniquely associated to an array on the device, which defines where data is
 copied when data is transferred between the host and device. The function
-@use@ embeds a Haskell array into an embedded array computation, and thus
+`use` embeds a Haskell array into an embedded array computation, and thus
 implies host-to-device data transfer:
 %
 \begin{lstlisting}[style=haskell,numbers=none]
 use :: Arrays arrays => arrays -> Acc arrays
 \end{lstlisting}
 %
-% The @Arrays@ class constrains the type to either a single array of type
-% @Array sh e@, where @sh@ and @e@ characterise the types that may
+% The `Arrays` class constrains the type to either a single array of type
+% `Array sh e`, where `sh` and `e` characterise the types that may
 % be used as array indices and elements respectively, or a tuple of arrays (see \S
 % tk).
 
 At a first approximation, we simply copy the data to the GPU as soon as we
-encounter the @Use@ node in an expression. This occurs during the first
+encounter the `Use` node in an expression. This occurs during the first
 phase of program execution, and is done asynchronously\footnote{Testing reveals
 that the data transfer does not in fact occur asynchronously, and fixing this is
 left for future work. See \S\ref{sec:memory_management_conclusion}.}
@@ -2082,7 +2084,7 @@ so that it may overlap code generation and compilation
 
 \subsubsection{Intra-expression sharing}
 
-Consider the following example, where we @use@ a single array twice. Since
+Consider the following example, where we `use` a single array twice. Since
 Accelerate operations are pure and thus do not mutate arrays, the device arrays
 can be safely shared. Thus, we would like these two arrays to refer to the same
 data in GPU memory. This reduces the amount of memory required to store the
@@ -2103,7 +2105,7 @@ square :: (Elt e, IsNum e, Shape sh) => Array sh e -> Acc (Array sh e)
 square xs = zipWith (*) (use xs) (use xs)
 \end{lstlisting}
 
-Since the two @use@ nodes refer to the same array on the heap, they will
+Since the two `use` nodes refer to the same array on the heap, they will
 share the same array in GPU memory, and thus the data is only copied once.
 This is a happy consequence of the method we use to uniquely associate host and
 device arrays.
@@ -2111,8 +2113,8 @@ device arrays.
 \subsubsection{Inter-expression sharing}
 
 At a second example, consider the following program fragment, which given an
-array describing the particle density @df@ and the direction and magnitude
-of the velocity field @vf@ at each point, computes how the density and
+array describing the particle density `df` and the direction and magnitude
+of the velocity field `vf` at each point, computes how the density and
 velocity fields evolve under advection and diffusion:
 %
 \begin{lstlisting}[style=haskell]
@@ -2134,7 +2136,7 @@ fluid algorithm~\cite{Stam:1999ey} (\S\ref{sec:fluid}). As is typical with
 numerical simulations, to evolve the simulation over a period of time the
 function is called repeatedly over small time steps, with the output of each
 step of the simulation forming the input to the next in the sequence. That is,
-given some initial values @df0@ and @vf0@ the simulation proceeds as:
+given some initial values `df0` and `vf0` the simulation proceeds as:
 %
 \begin{lstlisting}[style=haskell]
 simulation dt dp dn df0 vf0 =
@@ -2144,21 +2146,21 @@ simulation dt dp dn df0 vf0 =
       ...
 \end{lstlisting}
 %
-Thus, the results of the first step @df1@ and @vf1@ will be the inputs
+Thus, the results of the first step `df1` and `vf1` will be the inputs
 to the second step of the simulation, and so on. Since these arrays were just
 copied \emph{from} the GPU, we should avoid immediately copying the \emph{same
 data} back again in the subsequent step.
 
 To be able to avoid this redundant transfer, the Accelerate memory manager needs
 to operate over the lifetime of the entire Haskell program, and not be
-constrained to work within a single @run@ invocation. Otherwise, all device
+constrained to work within a single `run` invocation. Otherwise, all device
 memory needs to be deallocated after evaluating the expression, or the program
 will leak memory. Thus, localised memory management techniques such as reference
 counting or syntax directed allocations are insufficient.
 
 The key observation is that the Haskell runtime system knows when objects will
-be reused (the result of the first step @df1@ is used in the second step),
-and when they are no longer required and can be garbage collected (@df1@ is
+be reused (the result of the first step `df1` is used in the second step),
+and when they are no longer required and can be garbage collected (`df1` is
 no longer needed after evaluating the second step and can be safely
 deallocated). Since every array in GPU memory is uniquely associated with an
 array on the host, which is managed by the Haskell runtime system, we attach
@@ -2211,7 +2213,7 @@ else fresh memory is allocated.
 The memory management system is implemented over several modules:
 %
 \begin{itemize}
-\item \texttt{Data.hs} defines operations on the surface @Array@ data type, in
+\item \texttt{Data.hs} defines operations on the surface `Array` data type, in
     particular applying operations to each member of the non-parametric
     struct-of-array representation.
 
@@ -2231,14 +2233,14 @@ The memory management system is implemented over several modules:
 
 Implementation of the Data and Prim modules is not extraordinary, but it is
 worthwhile mentioning that care should be taken with the implementation of
-transferring an array to the device via @use@. In particular, that the
-array data is only transferred on the first @use@ attempt, when a fresh
-device array was allocated. If the @use@ operation is separated into its
-constituent @malloc@ and @poke@ operations, this is easily overlooked
-resulting in the array data being needlessly transferred every time @use@
+transferring an array to the device via `use`. In particular, that the
+array data is only transferred on the first `use` attempt, when a fresh
+device array was allocated. If the `use` operation is separated into its
+constituent `malloc` and `poke` operations, this is easily overlooked
+resulting in the array data being needlessly transferred every time `use`
 is called. As explained in section~\ref{sec:host_device_transfers}, the mapping
 of host to device arrays ensures that the memory allocation will only ever be
-performed once, so we simply ensure that the data for a @use@ operation is
+performed once, so we simply ensure that the data for a `use` operation is
 only transferred to the device at the time of first allocation.
 
 The \emph{memory table} records the association between host and device arrays.
@@ -2246,7 +2248,7 @@ Implemented as a weak hash table~\cite{PeytonJones:2000ks}, the table can purge
 itself of unneeded key/value pairs, releasing the device memory at the same time
 by moving it to the nursery. The table will also release itself when no longer
 required, initialising the finalisers for all remaining key/value pairs as it
-goes. Furthermore, the memory table is wrapped in an @MVar@, so that it can
+goes. Furthermore, the memory table is wrapped in an `MVar`, so that it can
 be shared between several Accelerate operations evaluated in parallel.
 %
 \begin{lstlisting}[style=haskell]
@@ -2266,13 +2268,13 @@ data DeviceArray where
 \end{lstlisting}
 %
 The key and value parts of the hash table are packaged into untyped containers
-so that all arrays are tracked using a single memory table. The @Typeable@
+so that all arrays are tracked using a single memory table. The `Typeable`
 constraint permits a type-safe cast to later recover the existentially
 quantified array type. Furthermore the host arrays are tagged with a specific
 CUDA context, which is used to support mapping the host array to multiple
 devices and execution contexts. Looking up an array in the memory table
 demonstrates the procedure for working with weak pointers. The implementation of
-the @lookup@ operation is shown in Listing~\ref{lst:mem_lookup}, which follows
+the `lookup` operation is shown in Listing~\ref{lst:mem_lookup}, which follows
 the method laid out by \citet{PeytonJones:2000ks}. The following features are of
 note:
 %
@@ -2310,14 +2312,14 @@ lookup ctx (MemoryTable ref _ _) arr = do
     recover the existentially quantified type of the array data.
 
 \item However there is an awkward race condition here, because at the moment
-    @deRefWeak@ is called there might, conceivably, be no further
-    references to the host array @arr@. If that is so, and a garbage
+    `deRefWeak` is called there might, conceivably, be no further
+    references to the host array `arr`. If that is so, and a garbage
     collection intervenes, the weak pointer might be tombstoned (made
-    unreachable) before @deRefWeak@ gets to it. In this unusual case we
-    throw an error, but in doing so this makes @arr@ reachable in the
-    continuation of @deRefWeak@, and thus ensures @deRefWeak@ will
+    unreachable) before `deRefWeak` gets to it. In this unusual case we
+    throw an error, but in doing so this makes `arr` reachable in the
+    continuation of `deRefWeak`, and thus ensures `deRefWeak` will
     always succeed. This sort of weirdness, typical of the world of weak
-    pointers, is why we can not reuse the stable name @sa@ computed above
+    pointers, is why we can not reuse the stable name `sa` computed above
     in the error message.
 \end{enumerate}
 
@@ -2348,7 +2350,7 @@ malloc :: forall a b. (Typeable a, Typeable b, Storable b)
        -> ArrayData a
        -> Int
        -> IO (DevicePtr b)
-malloc ctx mt@(MemoryTable _ _ nursery) ad n = do
+malloc ctx mt`(MemoryTable _ _ nursery) ad n = do
   let multiple x f      = floor ((x + (f-1)) / f :: Double)                            -- (1)
       chunk             = 1024
       n'                = chunk * multiple (fromIntegral n) (fromIntegral chunk)
@@ -2526,14 +2528,14 @@ CUDA.run :: Arrays a => Acc a -> a
 %
 As the previous sections have demonstrated, running an Accelerate computation in
 the CUDA backend entails the use of much internal state, in particular a
-@StateT@ monad stacked over @IO@. This is necessary to use the Haskell foreign
+`StateT` monad stacked over `IO`. This is necessary to use the Haskell foreign
 function interface (FFI) to communicate with the CUDA runtime, maintain the
 CUDA environment's device context, and to keep track of internal resources such
 as GPU memory and the compiled kernel code.
 
 Nevertheless, that we are under the hood manipulating CUDA through the FFI and
 that we need to maintain internal state should not distract from the property
-that @run@ is a pure function at the level of the user-level Accelerate
+that `run` is a pure function at the level of the user-level Accelerate
 API\@. In fact, Accelerate provides an alternative backend implemented as a purely
 functional interpreter. The interpreter forms an executable specification of the
 denotational semantics of any Accelerate backend, and can be used to verify
@@ -2552,8 +2554,8 @@ data Tree a
     | Node (Tree a) (Tree a)            -- Internal nodes record only left and right branches
 \end{lstlisting}
 %
-Note that the internal @Node@s of the @Tree@ are defined in terms of
-itself --- that is, @Tree@ is a recursively defined data type.
+Note that the internal `Node`s of the `Tree` are defined in terms of
+itself --- that is, `Tree` is a recursively defined data type.
 Alternatively, the tree can be defined non-recursively, by parameterising the
 definition by the recursive step:
 %
@@ -2564,8 +2566,8 @@ data PreTree tree a
 \end{lstlisting}
 %
 A recursive tree type can be recovered from this definition. This however
-introduces an additional step of needing to unwrap the @Tree@ constructor before
-exposing the @Leaf@ and @Node@ constructors of the @PreTree@ itself:
+introduces an additional step of needing to unwrap the `Tree` constructor before
+exposing the `Leaf` and `Node` constructors of the `PreTree` itself:
 %
 \begin{lstlisting}[style=haskell,firstnumber=4]
 data Tree a = Tree (PreTree Tree a)
@@ -2575,7 +2577,7 @@ This distinction between the recursive step and the tree constructors is
 important because it allows us to use the same basic tree definition, but
 include additional information as part of each recursive step. For example, we
 can define a new binary tree type that records the size of the subtree at each
-point, and any existing functions operating over the basic @PreTree@ structure
+point, and any existing functions operating over the basic `PreTree` structure
 can still be used:
 %
 \begin{lstlisting}[style=haskell,firstnumber=5]
@@ -2601,7 +2603,7 @@ data PreOpenAcc acc aenv a where
 \end{lstlisting}
 
 This characteristic is used in order to improve the performance of executing
-array programs in the CUDA backend. In addition to the function @run@
+array programs in the CUDA backend. In addition to the function `run`
 mentioned earlier for executing array programs, we also provide the following
 function, which prepares and executes an embedded array program of one argument:
 %
@@ -2620,10 +2622,10 @@ knot-tying technique described in the previous section (\S\ref{sec:knot_tying})
 in order to achieve this.
 % to decorate each node of the program AST with all of the information required to
 % execute the kernel(s) implementing that operation, and exposes this
-% functionality by use of the @run1@ operation.
+% functionality by use of the `run1` operation.
 
 Following the fusion transformation, the Accelerate array program is
-parameterised by a series of @Manifest@ and @Delayed@ nodes,
+parameterised by a series of `Manifest` and `Delayed` nodes,
 representing operations that will eventually be executed on the device, and
 computations that have been fused (embedded) into other operations,
 respectively. See section~\ref{sec:implementing_array_fusion} for details of the
@@ -2670,7 +2672,7 @@ data AccKernel a where
 \end{lstlisting}
 %
 \begin{enumerate}
-\item The name of the @__global__@ kernel that the function object (second
+\item The name of the `__global__` kernel that the function object (second
     parameter) implements. The compiled object code is linked into the CUDA
     context as part of the binary module (third parameter).
 
@@ -2698,7 +2700,7 @@ data AccKernel a where
 This formulation does not require searching the kernel tables during the
 execution phase in order to locate binary code: any kernels required to execute
 a computation are attached directly to the computation they instantiate. This is
-an important optimisation, which we provide through use of the @run1@
+an important optimisation, which we provide through use of the `run1`
 operator, which we can now complete:
 %
 \begin{lstlisting}[style=haskell]
@@ -2710,20 +2712,20 @@ CUDA.run1 f = \a -> unsafePerformIO (execute a)
     execute a   = evalCUDA (executeAfun1 afun a >>= collect)
 \end{lstlisting}
 %
-Here, @compileAfun :: DelayedAfun f -> ExecAfun f@ instantiates and
+Here, `compileAfun :: DelayedAfun f -> ExecAfun f` instantiates and
 compiles skeleton code implementing each of the collective array operations in
 the program (\S\ref{sec:instantiating_skeletons}), returning a new program AST
 where each node is annotated in the manner described above. The function
-@executeAfun1 :: ExecAfun (a -> b) -> a -> CIO b@ is used to execute this
-annotated AST\@. Since @executeAfun1@ is used via a new closure, the first phase
-of execution that compiles the annotated AST @afun@ will only be executed once.
+`executeAfun1 :: ExecAfun (a -> b) -> a -> CIO b` is used to execute this
+annotated AST\@. Since `executeAfun1` is used via a new closure, the first phase
+of execution that compiles the annotated AST `afun` will only be executed once.
 
 Note that there is a subtle tension here: the task of the compilation phase is
 to produce an annotated AST carrying all of the information required to execute
 the computation, but that in turn requires the \emph{compiled} kernel modules,
 so how can compilation proceed asynchronously? We use a clever trick and take
 advantage of Haskell's non-strict execution semantics: once the external
-compilation has been initiated in a separate thread, @unsafePerformIO@ is
+compilation has been initiated in a separate thread, `unsafePerformIO` is
 used (in a safe manner) to delay waiting for the external process to complete
 and linking of the binary object until it is demanded by the running program.
 %
@@ -2786,7 +2788,7 @@ executing the attached kernels. For each node of the AST, we distinguish three
 cases:
 %
 \begin{enumerate}
-\item If it is a @Use@ node, return a reference to the device memory holding the
+\item If it is a `Use` node, return a reference to the device memory holding the
     array data.
 
 \item If it is a non-skeleton node, such as a let binding or shape conversion,
@@ -2873,7 +2875,7 @@ after stream (Async event arr) = Event.wait event (Just stream) [] >> return arr
 
 Evaluating the binding of a let requires evaluating the expression in a new
 asynchronous execution stream. The body expression is then evaluated with the
-bound array wrapped in an @Async@, which contains the event indicating when the
+bound array wrapped in an `Async`, which contains the event indicating when the
 last kernel issued to the stream has completed.
 %
 \begin{lstlisting}[style=haskell]
@@ -2882,7 +2884,7 @@ streaming :: Context
           -> (Stream -> CIO a)
           -> (Async a -> CIO b)
           -> CIO b
-streaming ctx rsv@(Reservoir _ weak_rsv) bnd body = do
+streaming ctx rsv`(Reservoir _ weak_rsv) bnd body = do
     stream <- create ctx rsv                                                       -- (1)
     bnd'   <- bnd stream                                                           -- (2)
     end    <- Event.waypoint stream
@@ -2892,10 +2894,10 @@ streaming ctx rsv@(Reservoir _ weak_rsv) bnd body = do
     return body'
 \end{lstlisting}
 %
-Here the function @create@ allocates a new execution stream (1). It uses a
-technique similar to the @Nursery@ (\S\ref{sec:memory_manager_implementation})
-to reuse execution streams that are currently idle. Thus @create@ takes an
-inactive stream from the @Reservoir@ if one is available, allocating a new
+Here the function `create` allocates a new execution stream (1). It uses a
+technique similar to the `Nursery` (\S\ref{sec:memory_manager_implementation})
+to reuse execution streams that are currently idle. Thus `create` takes an
+inactive stream from the `Reservoir` if one is available, allocating a new
 execution stream otherwise.
 %
 \begin{lstlisting}[style=haskell]
@@ -2911,12 +2913,12 @@ evaluating the binding are explicitly deallocated after evaluation of the body
 completes (4).
 
 At an example, Listing~\ref{lst:concurrent_kernels} contains an example program
-that is able to execute the nine @map@ operations concurrently on devices of
+that is able to execute the nine `map` operations concurrently on devices of
 compute capability 2.0 and greater. Note that, to keep the example simple,
-fusion is disabled to prevent the @map@ operations from fusing into the @zip9@.
+fusion is disabled to prevent the `map` operations from fusing into the `zip9`.
 The corresponding execution trace from the NVIDIA Visual Profiler application is
 shown in Figure~\ref{fig:concurrent_kernels}, which demonstrates each of the
-@map@ operations executing in separate streams and overlapping with each other.
+`map` operations executing in separate streams and overlapping with each other.
 
 \begin{lstlisting}[style=haskell_float
     ,float
@@ -2974,7 +2976,7 @@ This section explores some of these approaches.
 Vertigo~\cite{Elliott:2004hh} is an embedded language in Haskell for GPGPU
 programming. Vertigo is a statically compiled graphics language targeting the
 DirectX 8.1 shader model, and does not offer higher-order combinators such as
-@map@ and @fold@.
+`map` and `fold`.
 
 Obsidian~\cite{Svensson:2008a} and Nikola~\cite{Mainland:2010vj} are also
 Haskell EDSLs for GPGPU programming, and are in aim and spirit the embeddings
@@ -2983,7 +2985,7 @@ however while we use algorithmic skeletons (\S\ref{sec:code_generation}), Nikola
 explicitly schedules loops, and Obsidian is a lower level language where more
 details of the GPU hardware are exposed to the programmer. Moreover, the
 Accelerate language is more expressive, supporting generative functions such as
-@replicate@, and Accelerate computations can span multiple GPU kernels, whereas
+`replicate`, and Accelerate computations can span multiple GPU kernels, whereas
 both Nikola and Obsidian can only express array computations that can be
 implemented in a single GPU kernel. Algorithms spanning multiple kernels need to
 be explicitly scheduled by the application programmer and incur additional
@@ -3000,14 +3002,14 @@ host-device data transfer overhead, which can be rather significant.
 Paraiso~\cite{Muranushi:2012eh} is a Haskell EDSL for solving systems of
 \indext{partial differential equation}s (PDEs), such as hydrodynamics equations,
 and generates both CUDA code for GPUs as well as OpenMP~\cite{OpenMP:2008} code
-for multicore CPUs. Accelerate supports @stencil@ operations for expressing this
+for multicore CPUs. Accelerate supports `stencil` operations for expressing this
 type of operation, but currently lacks a backend for multicore CPUs. Paraiso
 also includes an automated tuning framework to search for faster implementations
 of the algorithm.
 
 Baracuda~\cite{Larsen:2011fa} is a Haskell EDSL producing CUDA GPU kernels,
 though it is intended to be used offline, with the kernels called directly from
-a C++ application. It supports only @map@ and @fold@ operations.
+a C++ application. It supports only `map` and `fold` operations.
 
 
 \subsection{Parallel libraries}
@@ -3042,7 +3044,7 @@ code for the GPU as well as OpenMP code targeting multicore CPUs.
 
 Dandelion~\cite{Rossbach:2013bj} is a library of data-parallel operations,
 specified as comprehensions on arrays using the LINQ framework for .NET
-(programmers write in either C@#@ or F@#@). Operations are compiled for the GPU
+(programmers write in either C`#` or F`#`). Operations are compiled for the GPU
 as well as the CPU, and the runtime system distributes the computation over all
 of the available processors in a heterogeneous cluster.
 
@@ -3122,8 +3124,8 @@ for nested parallelism, recursion, and sum data types.
 %
 %\item skeleton-based code generation (2 weeks)
 %    \begin{itemize}
-%        \item device capabilities (free array variables, @umul24@,
-%            @shfl@, atomic operations, shared memory)
+%        \item device capabilities (free array variables, `umul24`,
+%            `shfl`, atomic operations, shared memory)
 %        \item rank polymorphic operations
 %    \end{itemize}
 %

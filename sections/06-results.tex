@@ -105,14 +105,14 @@ sharing.
 
 The slow-down in the unoptimised version is due to Accelerate generating one GPU
 kernel function for each aggregate operation in the source program. The use of
-two separate kernels requires the intermediate array produced by `zipWith`
+two separate kernels requires the intermediate array produced by @zipWith@
 to be constructed in GPU memory before being immediately read back by
-`fold`. In contrast the CUBLAS version uses only a single kernel. As this
+@fold@. In contrast the CUBLAS version uses only a single kernel. As this
 is a simple memory bound benchmark, lack of fusion roughly doubles the runtime.
 
 The fused version of dot product combines the aggregate computations by
-embedding a function of type `(sh -> a)` into the reduction, represented
-here as the second argument to the constructor `Delayed`. This scalar
+embedding a function of type @(sh -> a)@ into the reduction, represented
+here as the second argument to the constructor @Delayed@. This scalar
 function does the work of element wise multiplying the two input vectors, and is
 performed on-the-fly as part of the reduction kernel instead of requiring an
 intermediate array:
@@ -167,7 +167,7 @@ for (ix += gridSize; ix < shapeSize; ix += gridSize) {
 }
 \end{lstlisting}
 %
-We have four loop counters: `ix`, `v2`, `v3` and `v4` ---
+We have four loop counters: @ix@, @v2@, @v3@ and @v4@ ---
 two for the source arrays and two to convert between the multidimensional and
 linear representations. These counters contain the same value and are
 incremented in lockstep. In addition to the superfluous arithmetic, the
@@ -177,11 +177,11 @@ duplication of counters unnecessarily increases register pressure.
 The corresponding section of PTX~\cite{NVIDIA:2012vj} code is for this loop is
 shown in Listing~\ref{lst:dotp_ptx}. To retrieve the data from the first input
 array, the input array pointer is retrieved (line~\ref{lst:dotp_ptx_ldparam}),
-the offset stored in register `rd16` added to it
+the offset stored in register @rd16@ added to it
 (line~\ref{lst:dotp_ptx_add}), and then the value read from global memory at
 this address (line~\ref{lst:dotp_ptx_ldglobal}). Happily, we note that
 retrieving the second input element \emph{also} uses the offset stored in
-register `rd16` (line~\ref{lst:dotp_ptx_ldglobal2}).
+register @rd16@ (line~\ref{lst:dotp_ptx_ldglobal2}).
 %
 \begin{lstlisting}[style=ptx
     ,float
@@ -234,8 +234,8 @@ $Lt_0_13058:
 \end{lstlisting}
 
 In this case the CUDA compiler was able to coalesce our four counters into a
-single counter. This is because our definition of `toIndex` specialised for
-one-dimensional indices `DIM1` does \emph{not} do bounds checking:
+single counter. This is because our definition of @toIndex@ specialised for
+one-dimensional indices @DIM1@ does \emph{not} do bounds checking:
 %
 \begin{lstlisting}[style=cuda]
 template <>
@@ -245,17 +245,17 @@ static __inline__ __device__ Ix toIndex(const DIM1 sh, const DIM1 ix)
 }
 \end{lstlisting}
 %
-Since we do not check that the current index `ix` is within bounds of the
-array shape `sh`, the compiler can see that the definitions of `v3`
-and `v4` in Listing~\ref{lst:dotp_cuda} are identical. Similarly
+Since we do not check that the current index @ix@ is within bounds of the
+array shape @sh@, the compiler can see that the definitions of @v3@
+and @v4@ in Listing~\ref{lst:dotp_cuda} are identical. Similarly
 one-dimensional indices are just integers, and so the one-dimensional instance
-of `shape` is the identity function. For higher dimensional shapes,
-however, this is not the case and `toIndex` and `shape` do real work
-to their arguments. As the shape `shIn0` and `shIn1` are inputs
+of @shape@ is the identity function. For higher dimensional shapes,
+however, this is not the case and @toIndex@ and @shape@ do real work
+to their arguments. As the shape @shIn0@ and @shIn1@ are inputs
 arguments to the kernel, the compiler will not be able to determine they are
 equivalent and so the counters would not be combined.
 
-Why don't we perform bounds checks in `toIndex`? Implementing exceptions in
+Why don't we perform bounds checks in @toIndex@? Implementing exceptions in
 a massively parallel architecture is difficult, and support for throwing
 exceptions from kernel functions was only recently added for devices of compute
 capability 2.0 and later~\cite{NVIDIA:2012wf}. % [\SB.15]
@@ -270,7 +270,7 @@ operations per clock cycle per multiprocessor, but only a single operation per
 cycle of the 64-bit equivalents of these~\cite{NVIDIA:2012wf}. % [\S5.4.1]
 
 However, the host architecture that the Haskell program executes on is likely to
-be a 64-bit processor. This means that an `Int` value from Haskell ---
+be a 64-bit processor. This means that an @Int@ value from Haskell ---
 which may appear marshalled as array data or shape values --- will generate code
 to manipulate 64-bit integers, as well as conversions between 32- and 64-bit
 types. Lines~\ref{lst:dotp_ptx_cvt1}--\ref{lst:dotp_ptx_cvt3} of
@@ -278,7 +278,7 @@ Listing~\ref{lst:dotp_ptx} contain such type conversions, which on our compute
 capability 1.3 device have a throughput of only a single operation per cycle per
 multiprocessor. These conversions would not be necessary if we were not
 cross-compiling from a 64-bit Haskell host, or if the programmer working
-directly with CUDA only used the `int` type, which would be interpreted by
+directly with CUDA only used the @int@ type, which would be interpreted by
 the CUDA compiler as a 32-bit wide integer.
 
 
@@ -286,17 +286,17 @@ the CUDA compiler as a 32-bit wide integer.
 \label{sec:non-neutral_starting_elements}
 
 For convenience, and to avoid possibly unexpected behaviour, Accelerate's
-`fold*` family of functions do not require the combination function and
+@fold*@ family of functions do not require the combination function and
 starting element to form a moniod. We still require the function to be
 associative, so that the reduction can be implemented efficiently in parallel as
 a tree-reduction, but the initial element does not need to be a \emph{neutral}
-element.\marginnote{semigroup?} For example, `fold (+) 10` is valid in
+element.\marginnote{semigroup?} For example, @fold (+) 10@ is valid in
 Accelerate and evaluates to the correct answer.
 
 However, this means that evaluation of the reduction is more complex. In
 particular, we can not simply initialise all threads to the initial value.
 In the first phase of the reduction, threads must be sure to initialise
-their local sum `y0` with values from the input array before beginning the
+their local sum @y0@ with values from the input array before beginning the
 sequential loop show in Listing~\ref{lst:dotp_cuda}:
 %
 \begin{lstlisting}[style=cuda,firstnumber=12]
@@ -375,8 +375,8 @@ evolution of a European-style stock option price under certain assumptions. The
 corresponding Accelerate program is shown in Listing~\ref{lst:blackscholes}.
 Given a vector of triples of the underlying stock price, strike price, and time
 to maturity in years, the Black-Scholes formula computes the price of a call and
-put option. The function `callput` evaluates the Black-Scholes formula for
-a single triple, and `blackscholes` maps it over a vector of triples such
+put option. The function @callput@ evaluates the Black-Scholes formula for
+a single triple, and @blackscholes@ maps it over a vector of triples such
 that all individual applications of the formula are executed in parallel.
 %
 \begin{lstlisting}[style=haskell
@@ -420,7 +420,7 @@ blackscholes = A.map callput
 Figure~\ref{fig:blackscholes} shows the result of running this code compared to
 the implementation that ships with the CUDA SDK. Without optimisations, the
 Accelerate version is almost twenty times slower than the equivalent
-implementation in CUDA C. As `blackscholes` includes only one collective
+implementation in CUDA C. As @blackscholes@ includes only one collective
 array operation, the problem can not be a lack of fusion.
 
 \begin{figure}
@@ -435,11 +435,11 @@ array operation, the problem can not be a lack of fusion.
 
 \subsection{Too little sharing}
 
-The function `callput` from Listing~\ref{lst:blackscholes} includes a
-significant amount of sharing: the helper functions `cnd'` and hence
-`horner` are used twice --- for `d1` and `d2` --- and its
-argument `d` is used multiple times in the body. Furthermore, the
-conditional expression `d >* 0 ? (1 - c, c)` results in a branch that,
+The function @callput@ from Listing~\ref{lst:blackscholes} includes a
+significant amount of sharing: the helper functions @cnd'@ and hence
+@horner@ are used twice --- for @d1@ and @d2@ --- and its
+argument @d@ is used multiple times in the body. Furthermore, the
+conditional expression @d >* 0 ? (1 - c, c)@ results in a branch that,
 without sharing, results in a growing number of predicated instructions that
 leads to a large penalty on the SIMD architecture of the GPU.
 
@@ -551,14 +551,14 @@ Conditionals in GPU code should be avoided as much as possible because they can
 lead to SIMD divergence. We can't avoid \emph{some} kind of conditional, but we
 can make sure there is only a bounded amount of divergence by having just one
 conditional per iteration, and a fixed number of iterations. The trick is to
-keep a pair `(z,i)` for every array element, where `i` is the
-iteration at which the point `z` diverged. Each step of the iteration is
+keep a pair @(z,i)@ for every array element, where @i@ is the
+iteration at which the point @z@ diverged. Each step of the iteration is
 then:
 %
 \begin{itemize}
-    \item Compute `z' = c `plus` (z `times` z)`
-    \item If `z'` is greater than 4, then the result is `(z, i)`
-    \item Otherwise the result is `(z', i+1)`
+    \item Compute @z' = c @plus@ (z @times@ z)@
+    \item If @z'@ is greater than 4, then the result is @(z, i)@
+    \item Otherwise the result is @(z', i+1)@
 \end{itemize}
 
 \begin{lstlisting}[style=haskell
@@ -599,15 +599,15 @@ dot = lift1 f
 \end{lstlisting}
 
 The core of the Mandelbrot routine is shown in Listing~\ref{lst:mandelbrot}. The
-function `step` (Line~\ref{lst:mandelbrot_step}) advances the entire
+function @step@ (Line~\ref{lst:mandelbrot_step}) advances the entire
 complex plane by one iteration of the recurrence relation. This function is
-replicated `depth` times and then the sequence combined by folding with the
-function application operator `(\$)` (Line~\ref{lst:mandelbrot_foldr}). This
+replicated @depth@ times and then the sequence combined by folding with the
+function application operator @(\$)@ (Line~\ref{lst:mandelbrot_foldr}). This
 results in a single fused kernel whole performance is greatly improved, but
 still several times slower than the CUDA version.
 
 The slowdown is because the fused code generates a completely unrolled loop,
-with `depth = 255` copies of the code for `step`. Unrolling loops not
+with @depth = 255@ copies of the code for @step@. Unrolling loops not
 only increases instruction count but can often increase register lifetimes
 because of the scheduling of loads and stores. In particular, stores are pushed
 down and loads are moved up in the instruction stream, which results in
@@ -633,7 +633,7 @@ maximum number of resident threads halves the maximum performance.
 \subsection{Loop recovery}
 
 Sometimes unrolling loops can be beneficial. A CUDA programmer can control how
-aggressively the compiler unrolls loops using the `#pragma unroll`
+aggressively the compiler unrolls loops using the @#pragma unroll@
 directive with an explicit unroll factor, where zero means to not unroll the
 loop at all.
 
@@ -653,8 +653,8 @@ loops by analysing the fused expression to look for the following pattern:
 \end{lstlisting}
 %
 The nested bindings are replaced with an explicit scalar value iteration
-structure, where the expression `e2` is repeated twice with the initial
-value `e1`. Similarly, loops can be joined:
+structure, where the expression @e2@ is repeated twice with the initial
+value @e1@. Similarly, loops can be joined:
 %
 \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
 %\bf$\langle$ loop joining $\rangle$%
@@ -685,8 +685,8 @@ either still computing the recurrence relation, or the point is not in the set
 and the computation has completed; threads do not diverge to follow separate
 execution paths. The latter type of SIMD divergence is what we really need to
 avoid, because this results in predicated execution: threads taking the
-`true` path of a branch execute while all other threads sit idle, then
-execution switches to the `false` branch while the first set of threads
+@true@ path of a branch execute while all other threads sit idle, then
+execution switches to the @false@ branch while the first set of threads
 idle.
 
 The CUDA version is faster because threads exit the loop as soon as their point
@@ -729,8 +729,8 @@ of forces, which exhausts the memory of our device (4GB!) when using more than
 about five thousand bodies. With fusion, the reduction operation consumes each
 force value on-the-fly, so that the program only needs $\mathcal{O}\left( n
 \right)$ space to store the final force values. The core of the $n$-body
-simulation is shown in Listing~\ref{lst:nbody}, where `accel` calculates
-the acceleration between two particles, and `(.+.)` component-wise sums the
+simulation is shown in Listing~\ref{lst:nbody}, where @accel@ calculates
+the acceleration between two particles, and @(.+.)@ component-wise sums the
 acceleration of a particle along each $x$, $y$ and $z$ axis.
 
 \begin{lstlisting}[style=haskell
@@ -1053,8 +1053,8 @@ sortBy rdx arr = foldr1 (>->) (P.map radixPass [0..p-1]) arr    -- loop over bit
       permute const v (\ix -> index1 (index!ix)) v              -- move elements to new position
 \end{lstlisting}
 
-The `radixPass` function sorts the vector `v` based on the value of
-bit `k`; moving elements with a zero at that bit to the beginning of the
+The @radixPass@ function sorts the vector @v@ based on the value of
+bit @k@; moving elements with a zero at that bit to the beginning of the
 vector and those with a one bit to the end. This simple algorithm requires
 $b$ iterations to sort an array of elements whose keys are $b$-bits wide, and
 each pass requires multiple traversals of the array.

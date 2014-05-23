@@ -63,18 +63,19 @@ processors~\cite{NVIDIA:2012wf}.
 \label{sec:gpu_computing}
 
 General-purpose computing on graphics processing units
+\index{general-purpose computing on graphics processing units}
 (\indext{GPGPU}\index{GPGPU|see {general-purpose computing on graphics
-processing units}}) is the utilisation of a graphics processing unit (GPU),
-which typically handles the computations for computer graphics, to perform
+processing units}}) is the utilisation of a graphics processing unit (GPU) ---
+which typically handles the computations for computer graphics --- to perform
 computations in applications typically handled by the central processing unit
 (CPU). Since general purpose CPUs are designed to optimise the performance of a
 single thread of execution, much of the processor's resources (die area and
 power) are dedicated to non-computational tasks such as caching and branch
 prediction. Conversely, the highly parallel nature of graphics processing
-(rasterisation) means the GPU architecture instead uses these resources to be
-able to execute many tasks in parallel, improving the computational throughput
-for parallel workloads at the expense of decreased single threaded performance.
-This difference in architectures between the CPU and GPU is illustrated in
+(rasterisation) means the GPU architecture instead uses these resources to
+execute many tasks in parallel, improving the computational throughput for
+parallel workloads at the expense of decreased single threaded performance. This
+difference in architectures between the CPU and GPU is illustrated in
 Figure~\ref{fig:cpu_gpu_block_diagram}.
 
 \begin{figure}[tbp]
@@ -98,7 +99,7 @@ processors, there is no need for sophisticated control flow, and because it is
 executed on many data elements, memory access latency can be hidden with
 calculations rather than by big caches. Many applications that process large
 data sets can use the data parallel programming model to speed up calculations,
-and these applications can be coded to execute on the GPU.
+and these applications can often be coded to execute on the GPU\@.
 
 
 \subsection{CUDA}
@@ -170,19 +171,20 @@ in the result. See the CUDA C programming guide for details~\cite{NVIDIA:2012wf}
 \section{Embedded domain-specific languages}
 \label{sec:EDSLs}
 
-A \indexe{domain-specific language} (DSL) is a computer language specialised to
-a specific problem domain. The DOT language~\cite{Graphviz:1998ui,Ellson:2001wf}
-is an example of a DSL for describing graphs. This is in contrast to a general
-purpose language such as Haskell~\cite{Haskell:1998}, which is broadly
-applicable across domains but may lack specialised features for a particular
-domain. A domain specific language is created to solve problems in a particular
-domain, and is not intended to solve problems outside it (although this may be
-technically possible). Restricting the problem domain the language is intended
-to solve may allow for more optimisations during compilation, or increased
-expressivity when representing problems or defining solutions in that domain.
+A \emph{domain-specific language}\index{language!domain-specific} (DSL) is a
+computer language specialised to a specific problem domain. The DOT
+language~\cite{Graphviz:1998ui,Ellson:2001wf} is an example of a DSL for
+describing graphs. This is in contrast to a general purpose language such as
+Haskell~\cite{Haskell:1998}, which is broadly applicable across domains but may
+lack specialised features for a particular domain. A domain specific language is
+created to solve problems in a particular domain, and is not intended to solve
+problems outside it (although this may be technically possible). Restricting the
+problem domain the language is intended to solve may allow for more
+optimisations during compilation, or increased expressivity when representing
+problems or defining solutions in that domain.
 
 An \emph{embedded} (or \emph{internal}) \emph{domain-specific
-language}\index{domain-specific language!embedded} (EDSL) is a domain-specific
+language}\index{language!domain-specific!embedded} (EDSL) is a domain-specific
 language that is designed to be used from within another host
 language~\cite{Hudak:1996}. The embedded language is implemented as a library,
 so is able to reuse the syntax and features of the general purpose host language
@@ -191,34 +193,38 @@ analyses such as type checking, while adding domain specific elements such as
 data types, or domain specific optimisations and code generation.
 
 There are two major degrees in which an embedded language can be implemented:
+\emph{shallow} and \emph{deep}.
 
 \subsection{Shallow embedding}
 
 In a shallow embedding, operations in the embedded language translate directly
 into operations in the target language. A shallow embedding captures the
-semantics of the data of the domain in a data type, and provides a \emph{fixed}
+semantics of the data of that domain in a data type, and provides a \emph{fixed}
 interpretation of that data. Thus, it is easy to add new constructs to the
 language --- so long as they can be interpreted in the semantic domain --- and
 the embedded language can reuse features of the host language, such as variable
-binding.
+bindings.
 
 
 \subsection{Deep embedding}
 
 A deep embedding captures the semantics of the embedding by reflecting the
-operations of the object language into a data structure. This data structure ---
-an \indexe{abstract syntax tree} (AST) --- then permits transformations, such as
-optimisations, before being translated into the target language. Deeply embedded
-languages therefore enable a \emph{variable} interpretation of operations in the
-domain, so it is easy to add new interpretations of the embedding, for example,
-compiling to a different target language. However, adding new language
-constructs requires extending the AST data type, and the implementation must
-deal explicitly with binding of variables. Sharing and recursion are common
-problems when implementing deeply embedded languages.
+operations of the \emph{object language}\index{language!object} (or \emph{meta
+language}\index{language!meta|see {object}}) into a data structure. This data
+structure --- an \indexe{abstract syntax tree} (AST) --- then permits
+transformations, such as optimisations, before being translated into the
+\emph{target} language. Deeply embedded languages therefore enable a
+\emph{variable} interpretation of operations in the domain, so it is easy to add
+new interpretations of the embedding, for example, compiling to a different
+target language. However, adding new language constructs requires extending the
+AST data type, and the implementation must deal explicitly with binding of
+variables. Sharing and recursion are common problems when implementing deeply
+embedded languages~\cite{citationneeded}.
 
-As the deeply embedded language runs inside of the host language, reflecting
-operations into an AST, an interpreter for the embedded language must be
-embedded within the host application.
+As the deeply embedded language runs inside of the \emph{host
+language}\index{language!host}, reflecting operations into an AST, an
+interpreter for the embedded language must be embedded within the host
+application.
 % This interpreter may execute instructions in the internal language directly,
 % or it may generate code that is compiled into machine language instructions to
 % be executed.
@@ -235,10 +241,10 @@ The current generation of graphical processing units (GPUs) are massively
 multicore processors (\S\ref{sec:gpu_computing}). They are optimised for
 workloads with a large degree of data parallelism (\S\ref{sec:data_parallelism})
 and good performance depends on highly idiomatic programs with low SIMD
-divergence and regular memory-access patterns. Hence, the development of
-applications that use the graphics processors for general purpose computations
-(\S\ref{sec:gpu_computing}) is work intensive and requires a substantial degree
-of expert knowledge.
+divergence and regular memory-access patterns~\cite{NVIDIA:2012wf}. Hence, the
+development of applications that use the graphics processors for general purpose
+computations (\S\ref{sec:gpu_computing}) is work intensive and requires a
+substantial degree of expert knowledge.
 
 Accelerate is our approach to reducing the complexity of GPU programming: a
 high-level, deeply embedded domain-specific language (\S\ref{sec:EDSLs}) of
@@ -285,9 +291,10 @@ Figure~\ref{fig:outline} summarises the overall structure of Accelerate. It
 comprises a frontend and support for multiple backends that can target a variety
 of architectures. Here, we are only concerned with the CUDA generating GPU
 backend, but the approach is amenable to targeting multicore CPU backends
-exploiting SIMD instructions, backends for OpenCL, and for reconfigurable
-hardware such as FPGAs. In the following, we briefly introduce some features of
-the design and use of Accelerate.
+exploiting SIMD instructions,\footnote{\url{https://github.com/AccelerateHS/accelerate-llvm}}
+backends for OpenCL,\footnote{\url{https://github.com/AccelerateHS/accelerate-backend-kit/tree/master/icc-opencl}}\footnote{\url{https://github.com/HIPERFIT/accelerate-opencl/}}
+and for reconfigurable hardware such as FPGAs. In the following, we briefly
+introduce some features of the design and use of Accelerate.
 
 
 \subsection{Computing a vector dot product}
@@ -316,24 +323,33 @@ dotp xs ys
 %
 Here, @fold@ and @zipWith@ are taken from the Accelerate library
 @Data.Array.Accelerate@, rather than from the standard Haskell library
-@Data.List@. The Accelerate code differs from the list version in three
-respects:
+@Data.List@. The Accelerate code consumes two one dimensional arrays (@Vector@)
+of values, and produces a single (@Scalar@) result as output. It differs from
+the list version in three main respects:
 %
 \begin{enumerate}
-    \item The result is an Accelerate computation, indicated by the type @Acc@.
-    \item We lift the two plain vectors @xs@ and @ys@ into @Acc@ terms with @use@.
+    \item The result is an embedded Accelerate computation, indicated by the
+        type constructor @Acc@. It will be evaluated in the \emph{target}
+        language\index{language!target} of dynamically generated parallel code,
+        rather than the \emph{meta} language\index{language!meta}, which is
+        vanilla Haskell (\S\ref{sec:EDSLs}).
+
+    \item We lift the two plain vectors @xs@ and @ys@ into @Acc@ terms with
+        @use@. This makes the arrays available to the embedded computation
+        (\S\ref{sec:arrays_on_the_host_and_device}).
+
     \item We use @fold@ instead of @foldl@.
 \end{enumerate}
 %
 The first two points are artefacts of lifting the computation into an embedded
-language, effectively delaying the computation. Concerning the final point, the
-list traversal function @foldl@ guarantees a left-to-right traversal of the
-elements, whereas @fold@ leaves the order in which the elements are combined
-unspecified. This requires that the binary operator supplied to @fold@ is
-associative and commutative,\footnote{Although floating-point arithmetic is not
-strictly associative, it is common to accept the resulting error in parallel
-applications.} but allows for an implementation using a parallel tree
-reduction~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
+language (\S\ref{sec:EDSLs}), effectively delaying the computation. Concerning
+the final point, the list traversal function @foldl@ guarantees a left-to-right
+traversal of the elements, whereas @fold@ leaves the order in which the elements
+are combined unspecified. This requires that the binary operator supplied to
+@fold@ is associative and commutative,\footnote{Although floating-point
+arithmetic is not strictly associative, it is common to accept the resulting
+error in parallel applications.} but allows for an implementation using a
+parallel tree reduction~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
 
 
 \subsection{Arrays, shapes, and indices}
@@ -348,7 +364,7 @@ enable rank-polymorphic definitions of array functions.
 
 As shown in Listing~\ref{lst:shapes_and_indices}, on both the type and value
 level, the constructor @Z@ is used to represent the shape of a rank-0 array, and
-the infix operator @(:.)@ to increase the rank by adding a new (innermost)
+the infix operator @(:.)@ is used to increase the rank by adding a new (innermost)
 dimension to the right of the shape. Thus, a rank-3 index with components @x@,
 @y@, and @z@, is written @(Z:.z:.y:.x)@ and has type @(Z:.Int:.Int:.Int)@, where
 the component @x@ is innermost and varies most rapidly, while the component @z@
@@ -360,13 +376,13 @@ varies least rapidly.
 data Z            = Z                   -- rank zero
 data tail :. head = tail :. head        -- increase rank by one
 
-type DIM0 = Z
+type DIM0 = Z                           -- synonynms for common array dimensionalities
 type DIM1 = DIM0 :. Int
 type DIM2 = DIM1 :. Int
 type DIM3 = DIM2 :. Int
   -- and so on
 
-type Array DIM0 e = Scalar e
+type Array DIM0 e = Scalar e            -- synonynms for common array types
 type Array DIM1 e = Vector e
 \end{lstlisting}
 
@@ -388,12 +404,12 @@ Accelerate is an \emph{embedded language} (\S\ref{sec:EDSLs}) that distinguishes
 between vanilla Haskell arrays and arrays in the embedded language, as well as
 computations on both flavours of arrays. Embedded array computations are
 identified by types formed from the type constructor @Acc@, and must be
-explicitly executed before taking effect. The following function embeds a
-Haskell array into an embedded array computation:
+explicitly executed before taking effect. To make these arguments available to
+the Accelerate computation they must be embedded with the @use@ function, which
+is overloaded so that it can accept tuples of arrays:
 %
 \begin{lstlisting}[style=haskell]
-use :: (Shape sh, Elt e)
-    => Array sh e -> Acc (Array sh e)
+use :: Arrays arrays => arrays -> Acc arrays
 \end{lstlisting}
 %
 In the context of GPU programming, GPUs typically have their own
@@ -411,16 +427,17 @@ the device (the GPU), whereas regular Haskell code runs on the host (the CPU).
 \subsection{Array computations versus scalar expressions}
 \label{sec:array_computations_vs_scalar_expressions}
 
-The signatures of the two operations @zipWith@ and @fold@, using in the
+The signatures of the two operations @zipWith@ and @fold@, used in the
 definition of @dotp@, are shown in Listing~\ref{lst:acc_operations}. These
-operations follow the signatures of the corresponding list functions, but with
-arrays wrapped in @Acc@. In addition to @Acc@, which marks embedded array
-computations, we also have @Exp@, which marks \emph{embedded scalar}
+operations are multidimensional variants of the corresponding list functions,
+but with arrays wrapped in @Acc@. In addition to @Acc@, which marks embedded
+array computations, we also have @Exp@, which marks \emph{embedded scalar}
 computations: a term of type @Exp Int@ represents an embedded expression
 yielding a value of type @Int@, and similarly @Exp Float -> Exp (Float,Float)@
 characterises an embedded scalar function that takes an argument of type @Float@
 and yields a pair of @Float@s as the result. As with computations embedded in
-@Acc@, computations in @Exp@ are executed on the device.
+@Acc@, computations in @Exp@ are executed in the target language of GPU device
+code.
 
 \begin{lstlisting}[style=haskell_float,
     numbers=none,
@@ -469,7 +486,7 @@ achieve a stratified language. Collective operations in @Acc@ comprise many
 scalar computations in @Exp@ that are executed in parallel. However, scalar
 computations \emph{can not} contain collective operations. This stratification
 excludes \emph{nested, irregular} data parallelism statically --- instead,
-Accelerate is limited to \emph{flat data-parallelism} involving only regular,
+Accelerate is restricted to \emph{flat data-parallelism} involving only regular,
 multi-dimensional arrays.
 
 Compared to regular Haskell, @Exp@ computations are rather limited in order to
@@ -485,18 +502,19 @@ and so on. We also have conditional expressions in the form of @c ? (t, e)@,
 which evaluates to @t@ if @c@ yields @True@, otherwise to @e@. There are also
 scalar operations that take array valued arguments; namely, @arr!ix@ indexes an
 array and @shape@ queries the extent of an array. The argument to these
-operations is guaranteed to only be a previously let-bound variable, thus each
-invocation of the scalar function will not initiate additional parallel work.
-Finally, we have tupling and projection, and auxiliary functions for computing
-with indices.
+operations is guaranteed to only be a previously let-bound variable, ensuring
+that each invocation of the scalar function can not initiate additional
+parallel work. Finally, we have tupling and projection, and auxiliary functions
+for computing with indices.
 
 
-\subsection{Computing an N-body gravitational simulation}
+\subsection{Computing an $n$-body gravitational simulation}
 \label{sec:computing_nbody}
 
 At a second example, consider simulating the Newtonian gravitational forces on a
-set of massive bodies in 3D space, using a na\"ive O($n^2$) algorithm. We use
-the following type synonyms to represent bodies in the simulation:
+set of massive bodies in 3D space, using a precise (but expensive) O($n^2$)
+algorithm. We use the following type synonyms to represent bodies in the
+simulation:
 %
 \begin{lstlisting}[style=haskell]
 type Vec a      = (a, a, a)
@@ -507,16 +525,16 @@ type Mass       = Float
 type PointMass  = (Position, Mass)
 \end{lstlisting}
 %
-@Vec@ is the type of 3-component vectors, which are used to store the $x$-, $y$,
-and $z$-components of the particle's position in 3D space and velocity component
-along each dimension in @Position@ and @Accel@ respectively. A @PointMass@
-is represented as a tuple containing the body's @Mass@ and @Position@.
+@Vec@ is the type of 3-component vectors, which are used to store the $x$-,
+$y$-, and $z$-components of the particle's position or acceleration in 3D space
+along each dimension in @Position@ and @Accel@ respectively. A @PointMass@ is
+represented as a tuple containing the body's @Mass@ and @Position@.
 
 In a data-parallel setting, the natural implementation first computes the forces
 between every pair of bodies, before reducing the components applied to each
-body using a segmented sum. In Accelerate, we can calculate the acceleration
-each body experiences as it interacts with all other bodies in the system as
-follows:
+body using a multidimensional (segmented) reduction. In Accelerate, we can calculate
+the acceleration each body experiences as it interacts with all other bodies in
+the system as follows:
 %
 \begin{lstlisting}[style=haskell]
 calcAccels :: Exp R -> Acc (Vector PointMass) -> Acc (Vector Accel)
@@ -531,14 +549,15 @@ calcAccels epsilon bodies
 %
 \begin{enumerate}
 \item @replicate@ expands the vector of @n@ bodies into an @n@$\times$@n@
-    matrix, where we replicate @All@ elements of the source array such that
-    every element down the columns or along the rows of the matrix are
-    identical, respectively. The operation @lift@ is used to push the shape
-    constructors into the expression; that is, in this instance we have
-    @lift :: (Z :. Exp Int :. All) -> Exp (Z :. Int :. All)@.
+    matrix, where we replicate the original elements of the source vector,
+    represented by @All@, such that every element down the columns or along the
+    rows of the matrix are identical, respectively. The operation @lift@ is used
+    to push the shape constructors into the expression; that is, in this
+    instance we have @lift :: (Z :. Exp Int :. All) -> Exp (Z :. Int :. All)@.
 
 \item @zipWith@ calculates the interaction between each pair of particles by
-    element wise combining the @n@$\times$@n@ matrices.
+    element wise combining the @n@$\times$@n@ matrices, which were replicated in
+    opposite directions.
     % Since we replicated the source vector along the rows and columns, this
     % computes all $n^{2}$ interactions.
 
@@ -548,7 +567,7 @@ calcAccels epsilon bodies
     the 3-vector.
 \end{enumerate}
 
-This is an example of using the rank polymorphic operations of Accelerate. The
+This is an example of using rank polymorphic operations in Accelerate. The
 function @fold@ requires an argument array of at least rank-1 (such as a
 matrix), and the result is computed by reducing the array along the innermost
 dimension, reducing the rank of the array by one (in this case yielding a
@@ -567,7 +586,7 @@ We briefly explain how to compute the gravitational potential between a pair of
 bodies. Given $n$ bodies with position $\mathbf{x}_i$ and velocity
 $\mathbf{v}_i$ for $i \in [1,n]$ (bold face indicates a 3-component vector), the
 force $\mathbf{f}_{ij}$ on a body $i$ is caused by its gravitational attraction
-to body $j$:
+to body $j$ is given by:
 %
 \begin{equation*}
     \mathbf{f}_{ij}
@@ -614,7 +633,7 @@ $\epsilon^2 > 0$.
 
 Finally, the acceleration experienced by a body is $\mathbf{a}_i =
 \mathbf{F}_i/m_i$, and we can now present the Accelerate routine to compute the
-accelerate between two bodies.
+acceleration between two bodies.
 %
 %\begin{equation*}
 %    \mathbf{a}_i \approx
@@ -643,17 +662,23 @@ component of a 3-vector by a scalar value.
 
 \subsection{Non-parametric array representation}
 
-In the type signature of @use@ in
-section~\ref{sec:arrays_on_the_host_and_device}, the type classes @Shape@ and
-@Elt@ characterise the types that may be used as array indices and array
-elements respectively. We discussed the nature of array indices in
-section~\ref{sec:arrays_shapes_and_indices}. The @Elt@ class characterises the types
-of values that can be used as array elements, and hence appear in scalar
-Accelerate expressions. The supported @Elt@ types are signed \& unsigned integers (8,
-16, 32, and 64-bit wide), floating point numbers (single \& double precision),
-as well as @Char@, @Bool@, and array indices formed from @Z@ and @(:.)@.
-Furthermore, there are tuples of all of those, including nested tuples, as was
-seen in the N-body example~(\S\ref{sec:computing_nbody}).
+In order to make arrays available for use in embedded computations, we have the
+function @use@ (\S\ref{sec:arrays_on_the_host_and_device}). For a single array,
+it has the type:
+%
+\begin{lstlisting}[style=haskell]
+use :: (Shape sh, Elt e) => Array sh e -> Acc (Array sh e)
+\end{lstlisting}
+%
+The type classes @Shape@ and @Elt@ characterise the types that may be used as
+array indices and array elements respectively. We discussed the nature of array
+indices in section~\ref{sec:arrays_shapes_and_indices}. The @Elt@ class
+characterises the types of values that can be used as array elements, and hence
+appear in scalar Accelerate expressions. The supported @Elt@ types are signed \&
+unsigned integers (8, 16, 32, and 64-bit wide), floating point numbers (single
+\& double precision), as well as @Char@, @Bool@, and array indices formed from
+@Z@ and @(:.)@. Furthermore, there are tuples of all of those, including nested
+tuples, as was seen in the $n$-body example~(\S\ref{sec:computing_nbody}).
 
 Accelerate arrays of primitive type, such as @Int@ and @Float@, are easily
 represented as arrays of the corresponding integral and floating point types.
@@ -673,14 +698,15 @@ sh    :: Exp (Z :. Int :. Int)
 tup   :: Exp (Int, Int)
 \end{lstlisting}
 %
-The salient feature of each expression is that it returns two integers, albeit
-each wrapped in different constructors. We call this the \emph{surface} type
-of a term. However, an Accelerate backend implementation should not need to know
-about the surface type representation. Indeed, we do not want to have to extend
-the backend to support new user-defined types such as @Point@. The @Elt@ class
-tells us how to convert between the surface type of an expression that a user
-programs in, into the \emph{representation} type that an implementation stores
-and computes data in. We use a type
+The salient feature of each type is that it carries two integers, albeit each
+wrapped in different constructors. We call this the
+\emph{surface}\index{type!surface} type of a term. However, an Accelerate
+backend implementation should not need to know about the surface type
+representation. Indeed, we do not want to have to extend the backend to support
+every new user-defined type such as @Point@. The @Elt@ class tells us how to
+convert between the surface type of an expression that a user programs in, into
+the \emph{representation} type\index{type!representation} that an implementation
+stores and computes data in. We use a type
 family~\cite{Chakravarty:2005dx,Schrijvers:2008ir} of nested tuples to represent
 types as heterogenous snoc-lists of primitive types:
 %
@@ -697,13 +723,13 @@ type instance EltRepr (a, b, c) = (EltRepr (a, b), EltRepr' c)
 Here @EltRepr'@ is similar, except that we use a flattened representation at the
 leaves in order to avoid overly nested pairs; that is, primitive types are
 represented as @EltRepr' Int = Int@. Arrays of tuples have a similar mapping
-into a nested tuple of arrays of primitive type.
+into a nested tuple of arrays, defined by the @Arrays@ class.
 
 
 \subsection{Richly typed terms}
 \label{sec:richly_typed_terms}
 
-\marginnote{tk: this bit is very implementation-y}
+%\marginnote{tk: this bit is very implementation-y}
 As a deeply embedded language, the operations of both the array and scalar
 sub-language do not directly issue computations; instead, they build term trees
 to represent embedded computations (\S\ref{sec:EDSLs}). The terms in the surface
@@ -735,7 +761,7 @@ transformations in the front end (\S\ref{sec:manipulating_embedded_programs}).
 The HOAS representation, while convenient for a human reader, is awkward
 for program transformations as it complicates looking under lambdas; i.e.
 inspecting and manipulating the bodies of function abstractions. After the
-frontend reifies the embedded program using HOAS, it recovers sharing
+frontend reifies the embedded program written in HOAS, it recovers sharing
 (\S\ref{sec:sharing_recovery}) while converting the HOAS representation into a
 \emph{nameless} representation using \emph{typed de Bruijn indices}\index{de
 Bruijn} in the style of~\citet{Altenkirch:2003kz}. The type preserving
@@ -803,7 +829,6 @@ case the type and scope of bound variables. Since an embedded Accelerate program
 constructed and evaluated at program \emph{runtime}, encoding properties in the
 type means that these invariants are checked at \emph{compile} time, reducing
 the number of possible runtime errors in type-correct programs.
-
 
 
 \section{Discussion}

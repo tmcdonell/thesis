@@ -871,17 +871,18 @@ sure to let-bind the intermediate results along the way.
             -> PreFun acc aenv (e -> b)
             -> PreFun acc aenv (e -> c)
     combine c ixa ixb
-      | Lam (Lam (Body c')) <- weakenFE SuccIdx c :: PreOpenFun acc ((),e) aenv (a->b->c)
+      | Lam (Lam (Body c')) <- weakenFE SuccIdx c                                    -- (1)
+                                        :: PreOpenFun acc ((),e) aenv (a->b->c)
       , Lam (Body ixa')     <- ixa
       , Lam (Body ixb')     <- ixb
       = Lam $ Body $ Let ixa' $ Let (weakenE SuccIdx ixb') c'
 \end{lstlisting}
 %
-Note the first guard in @combine@ requires a type signature, otherwise the type
-variable @e@ introduced by the weakening step will ``escape'', and can not be
-unified correctly. This new parameter @e@ represents in the first case of @Step@
-the array element type, and in the second instance via @Yield@ the array index
-type.
+Note the first guard in @combine@ \emph{(1)} requires a type signature,
+otherwise the type variable @e@ introduced by the weakening step will
+``escape'', and can not be unified correctly. This new parameter @e@ represents
+in the first case of @Step@ the array element type, and in the second instance
+via @Yield@ the array index type.
 
 
 \subsection{Producer/Consumer Fusion}
@@ -890,7 +891,8 @@ type.
 % fusion)
 
 Now that we have a story for producer/producer fusion, we discuss how to deal
-with consumers. The classic array fusion example is that of vector dot product:
+with consumers. Recall the classic array fusion example that is vector dot
+product:
 
 \begin{lstlisting}[style=haskell]
 dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
@@ -904,11 +906,20 @@ system should translate this into a single collective operation, in much the
 same way as a human would write if working directly in a low-level language such
 as C or CUDA\@.
 
-The basic idea is to pass producers encoded in the @Cunctation@
-representation directly to consumers, and implementation of the consumer can
-decide how best to access values of the input. Consumers themselves have no
-@Cunctation@ representation, however.
+For the dot product example, the delayed producer is equivalent to the scalar
+function @\ix -> (xs!ix) * (ys!ix)@. This function must be embedded directly
+into the implementation for @fold@ so that the values are generated online,
+without an intermediate array. However, these two steps happen at different
+phases of the compilation pipeline: producers are fused using smart
+constructors, as described in the previous section, but producers are only
+finally embedded into consumers during code generation.
 
+% The basic idea is to pass producers encoded in the @Cunctation@
+% representation directly to consumers, and implementation of the consumer can
+% decide how best to access values of the input. Consumers themselves have no
+% @Cunctation@ representation, however.
+
+\note{why is this here?}
 Consumers such as @stencil@ apply a function with access to all array
 elements within a local neighbourhood of the focal point of the stencil. As
 overlapping stencils from neighbouring elements access the same elements in
@@ -925,12 +936,13 @@ can be further optimised by utilising functions that map the flat linear index
 of the underlying array to its value. The consumer friendly representation
 therefore contains all of these versions:
 
-\begin{lstlisting}[style=haskell
+\begin{lstlisting}[style=haskell_float
     ,name=DelayedOpenAcc
     ,label=lst:DelayedOpenAcc
     ,caption={The type of delayed arrays in Accelerate}]
 data DelayedOpenAcc aenv a where
-  Manifest              :: PreOpenAcc DelayedOpenAcc aenv a -> DelayedOpenAcc aenv a
+  Manifest              :: PreOpenAcc DelayedOpenAcc aenv a
+                        -> DelayedOpenAcc aenv a
 
   Delayed               :: (Shape sh, Elt e) =>
     { extentD           :: PreExp DelayedOpenAcc aenv sh
@@ -947,8 +959,8 @@ on-the-fly.
 Producers can only be embedded into consumers during the (much later) code
 generation phase. During code generation, the code for the embedded producer
 terms such as @indexD@ is generated and integrated directly into the
-skeleton code of the consumer. The end result is that no intermediate array
-needs to be created.
+skeleton code of the consumer (\S\ref{sec:??}). The end result is that no
+intermediate array needs to be created.
 
 
 \subsection{The Fusion Pipeline}

@@ -7,48 +7,119 @@
 %storytelling,\\and our story shall be the education of our heroes.}%
 %{\textsc{---plato}\\\textit{Republic}, \textsc{book ii}}
 
-\note{tk: This needs to be redone}
-
-Over the last ten years, an interesting trend in computing has emerged. General
-purpose CPUs, such as those provided by Intel, IBM and AMD, have increased
-performance substantially, but with nowhere near the increases seen in the late
-1980's and early 1990's. To a large extent, single threaded performance
-increases have tapered off due to the low level of inter-process communication
-in general purpose workloads, and the physical limitations of power dissipation
-for integrated circuits. The additional millions and billions of transistors
-afforded by Moore's Rule\footnote{Moore's actual prediction in 1965 referred
-only to the number of devices that could be fabricated on a single die, and that
-this quantity would increase by fifty percent each year \cite{Moore:1965wc}.}
-are simply not very productive in increasing the performance of single--threaded
-code.
+The beginning of the twenty first century has seen an interesting trend in
+computing emerge. General purpose CPUs, such as those provided by Intel, IBM and
+AMD, have increased performance substantially, but with nowhere near the
+increases seen in the late 1980's and early 1990's. To a large extent, single
+threaded performance increases have tapered off due to the low level of
+inter-process communication in general purpose workloads, and the physical
+limitations of power dissipation for integrated circuits. The additional
+millions and billions of transistors afforded by Moore's rule\footnote{Moore's
+actual prediction in 1965 referred only to the number of devices that could be
+fabricated on a single die, and that this quantity would increase by fifty
+percent each year \cite{Moore:1965wc}. I refrain from using the commonly held
+name of ``Moore's Law'' as this trend is not a law in the sense defined by the
+physical sciences, such as the Laws of Gravity and Thermodynamics --- it is
+simply a description of observed facts, rather than a principle driven by some
+fundamental controlling influence.} are simply not very productive in increasing
+the performance of single--threaded code.
 
 At the same time, the commodity \indexe{graphics processing unit} (GPU) has been
 able to use this ever increasing transistor budget effectively, geometrically
 increasing rendering performance, since rasterisation is an inherently parallel
-operation. Historically fixed function pipelines, modern graphics architectures
-have evolved to become increasingly flexible as well as powerful, consisting of
-an expressive set of general purpose computation resources, with some fixed
-function units on the side.
+operation.
+% Historically fixed function pipelines, graphics architectures are
+% evolving to become increasingly flexible as well as powerful, consisting of an
+% expressive set of general purpose computation resources, with some fixed
+% function units for graphics operations on the side.
+%
+Modern GPUs are massively parallel multicore processors, offering instruction
+throughput and memory bandwidth rates much higher than those found on
+traditional CPUs~\cite{NVIDIA:2012wf}. However, despite the advertised potential
+of $100\times$ speedups, development of high-performance \emph{general-purpose
+GPU} (GPGPU)\index{general-purpose computing on graphics processing units}
+programs requires highly idiomatic programs, whose development is work intensive
+and requires a substantial degree of expert knowledge.
 
-Parallel programming models fall into two broad categories. Task parallelism
-emphasises a distributed model for independent processes, whereas data
-parallelism specifies a single computation which is applied simultaneously
-across a large number of data elements. While task parallelism typically does not
-scale well with the size of the problem, data parallelism provides one of the
-most promising approaches to making efficient use of parallel hardware.
+Several researchers have proposed methods to ameliorate the status quo by either
+using a library to compose GPU code or by compiling a subset of a high-level
+language to low-level GPU
+code~\cite{McCool:2004,Bond:2010bd,ThrustAParallelT:ub,Catanzaro:2011cn,Mainland:2010vj,CLyther:EvXSiruK}
+This work is in the same spirit: we propose a domain-specific high-level
+language of array computations, called \emph{Accelerate}, that captures
+appropriate GPGPU programming idioms in the form of parameterised, collective
+array operations. Our choice of operations was informed primarily by the
+\emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is suitable for a wide
+range of algorithms and can be efficiently implemented on modern
+GPUs~\cite{Sengupta:2007tc}.
 
-Despite their attractiveness for computationally intensive operations, accessing
-this performance has remained elusive for all but a few applications. The
-arithmetic power of the GPU is a result of a highly specialised and constrained
-architecture, resulting in programs which rely heavily on the CPU to handle
-difficult parts of control and data flow. However, the CPU--GPU link is
-relatively slow, engendering high communication latencies which radically impair
-performance. To be practicable, the GPU programming model must efficiently
-support messy boundary conditions, irregular data and control flow patterns, and
-provide an elegant mapping from the application to the underling architecture,
-without forcing the programmer to recast their algorithm. Support for nested
-data parallelism \cite{Blelloch:1994vc,Blelloch:1996jx} (NDP) would provide a
-first step towards a viable GPU programming model, unshackling vast
-computational resources from the small application niche for which they were
-originally designed.
+In summary, our main contributions are the following:
+%
+\begin{itemize}
+    \item An embedded language, \emph{Accelerate}, of parameterised collective
+        array computations that is more expressive than previous GPGPU proposals
+        (Section~\ref{sec:accelerate}).
+
+    \item A dynamic code generator based on CUDA skeletons of collective array
+        operations that are instantiated at runtime
+        (Sections~\ref{sec:parallel_algorithms_in_cuda},
+        \ref{sec:code_generation}, \&
+        \ref{sec:instantiating_skeletons}).
+
+    \item An execution engine that caches previously compiled skeleton instances
+        and host-to-device data transfers, as well as parallelises code
+        generation, data transfer, and GPU kernel loading and configuration
+        (Sections~\ref{sec:dynamic_compilation},
+        \ref{sec:memory_management}, \&
+        \ref{sec:executing_programs}).
+
+    \item A novel sharing recovery algorithm for type-safe ASTs, preserving the
+        structure of the deeply embedded program
+        (Section~\ref{sec:sharing_recovery}).
+
+    \item Type preserving optimisations of embedded array language programs,
+        including a novel approach to array fusion % as well as scalar simplifications
+        (Sections~\ref{sec:manipulating_embedded_programs},
+        \ref{sec:cse},
+        \ref{sec:array_fusion},
+        \ref{sec:implementing_array_fusion}, \&
+        \ref{sec:simplification}).
+
+    \item Benchmarks assessing runtime code generation overheads and kernel
+        performance for a range of programs (Chapter~\ref{ch:results}).
+\end{itemize}
+
+Although we motivate and evaluate our work in the context of the Accelerate
+language, our contributions are not limited to this context. Specifically, our
+sharing recovery algorithm applies to any embedded language based on the typed
+lambda calculus and our approach to array fusion applies to any dynamic compiler
+targeting bulk-parallel SIMD hardware. Our current implementation targets CUDA,
+but the same approach works for OpenCL, as well as traditional CPUs.
+
+We discuss related work as each topic arises. The source code for Accelerate
+including all benchmark code is available from
+\url{https://github.com/AccelerateHS}.
+
+
+% Parallel programming models fall into two broad categories. Task parallelism
+% emphasises a distributed model for independent processes, whereas data
+% parallelism specifies a single computation which is applied simultaneously
+% across a large number of data elements. While task parallelism typically does not
+% scale well with the size of the problem, data parallelism provides one of the
+% most promising approaches to making efficient use of parallel hardware.
+%
+% Despite their attractiveness for computationally intensive operations, accessing
+% this performance has remained elusive for all but a few applications. The
+% arithmetic power of the GPU is a result of a highly specialised and constrained
+% architecture, resulting in programs which rely heavily on the CPU to handle
+% difficult parts of control and data flow. However, the CPU--GPU link is
+% relatively slow, engendering high communication latencies which radically impair
+% performance. To be practicable, the GPU programming model must efficiently
+% support messy boundary conditions, irregular data and control flow patterns, and
+% provide an elegant mapping from the application to the underling architecture,
+% without forcing the programmer to recast their algorithm. Support for nested
+% data parallelism \cite{Blelloch:1994vc,Blelloch:1996jx} (NDP) would provide a
+% first step towards a viable GPU programming model, unshackling vast
+% computational resources from the small application niche for which they were
+% originally designed.
 

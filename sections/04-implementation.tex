@@ -389,12 +389,60 @@ from the source array @x@ with the value of the result array @y@:
 \end{lstlisting}
 %
 Any atomic operation on simple types can be implemented in terms of
-compare-and-swap in this manner. Tuple types apply the procedure to each
-component separately, as CUDA currently only supports @atomicCAS@ style
-instructions. Since Accelerate uses a struct-of-arrays style representation,
-atomically committing all components of a tuple would require additional
-hardware support. Utilising more specific atomic operations such as @atomicAdd@
-when available is left to future work.
+compare-and-swap in this manner. Utilising more specific atomic operations such
+as @atomicAdd@ when available is left to future work.
+
+
+\subsubsection{Implementation using explicit locking}
+
+The implementation for combining elements of the permutation function works well
+for simple atomic types, but as Accelerate uses a struct-of-arrays
+representation (\S\ref{sec:representing_tuples}, combining tuple types must
+apply the procedure to each component of the tuple separately, which can lead to
+inconsistencies.\footnote{\url{https://github.com/AccelerateHS/accelerate/issues/137}}
+
+One alternative would be to explicitly lock each element of the output array
+before threads can access it, and then for each thread to commit all components
+of the array as a single atomic operation. A straightforward to implement this
+is via a \emph{spin lock}, where threads trying to acquire the lock simply wait
+in a loop (``spin''), repeatedly checking whether the lock is available. Since
+the thread remains active but is not performing any useful work, the use of this
+kind of busy waiting is inefficient if threads are blocked for an extended
+period of time (because the lock is contended by many threads, or the atomic
+section executed while the lock is held is lengthy).
+
+Implementing a spin-lock can be done similarly to the following:
+%
+\begin{lstlisting}[style=cuda]
+  do {
+      old = atomicExch(&lock[i], 1);                                               // (1)
+  while (old == 1);                                                                // (2)
+    /* atomic section */                                                           // (3)
+  atomicExch(&lock[i], 0);                                                         // (4)
+\end{lstlisting}
+%
+\begin{enumerate}
+    \item The spin lock procedure requires a temporary array to represent the
+        lock state for each element of the output array. We use 1 to represent
+        the locked state, and 0 to indicate the element is unlocked. To lock
+        element @i@ of the output array, we atomically store 1 into the lock
+        slot for this element, returning the @old@ state of the lock.
+
+    \item If the @old@ state of the lock was unlocked (0) then we just acquired
+        the lock. Otherwise it was already locked, so we must retry.
+
+    \item Once the lock is acquired, the atomic section can be computed.
+
+    \item Write zero back into the lock slot for this element in order to
+        release the lock. A memory barrier or atomic operation, as used here, is
+        required for this step to ensure memory consistency on architectures
+        which do not have a strong memory model, such as CUDA devices (later x86
+        architectures can safely use an unlocked @MOV@ instruction).
+
+\end{enumerate}
+
+It is left to future work to fully investigate the use of spin locking as an
+alternative strategy for combining elements in the permute operation.
 
 
 \subsection{Stencil}

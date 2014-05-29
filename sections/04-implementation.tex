@@ -221,7 +221,10 @@ phases:
 \begin{enumerate}
 \item All blocks are scanned in parallel, and the partial result (final scan
     value) from each block @i@ is stored into an intermediate array
-    @block_results[i]@.
+    @block_results[i]@. Note that even though we require only the final value,
+    because scans are directional --- either to the left or right --- we still
+    compute the entire scan and return only the final value, to ensure that
+    elements are processed in the correct left-to-right or right-to-left order.
 
 \item A single thread block performs a scan of the helper array @block_results@.
     Accelerate is set up such that the number of blocks in the first step is
@@ -254,6 +257,38 @@ Segmented operations often arise when dealing with nested parallelism and the
 flattening transformation~\cite{Blelloch:1995ut}. In future it may be beneficial
 to implement segmented scans directly rather than by operator
 transformation~\cite{Sengupta:2008ut,Dotsenko:2008fo}.
+
+
+\subsubsection{Interaction with array fusion}
+
+In the scan algorithm described above, the input array to be scanned is read
+twice: once when computing the partial block results, and a second time when
+computing the final scanned array. If the input does not refer to manifest array
+data, but instead an array in a symbolic form resulting from array fusion
+(\S\ref{sec:array_fusion}), then the elements of the delayed array --- which
+might contain arbitrarily expensive computations --- will be computed twice
+also.
+
+In order to avoid this, in some circumstances it might be beneficial for either
+(a) the first phase of the scan to store the entire partial scan result, rather
+than just the final element; or (b) to always read in manifest data, effectively
+disallowing producer/consumer fusion (\S\ref{sec:implementing_array_fusion}) for
+scans in the CUDA backend. The latter option is undesirable, and the former may
+not work for non-commutative operators, such as the one we used in the
+operator-transformation-based definition of segmented scan. It is left to future
+work to fully investigate this interaction between array fusion and operations
+such as scan, where the underlying implementation requires multiple passes over
+the input data.
+
+% In order to avoid this, it might seem that one approach could be for each thread
+% block in the first phase to write its entire partial scan result to memory,
+% which would include any computations that were part of the fused array, rather
+% than just the final element. In the third phase, each block would then combine
+% the partial result from the second stage to each element of the partial scan
+% result from the first phase (in effect a @map@ operation). However, this would
+% not correctly handle non-commutative operators, something we took advantage of
+% in the definition of segmented scans.
+
 
 \subsection{Permute}
 \label{sec:parallel_permute}

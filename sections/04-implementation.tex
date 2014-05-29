@@ -3055,6 +3055,24 @@ concurrentTest
     \label{fig:concurrent_kernels}
 \end{figure}
 
+\subsubsection{Interaction with Array Fusion}
+
+In the example shown in Listing~\ref{lst:concurrent_kernels}, it was necessary
+to disable the array fusion optimisation (\S\ref{sec:array_fusion}) in order to
+prevent the kernels being combined into a single kernel, within which each of
+the fused operations execute sequentially. While a simple example was chosen on
+purpose in order to clearly demonstrate kernels executing concurrently, the same
+situation nevertheless arises in real programs. That is, by combining sequences
+of operations into a single operation, fusion has the effect of removing
+opportunities for concurrent kernel execution.
+
+It is left to future work to provide some analysis of when it would be
+beneficial to avoid fusing operations, on the basis that it would be more
+efficient to instead execute the two parts concurrently. Such an analysis would
+need to take into account the hardware that the program is to be executed on, as
+well as an estimate of how much of the GPU's resources each kernel requires, in
+order to determine if the two kernels could be scheduled concurrently.
+
 
 \subsection{Conclusion}
 \note{tk:todo}

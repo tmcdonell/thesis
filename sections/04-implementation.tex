@@ -1193,7 +1193,7 @@ in CUDA by the value of type:
 typedef struct { int a; float b; } arrayIntFloat[];
 \end{lstlisting}
 %
-Known as the \emph{array-of-struct} (AoS)\index{AoS|see {array-of-struct}}
+Known as the \emph{array-of-struct} (AoS)\index{array-of-struct}\index{AoS|see {array-of-struct}}
 representation, this strategy is in general not efficient as it easily violates
 the strict memory access rules imposed on CUDA devices, decreasing effective
 bandwidth by as much as an order of magnitude~\cite{NVIDIA:2012wf}.
@@ -1203,8 +1203,8 @@ bandwidth by as much as an order of magnitude~\cite{NVIDIA:2012wf}.
 To avoid this inefficiency, Accelerate uses a non-parametric array
 representation: arrays of tuples are represented as tuples of arrays of
 primitive type. This \emph{struct-of-array}
-(SoA)\index{SoA|see {struct-of-array}} representation stores arrays of type
-\code{Array DIM1 (Int, Float)} by values of the type:
+(SoA)\index{struct-of-array}\index{SoA|see {struct-of-array}} representation
+stores arrays of type \code{Array DIM1 (Int, Float)} by values of the type:
 %
 \begin{lstlisting}[style=cuda]
 typedef struct { int a[]; float b[]; } arrayIntFloat;

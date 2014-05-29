@@ -195,27 +195,47 @@ machines. Because of their fundamental importance to many algorithms,
 implementing efficient scan operations in CUDA has received much
 attention~\cite{Sengupta:2007tc,Sengupta:2008ut,Dotsenko:2008fo,Harris:2012fy}.
 
-\marginnote{tk:figures}
-The basic binary-tree based scan algorithm proceeds in $\log N$ stages. As
-shown in Figure~\ref{fig:tree_scan}, the binary operator is applied to two
-distinct elements of the input array and the output is stored into a new array.
-In order to compute this efficiently on the GPU, the input array is decomposed
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=\textwidth]{images/sec-4/scan}
+    \end{center}
+    \caption[A parallel inclusive scan]{Illustration of a parallel scan, which
+        is performed in three steps. In the first step, 8 thread blocks compute
+        the partial scan result for each section of the array. The partial
+        results are then scanned by a single thread block in the second step.
+        In the final phase, the 8 thread blocks use the partial results as the
+        initial element when computing the final scan result for this section of
+        the array.}
+    \label{fig:fast_scan}
+\end{figure}
+
+The basic binary-tree based scan algorithm proceeds in $\log N$ stages.
+% As shown in Figure~\ref{fig:fast_scan}, the binary operator is applied to two
+% distinct elements of the input array and the output is stored into a new array.
+In order to compute scans efficiently on the GPU, the input array is decomposed
 into a number of blocks of size $B$, such that the scan of $B$ elements can be
-computed by a thread block locally in shared memory. This scan algorithm is
-depicted in Figure~\ref{fig:fast_scan}, and proceeds in two phases:
+computed by a thread block locally in shared memory. This (inclusive) scan
+algorithm is depicted in Figure~\ref{fig:fast_scan}, and proceeds in three
+phases:
 %
 \begin{enumerate}
-\item All blocks are scanned in parallel, and the partial result from each block
-    @i@ is stored into an intermediate array @block_results[i]@.
+\item All blocks are scanned in parallel, and the partial result (final scan
+    value) from each block @i@ is stored into an intermediate array
+    @block_results[i]@.
 
-\item Perform a scan of the helper array @block_results@. Accelerate is set up
-    such that the number of blocks in the first step is less than the maximum
-    thread block size (\S\ref{sec:executing_programs}), so this step does not
-    need to repeatedly apply the global scan algorithm.
+\item A single thread block performs a scan of the helper array @block_results@.
+    Accelerate is set up such that the number of blocks in the first step is
+    less than the maximum thread block size (\S\ref{sec:executing_programs}), so
+    this step does not need to repeatedly apply the global scan algorithm.
 
-\item Each thread of block @i@ adds element @i@ from Step 2 to its output
-    element from Step 1.
+\item All blocks scan the array in parallel again, where thread block @i@ uses
+    element @i@ of the result of step 2 as the initial element.
+
 \end{enumerate}
+
+For an exclusive scan, it is only necessary to ensure that the computation of
+the partial block sums includes the seed element.
+
 
 \subsubsection{Segmented scan}
 

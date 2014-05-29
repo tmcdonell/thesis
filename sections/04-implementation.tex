@@ -3075,7 +3075,37 @@ order to determine if the two kernels could be scheduled concurrently.
 
 
 \subsection{Conclusion}
-\note{tk:todo}
+
+Runtime system operations are important, as they partially compensate for the
+overhead of being an embedded language; of needing to traverse the program AST
+in order to evaluate it. The Accelerate runtime system is designed to execute
+programs as efficiently as possible, which in turn helps maximise the
+computational utilisation of the device, and ensure all processors are kept
+busy.
+
+The runtime system attempts to optimise both individual kernel executions, as
+well as execution of the entire program. In the former case, each kernel launch
+is configured to maximise thread occupancy for the particular device the kernel
+is being executed on, and kernels are scheduled such that independent operations
+can be executed concurrently, on devices which support this. The single most
+important optimisation, however, is that each node of the program AST is
+decorated with all of the data required do execute that operation. For programs
+which are executed more than once, this means that the costly front-end analysis
+and code generation states of program execution can be skipped on the second and
+subsequent invocations of the program, and kernels can begin executing
+immediately. This process happens automatically, and almost\footnote{The user
+user must express their program in the form of a function of one array argument,
+and use the corresponding \code{run1} function to execute the program. This is
+not so onerous, as any operation that the user intends to execute multiple times
+is likely to be easily written in the form of a function from arrays to arrays.}
+entirely transparently to the user.
+
+With these optimisations, the Accelerate runtime system is efficient enough that
+we can execute numerically intensive programs such as fluid flow simulations
+(\S\ref{sec:fluid}) and real-time image processing applications
+(\S\ref{sec:canny}) and achieve performance comparable to hand-written CUDA
+programs.
+
 
 \section{Related work}
 \label{sec:implementation_related}

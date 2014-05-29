@@ -96,6 +96,12 @@ lambda calculus and our approach to array fusion applies to any dynamic compiler
 targeting bulk-parallel SIMD hardware. Our current implementation targets CUDA,
 but the same approach works for OpenCL, as well as traditional CPUs.
 
+Our results show that Accelerate programs can be competitive with programs
+hand-written in CUDA, while having a much higher level of abstraction.
+Anecdotally, use of Accelerate has gained some traction within the community,
+being used by both end users as well as other researchers, and I have
+encountered Accelerate being mentioned at conferences simply by name.
+
 We discuss related work as each topic arises. The source code for Accelerate
 including all benchmark code is available from
 \url{https://github.com/AccelerateHS}.

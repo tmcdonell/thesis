@@ -2876,9 +2876,26 @@ backend does this for every kernel, to make optimal use of physical resources
 which vary from GPU to GPU\@. Additionally, we limit the number of threads blocks
 per multiprocessor to that which can be physically resident. This requires the
 generated kernels to be able to process multiple elements per thread, but
-reduces the overhead of launching thread blocks.
+reduces the overhead of launching thread blocks. Figure~\ref{fig:occupancy}
+demonstrates the impact of varying thread block size on thread occupancy for
+the different hardware generations.
 
-\note{TK: perhaps a graph of how occupancy calculations change for a given kernel on different GPU architectures?}
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/sec-4/occupancy/occupancy}
+    \caption[Impact of varying thread block size on multiprocessor occupancy]{
+        Illustration of the impact of varying the thread block size on the
+        overall multiprocessor occupancy. The example kernel requires 22
+        registers per thread and 16 bytes of shared memory per thread. Each
+        device generation (compute capability) achieves peak occupancy at
+        different points in the sequence, so selecting a static thread block
+        size for all kernels and devices is clearly suboptimal. Older devices
+        are unable to achieve 100\% occupancy due to limitations in the register
+        file size and available shared memory. The first two generations of
+        devices can not execute the kernel with more than 704 and 1472 threads
+        per block respectively.}
+    \label{fig:occupancy}
+\end{figure}
 
 
 \subsection{Kernel execution}

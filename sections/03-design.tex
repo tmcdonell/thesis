@@ -528,8 +528,8 @@ type PointMass  = (Position, Mass)
 %
 @Vec@ is the type of 3-component vectors, which are used to store the $x$-,
 $y$-, and $z$-components of the particle's position or acceleration in 3D space
-along each dimension in @Position@ and @Accel@ respectively. A @PointMass@ is
-represented as a tuple containing the body's @Mass@ and @Position@.
+along each dimension in @Position@ and @Accel@ respectively. A @PointMass@ is a
+tuple containing the body's @Mass@ and @Position@.
 
 In a data-parallel setting, the natural implementation first computes the forces
 between every pair of bodies, before reducing the components applied to each

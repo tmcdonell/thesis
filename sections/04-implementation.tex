@@ -464,18 +464,110 @@ transformation on the image. Typical transformations include Gaussian blur and
 the Sobel differentiation operator, both of which are used in the Canny edge
 detection algorithm (\S\ref{sec:canny}).
 
+
+\subsubsection{Bounds checking}
+
 Since the stencil has access to elements in the surrounding neighbourhood, an
 immediate concern is what to do when the stencil ``falls off'' the edge of the
-array. Boundary conditions determine how to handle out-of-bounds neighbours, by
+array. Figure~\ref{fig:stencil3x3} shows the application of a $3\times3$ stencil
+in this circumstance. The white squares indicate the \emph{internal} region
+where the stencil is entirely within the array, and the grey squares indicate
+the \emph{border} region, where part of the stencil falls lies outside of the
+array boundary.
+
+\begin{figure}[tbp]
+    \begin{center}
+        \includegraphics[width=0.5\textwidth]{images/sec-4/stencil3x3}
+    \end{center}
+    \caption[Application of a $3\times3$ stencil in the border region]
+        {Application of a $3\times3$ stencil in the border region. Elements in
+        the border region (grey), such as the indicated element at index
+        \code{(Z:.2:.0)}, have neighbouring elements which might fall outside
+        the array bounds, whereas for elements in the internal region (white)
+        the stencil lies entirely within the array.}
+    \label{fig:stencil3x3}
+\end{figure}
+
+Boundary conditions determine how to handle out-of-bounds neighbours, by
 specifying a constant value to use instead, or by reading the source array at a
-different index.
-% (clamping to the boundary; wrapping to the other side of array; or mirroring
-% in from the edge the number of elements attempted beyond the boundary).
-However, with the array sizes of typical GPU programs, the border region
-represents only a tiny fraction of the entire array. Thus, for optimal
-performance we want to avoid testing of the boundary each time we read an
-element from the source array.
-\marginnote{tk: picture? more info?}
+different index. However, with the array sizes typical of GPU programs, the
+border region represents only a tiny fraction of the entire array. For example,
+a 512-pixel square image has less than one percent of its pixels along the edge.
+This fact implies that for optimal performance, we should avoid testing of the
+boundary each time we read an element from the source array. For simple
+convolutions such as those used by Canny (\S\ref{sec:canny}), this adds
+significant overhead~\cite{Lippmeier:2011cd}. Separating computation of the
+border and internal region is left for future work.
+
+
+\subsubsection{Overlapping elements}
+
+Suppose we wish to apply a dense $3\times3$ stencil to a single internal point
+in the array, where each element of the stencil is utilised. Application of the
+stencil requires at least nine elements of the array to be loaded, and one store
+for the result.
+
+\begin{figure}[tbp]
+    \begin{center}
+        \includegraphics[width=0.6\textwidth]{images/sec-4/stencil-sharing}
+    \end{center}
+    \caption[Overlapping elements in a $3\times3$ stencil]{
+        Overlapping elements in a dense $3\times3$ stencil. Computation of each
+        element requires nine reads from the source array. If the four elements
+        cooperate to share the source data, the number of loads to the source
+        array is halved.}
+    \label{fig:stencil_sharing}
+\end{figure}
+
+Figure~\ref{fig:stencil_sharing} shows the evaluation of four horizontally
+adjacent elements. If we evaluate these points independently, we would need
+$4 \times 9 = 36$ loads of the source array, plus the four stores to the result
+array. However, if the calculation of these four elements can cooperate and
+share loads from the source array into a local temporary array, this would
+requires only $3 \times 6 = 18$ loads, plus the four stores. Sharing of stencil
+elements can thus significantly reduce memory bandwidth requirements.
+
+Sharing of stencil elements in CUDA can be achieved by having the thread block
+first cooperatively read the stencil elements into \indexe{shared
+memory}~\cite{NVIDIA:2012wf}, and then each thread computes its stencil function
+using these shared values. In Accelerate, sharing of stencil elements is
+complicated by two main factors:
+%
+\begin{enumerate}
+    \item Stencil patterns can be large: up to 9 elements in each dimension.
+        Since the shared memory region on the GPU is usually very small, this
+        can significantly limit the maximum thread block size. If the occupancy
+        of the device is too low, there may be insufficient parallelism to hide
+        global memory transfer latency.
+
+    \item A stencil function does not need to use all elements defined in the
+        pattern, so reading all elements into shared memory could waste more
+        bandwidth than it saves. The pattern also does not need to be square nor
+        symmetric, which complicates efficient cooperative loading of the
+        common elements into shared memory.
+\end{enumerate}
+
+The implementation currently ignores this issue and does not explicitly share
+elements between threads, instead relying on the cache. For older (compute 1.x)
+devices that lack a traditional cache mechanism to global memory, we read the
+source array using the texture cache.\footnote{A holdover from the graphical
+heritage of the GPU.} It is left to future work to implement sharing of stencil
+elements between threads, either in general or specialised for certain cases
+such as dense stencils or those commonly used for convolutions.
+
+
+\subsubsection{Interaction with array fusion}
+
+Since the stencil operation has access to the elements surrounding the focal
+point of the stencil, if the input is represented by a symbolic array resulting
+from array fusion (\S\ref{sec:array_fusion}), rather than manifest array data,
+accessing these neighbouring elements implies recomputing the symbolic
+computations on every element access. For some operation @stencil s . map f@, if
+the results of @f@ can be shared between threads of the stencil (previous
+section), or if @f@ is cheap, then the duplicate computations required to fuse
+the two operations might be preferable to the extra memory bandwidth required to
+store the result of @map f@ to memory. A full exploration of stencil-aware array
+fusion is left to future work.
 
 
 \section{Manipulating embedded programs}

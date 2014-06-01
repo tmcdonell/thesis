@@ -830,106 +830,10 @@ implementation of stencils always shares some parts of the computation: namely
 access to the grid elements $u_{xy}$, precisely because these operations are so
 expensive.
 
-\subsection{Bounds checking}
-\label{sec:stencil_bounds_checking}
-
-When implementing stencil operations, an immediate concern is what to do when
-the stencil ``falls off'' the edge of the array. For example,
-Figure~\ref{fig:stencil3x3} shows the application of a $3\times3$ stencil
-in this circumstance. The white squares indicate the \emph{internal} region
-where the stencil is entirely within the array, and the grey squares indicate
-the \emph{border} region, where part of the stencil falls lies outside of the
-array boundary.
-
-\begin{figure}[htbp]
-    \begin{center}
-        \includegraphics[width=0.5\textwidth]{images/sec-6/stencil3x3}
-    \end{center}
-    \caption[Application of a $3\times3$ stencil in the border region]
-        {Application of a $3\times3$ stencil in the border region. Elements in
-        the border region (grey), such as the indicated element at index
-        \lstinline[style=inline,basicstyle=\sourcecodepro\footnotesize]{(Z:.2:.0)},
-        have neighbouring elements which might fall outside the array bounds,
-        whereas for elements in the internal region (white) the stencil lies
-        entirely within the array.}
-    \label{fig:stencil3x3}
-\end{figure}
-
-With the array sizes typical of GPU programs, the border region represents only
-a tiny fraction of the entire array. A 512-pixel square image for example has
-less than one percent of its pixels along the edge. This fact implies that for
-optimal performance, we should avoid testing of the boundary each time we read
-an element from the source array. For simple convolutions such as those used by
-Canny (\S\ref{sec:canny}), this adds significant
-overhead~\cite{Lippmeier:2011cd}. Separating computation of the border and
-internal region is left for future work.
-
 \note{tk: example showing performance of \code{map (+1)} versus the equivalent
 of using a stencil: extra addressing arithmetic should be significant. For fluid
 flow, the actual computation time (probably) greatly outweighs the extra
 arithmetic.}
-
-
-\subsection{Overlapping elements}
-
-\begin{figure}[htbp]
-    \begin{center}
-        \includegraphics[width=0.6\textwidth]{images/sec-6/stencil-sharing}
-    \end{center}
-    \caption[Overlapping elements in a $3\times3$ stencil]{Overlapping elements
-        in a dense $3\times3$ stencil. Computation of each element requires nine
-        reads from the source array. If the four elements cooperate to share the
-        source data, instead of $4 \times 9 = 36$ loads, we require only 18.}
-    \label{fig:stencil_sharing}
-\end{figure}
-
-Suppose we wish to apply a dense $3\times3$ stencil to a single internal point
-in the array, and that every point in the array is utilised. Application of the
-stencil requires at least nine elements of the array to be loaded, and one store
-for the result. Since the computations of any point in the array do not depend
-on any others, this is an embarrassingly parallel operation, and elements can be
-computed in any order.
-
-When evaluating on a GPU, however, for good absolute performance the thread
-block should evaluate elements that are adjacent in memory.
-Figure~\ref{fig:stencil_sharing} shows the evaluate of four horizontally
-adjacent points. If we evaluate these points independently, we would need
-$4 \times 9 = 36$ loads of the source array and four stores to the result.
-However if the four threads cooperate and share data from the source array, this
-requires only 18 loads, as well as the four stores.
-
-Sharing of stencil elements can be achieved by having the thread block first
-cooperatively read the stencil elements into shared memory (\S tk), and then
-each thread computes its stencil function using these shared values. In
-Accelerate, and the CUDA backend in particular, this is complicated by two
-factors:
-%
-\begin{enumerate}
-    \item Stencil patterns can be large: up to 9 elements in each dimension.
-        Since the shared memory region on the GPU is usually very small, this
-        can significantly limit the maximum thread block size. If the occupancy
-        of the device is too low, there may be insufficient parallelism to hide
-        global memory transfer latency.
-
-    \item A stencil function does not need to use all elements defined in the
-        pattern, so reading all elements into shared memory could waste more
-        bandwidth than it saves. The pattern also does not need to be square nor
-        symmetric, which complicates efficient cooperative loading of the
-        common elements into shared memory.
-\end{enumerate}
-
-The implementation currently ignores this issue and does not explicitly share
-elements between threads, instead relying on the cache. For older (compute 1.x)
-devices that lack a traditional cache mechanism, we read the source array using
-the texture cache (a holdover from the device's graphical heritage). It is left
-to future work to implement sharing of stencil elements between threads, in
-general or specialised for certain cases, such as those commonly used in image
-convolutions.
-
-\subsection{Stencil fusion}
-
-\note{Fusion of \code{stencil s . map f} may be beneficial if \code{f} is
-simple. Shares concerns with previous.}
 
 
 \section{Canny edge detection}
@@ -958,7 +862,7 @@ times for just the first six data parallel phases, which exhibit linear speedup.
 
 Neglecting the final phase, note that the data parallel phase is still slightly
 slower than in OpenCV. As discussed in
-section~\ref{sec:stencil_bounds_checking}, this is because the stencil kernels
+section~\ref{sec:parallel_stencil}, this is because the stencil kernels
 in Accelerate currently make a test for every array access to see if the element
 is in bounds, or if it lies outside the array and needs to be handled specially,
 even though the vast majority of points in the array are far from the boundary.

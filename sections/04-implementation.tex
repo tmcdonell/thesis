@@ -199,13 +199,13 @@ attention~\cite{Sengupta:2007tc,Sengupta:2008ut,Dotsenko:2008fo,Harris:2012fy}.
     \begin{center}
         \includegraphics[width=\textwidth]{images/sec-4/scan}
     \end{center}
-    \caption[A parallel inclusive scan]{Illustration of a parallel scan, which
-        is performed in three steps. In the first step, 8 thread blocks compute
-        the partial scan result for each section of the array. The partial
-        results are then scanned by a single thread block in the second step.
-        In the final phase, the 8 thread blocks use the partial results as the
-        initial element when computing the final scan result for this section of
-        the array.}
+    \caption[A parallel inclusive scan]{Illustration of a parallel inclusive
+        left-to-right scan, which is performed in three steps. In the first
+        step, 8 thread blocks compute the partial scan result for each eight
+        element section of the array. The partial results are then scanned by a
+        single thread block in the second step. In the final phase, the 8 thread
+        blocks use the partial results as the initial element when computing the
+        final scan result for this section of the array.}
     \label{fig:fast_scan}
 \end{figure}
 
@@ -214,9 +214,8 @@ The basic binary-tree based scan algorithm proceeds in $\log N$ stages.
 % distinct elements of the input array and the output is stored into a new array.
 In order to compute scans efficiently on the GPU, the input array is decomposed
 into a number of blocks of size $B$, such that the scan of $B$ elements can be
-computed by a thread block locally in shared memory. This (inclusive) scan
-algorithm is depicted in Figure~\ref{fig:fast_scan}, and proceeds in three
-phases:
+computed by a thread block locally in shared memory. This inclusive scan
+algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
 %
 \begin{enumerate}
 \item All blocks are scanned in parallel, and the partial result (final scan
@@ -425,7 +424,7 @@ Implementing a spin-lock can be done similarly to the following:
     \item The spin lock procedure requires a temporary array to represent the
         lock state for each element of the output array. We use 1 to represent
         the locked state, and 0 to indicate the element is unlocked. To lock
-        element @i@ of the output array, we atomically store 1 into the lock
+        element @i@ of the output array, we atomically store 1 into the @lock@
         slot for this element, returning the @old@ state of the lock.
 
     \item If the @old@ state of the lock was unlocked (0) then we just acquired
@@ -433,11 +432,11 @@ Implementing a spin-lock can be done similarly to the following:
 
     \item Once the lock is acquired, the atomic section can be computed.
 
-    \item Write zero back into the lock slot for this element in order to
-        release the lock. A memory barrier or atomic operation, as used here, is
-        required for this step to ensure memory consistency on architectures
-        which do not have a strong memory model, such as CUDA devices (later x86
-        architectures can safely use an unlocked @MOV@ instruction).
+    \item To release the lock, write zero back into the lock slot for this
+        element. A memory barrier or atomic operation, as used here, is required
+        for this step to ensure memory consistency on architectures which do not
+        have a strong memory model, such as CUDA devices.
+        % (later x86 architectures can safely use an unlocked @MOV@ instruction).
 
 \end{enumerate}
 
@@ -698,9 +697,10 @@ we discriminate binary functions whose arguments commute, and return those
 arguments in a stable ordering by comparing a hash of each of the sub-terms.
 %
 \begin{lstlisting}[style=haskell]
-commutes :: PrimFun (a -> r)
-         -> PreOpenExp acc env aenv a
-         -> Maybe (PreOpenExp acc env aenv a)
+commutes
+    :: PrimFun (a -> r)
+    -> PreOpenExp acc env aenv a
+    -> Maybe (PreOpenExp acc env aenv a)
 commutes f x = case f of
   PrimAdd _     -> Just (swizzle x)
     ...         -> Nothing
@@ -1151,11 +1151,11 @@ chapter~\ref{ch:optimising}, and which appeared in \cite{McDonell:2013wi}.
 
 The fusion system distinguishes producer-producer and consumer-producer fusion.
 The former combines two skeletons where threads produce array elements
-independently (such as @map@), from skeletons where threads cooperate to
-produce an array (such as @fold@). Central to this approach is a
-representation of arrays as functions, which we called \emph{delayed
-arrays}\index{array!delayed} (in contrast to \emph{manifest
-arrays}\index{array!manifest}) which are represented as follows:
+independently, such as @map@, from skeletons where threads cooperate to produce
+an array, such as @fold@. Central to this approach is a representation of arrays
+as functions, which we called \emph{delayed arrays}\index{array!delayed} (in
+contrast to \emph{manifest arrays}\index{array!manifest}) which are represented
+as follows:
 %
 \begin{lstlisting}[style=haskell]
   Delayed           :: (Shape sh, Elt e) =>
@@ -1178,14 +1178,15 @@ backend is in the function @codegenAcc@, which turns an AST node of type
 kernel of type @CUSkeleton aenv a@:
 %
 \begin{lstlisting}[style=haskell]
-codegenAcc :: DeviceProperties
-           -> DelayedOpenAcc aenv a
-           -> Gamma aenv
-           -> CUSkeleton aenv a
-codegenAcc dev (Manifest pacc) aenv
-  = case pacc of
-      Fold f z a    -> mkFold dev aenv (codegenFun2 f) (codegenExp z) (codegenDelayed a)
-      ...
+codegenAcc
+    :: DeviceProperties
+    -> DelayedOpenAcc aenv a
+    -> Gamma aenv
+    -> CUSkeleton aenv a
+codegenAcc dev (Manifest pacc) aenv =
+  case pacc of
+    Fold f z a -> mkFold dev aenv (codegenFun2 f) (codegenExp z) (codegenDelayed a)
+    ...
 \end{lstlisting}
 %
 Here we see that @mkFold@, which generates an instance of the @fold@
@@ -1210,13 +1211,14 @@ active when Accelerate is compiling kernels in debugging mode.\footnote{Kernel
 debug mode is activated when the Accelerate CUDA backend is installed in debug
 mode, and the command line flag \footcode{-ddebug-cc} is provided.} In this case the
 embedded @zipWith@ operation is over two vectors, so no conversion to and
-from multidimensional indices was required.
+from multidimensional indices was required to generate the array elements.
 
 In contrast to the @map@ skeleton shown in Listing~\ref{lst:map_skeleton}, the
 code generated by @mkFold@ proceeds in two parallel phases. The first phase is a
 sequential @for@ loop including the use of the @getIn@ embedded producer
 function. The second phase begins at the line marked \emph{(2)} and implements a
-parallel tree reduction~(\S\ref{sec:parallel_reduction}).
+parallel tree reduction. See section~\ref{sec:parallel_reduction} for further
+details on the implementation of parallel reductions in CUDA.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:mkfold
@@ -1407,14 +1409,14 @@ instance Assign l r => Assign [l] [r] where
 \label{sec:shared_subexpressions}
 
 A well known problem with deeply embedded languages is the issue of
-\emph{sharing}, where --- without \emph{sharing recovery} --- each occurrence of
+\emph{sharing}, where, without \emph{sharing recovery}, each occurrence of
 a let-bound variable in the source program creates a separate unfolding of the
 bound expression in the reified program. To avoid this problem, we implemented a
 sharing recovery algorithm that recovers exactly those let-bindings used in the
 source language. See section~\ref{sec:sharing_recovery} for details on our
-approach to sharing recovery~\cite{McDonell:2013wi}, which is a variant of
-Gill's observable sharing~\cite{Gill:2009dx} --- his paper also discusses the
-issue of sharing in embedded languages in greater detail.
+approach to sharing recovery, which appeared in~\cite{McDonell:2013wi} and is a
+variant of Gill's observable sharing~\cite{Gill:2009dx} --- his paper also
+discusses the issue of sharing in embedded languages in greater detail.
 
 Following sharing recovery and conversion of the source language program into
 the internal \indext{de Bruijn} representation, sharing of scalar
@@ -1437,11 +1439,9 @@ the expressions representing let-bound terms. These additional terms must be
 evaluated before evaluation of the body.
 %
 \begin{lstlisting}[style=haskell]
-data Gen = Gen
-  { unique          :: Int
-  , localBindings   :: [C.BlockItem]
-  , usedTerms       :: Set C.Exp                    -- see section~\ref{sec:eliminating_dead_code}
-  }
+data Gen = Gen { unique        :: Int
+               , localBindings :: [C.BlockItem]
+               , usedTerms     :: Set C.Exp }                            -- see section~\ref{sec:eliminating_dead_code}
 \end{lstlisting}
 
 When code generation encounters a let binding, we first generate code for the
@@ -1512,8 +1512,8 @@ CUDA compiler to improve register allocation.
 Generating code with explicit scoping may also remove the need for a monad to
 generate fresh names, since unique names can be derived based on the de Bruijn
 \emph{level} of the expression, which can be determined from the size of the
-environment. This is the method used when pretty printing Accelerate
-expressions.
+environment. This idea is used when pretty printing Accelerate expressions,
+which is done without the need for a monad to generate fresh names.
 
 
 \subsection{Eliminating dead code}
@@ -1563,11 +1563,11 @@ codegenFun1
     -> Gamma aenv
     -> DelayedFun aenv (a -> b)
     -> CUFun1     aenv (a -> b)
-codegenFun1 dev aenv (Lam (Body f))
-  = let
-        dummy        = locals "undefined_x" (undefined :: a)                       -- (1)
-        Gen _ _ used = execGen $ codegenOpenExp dev aenv f (Empty `Push` dummy)    -- (2)
-    ...
+codegenFun1 dev aenv (Lam (Body f)) =
+  let
+      dummy        = locals "undefined_x" (undefined :: a)                         -- (1)
+      Gen _ _ used = execGen $ codegenOpenExp dev aenv f (Empty `Push` dummy)      -- (2)
+  ...
 \end{lstlisting}
 %
 During code generation we build a set containing the variables that are used in
@@ -1578,9 +1578,9 @@ input variable is present in the set:
 %
 \begin{lstlisting}[style=haskell]
 deadCodeElim :: Set C.Exp -> [C.Exp] -> [a] -> [(Bool,a)]
-deadCodeElim used vars
-  = let flags = map (\x -> x @Set.member@ used) vars
-    in  zipWith (,) flags
+deadCodeElim used vars =
+  let flags = map (\x -> x `Set.member` used) vars
+  in  zipWith (,) flags
 \end{lstlisting}
 
 During code generation, we must decide when to add variables to the set. In
@@ -1594,7 +1594,7 @@ visit exp
   | otherwise   =                 return exp
 
 markAsUsed :: C.Exp -> Gen ()
-markAsUsed x`C.Exp{} = modify (\s -> s { usedTerms = Set.insert x (usedTerms s)} )
+markAsUsed x@C.Exp{} = modify (\s -> s { usedTerms = Set.insert x (usedTerms s)} )
 markAsUsed _         = return ()
 \end{lstlisting}
 
@@ -1609,13 +1609,13 @@ function: once to generates usage information, and then again each time the
 function is instantiated with a particular set of variables.
 %
 \begin{lstlisting}[style=haskell,firstnumber=7]
-codegenFun1 dev aenv (Lam (Body f))
-  = let
-        dummy        = ...
-        Gen _ _ used = execGen $ codegenOpenExp ...
-    in
-    CUFun1 (deadCodeElim used dummy)
-           (\xs -> evalGen $ codegenOpenExp dev aenv f (Empty @Push@ xs))
+codegenFun1 dev aenv (Lam (Body f)) =
+  let
+      dummy        = ...
+      Gen _ _ used = execGen $ codegenOpenExp ...
+  in
+  CUFun1 (deadCodeElim used dummy)
+         (\xs -> evalGen $ codegenOpenExp dev aenv f (Empty `Push` xs))
 \end{lstlisting}
 
 Furthermore, this method only eliminates unused inputs to a scalar function. If
@@ -1681,7 +1681,7 @@ y0 = arrIn0_a0[v3] * arrIn1_a0[v4];
 \end{lstlisting}
 %
 Here, @shape@ and @toIndex@ are C functions provided by the library, which map
-multi-dimensional indices to the linear array representation. Since the source
+multidimensional indices to the linear array representation. Since the source
 arrays are vectors, they do not contribute anything to the example, in
 particular, their definitions are:
 %
@@ -1806,7 +1806,7 @@ Kepler architecture (compute capability 3.5) introduced \emph{dynamic
 parallelism}, whereby GPU threads are able to launch new parallel operations.
 At this time Accelerate does not make use of this feature. Moreover, in this
 case this is not what we want, because each thread would spawn a new instance of
-the same parallel operation, rather than computing the result once and sharing
+the same parallel operation, rather than computing the array once and sharing
 the result.}
 
 Nevertheless, even though array valued arguments to scalar functions will always

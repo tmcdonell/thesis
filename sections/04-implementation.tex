@@ -1876,7 +1876,7 @@ multiple Accelerate backends.
 Given that Accelerate is an embedded language in Haskell, it might seem that
 Haskell's standard FFI should be sufficient to enable interoperability
 with foreign code. However, this is not the case. With Haskell's standard FFI,
-we can call C functions that in turn invoke GPU computaitons from Haskell host
+we can call C functions that in turn invoke GPU computations from Haskell host
 code. However, we want to call GPU computations from within embedded Accelerate
 code and pass data structures located in GPU memory directly to native CUDA code
 and vice versa. The latter is crucial, as transferring data from CPU memory to
@@ -2084,10 +2084,10 @@ data KernelEntry
     | KernelObject ByteString (FullList CUDA.Context CUDA.Module)                  -- (2)
 \end{lstlisting}
 
-The cache is a hash table which is keyed by an MD5~\cite{Rivest:1992va} digest
-of the generated CUDA code which instantiates the skeleton, as well as the
-compute capability the generated code was specialised and compiled for. The hash
-table value can either refer to:
+The \emph{program cache} is a hash table which is keyed by an
+MD5~\cite{Rivest:1992va} digest of the generated CUDA code which instantiates
+the skeleton, as well as the compute capability the generated code was
+specialised and compiled for. The hash table value can either refer to:
 %
 \begin{enumerate}
 \item A currently compiling external process. This records the path of the file
@@ -2107,9 +2107,10 @@ table value can either refer to:
 This scheme effectively caches kernels both within the same Accelerate
 computation and across different Accelerate expressions. However, it must be
 regenerated ever time the program is executed, which increases program startup
-time. Once a kernel is compiled, the binary object code is saved in the user's
-home directory so that it is available across separate runs of the program, or
-indeed different programs. This information is stored in a persistent cache:
+time. To alleviate this, once a kernel is compiled, the binary object code is
+saved in the user's home directory so that it is available across separate runs
+of the program, or indeed different programs. This information is stored in a
+\emph{persistent cache}:
 %
 \begin{lstlisting}[style=haskell,numbers=none]
 type PersistentCache = MVar ( HashTable KernelKey () )
@@ -2188,12 +2189,13 @@ Looking for entries in the kernel table entails first search the in-memory
 program cache, which represents kernels that are (a) currently compiling; (b)
 compiled, but not linked into the current context; or (c) compiled and linked
 into the current context. If the kernel is not available in the program cache,
-the persistent cache is searched. If found, the associated object file is linked
-into the current context, and the program cache is updated to include this
-entry. Conversely, the persistent cache must be explicitly updated after each
-new kernel is compiled; the current behaviour for adding entries to the kernel
-table only updates the in-memory cache, and does not attempt to keep the two
-caches synchronised.
+then (d) the persistent cache is searched. If found in the persistent cache, the
+associated object file is linked into the current context, and the program cache
+is updated to include this entry. As each new kernel is compiled, it is added to
+the program cache, and the on-disk persistent cache file is updated once
+compilation completes and the file is linked. The current implementation does
+not attempt to keep the in-memory and on-disk representations of the persistent
+cache synchronised.
 
 
 \subsection{Conclusion}
@@ -2206,8 +2208,8 @@ of (a) kernel caching, which eliminates duplicate compilations; (b) asynchronous
 compilation, which compiles multiple kernels simultaneously and overlaps
 compilation with other execution tasks; and (c) a method of annotating the
 Accelerate program which associates each collective operation in the program
-with the compiled kernels which will be used to implement the operation. This
-last point will be discussed in section~\ref{sec:annotating_array_programs}.
+with the compiled kernels which will be used to implement the operation (see
+section~\ref{sec:annotating_array_programs}).
 
 
 \section{Data transfer \& garbage collection}
@@ -2298,10 +2300,10 @@ square :: (Elt e, IsNum e, Shape sh) => Array sh e -> Acc (Array sh e)
 square xs = zipWith (*) (use xs) (use xs)
 \end{lstlisting}
 
-Since the two @use@ nodes refer to the same array on the heap, they will
-share the same array in GPU memory, and thus the data is only copied once.
-This is a happy consequence of the method we use to uniquely associate host and
-device arrays.
+As we shall see, since the two @use@ nodes refer to the same array on the heap,
+they will share the same array in GPU memory, and thus the data is only copied
+once. This is a happy consequence of the method we use to uniquely associate
+host and device arrays.
 
 \subsubsection{Inter-expression sharing}
 
@@ -2429,7 +2431,7 @@ worthwhile mentioning that care should be taken with the implementation of
 transferring an array to the device via @use@. In particular, that the
 array data is only transferred on the first @use@ attempt, when a fresh
 device array was allocated. If the @use@ operation is separated into its
-constituent @malloc@ and @poke@ operations, this is easily overlooked
+constituent @malloc@ and @poke@ operations, this is easily overlooked,
 resulting in the array data being needlessly transferred every time @use@
 is called. As explained in section~\ref{sec:host_device_transfers}, the mapping
 of host to device arrays ensures that the memory allocation will only ever be
@@ -2504,7 +2506,7 @@ lookup ctx (MemoryTable ref _ _) arr = do
     pointer to find the actual value. On success, a type-safe cast is used to
     recover the existentially quantified type of the array data.
 
-\item However there is an awkward race condition here, because at the moment
+\item However, there is an awkward race condition here, because at the moment
     @deRefWeak@ is called there might, conceivably, be no further
     references to the host array @arr@. If that is so, and a garbage
     collection intervenes, the weak pointer might be tombstoned (made
@@ -2512,8 +2514,8 @@ lookup ctx (MemoryTable ref _ _) arr = do
     throw an error, but in doing so this makes @arr@ reachable in the
     continuation of @deRefWeak@, and thus ensures @deRefWeak@ will
     always succeed. This sort of weirdness, typical of the world of weak
-    pointers, is why we can not reuse the stable name @sa@ computed above
-    in the error message.
+    pointers, is why we can not reuse the stable name @sa@ computed at (1) in
+    the error message.
 \end{enumerate}
 
 In addition to the memory table which tracks associations between host and
@@ -2646,7 +2648,7 @@ on the device. Future work could improve handling of programs which exceed the
 available memory, for example in the case where this is due to the use of many
 intermediate or input arrays, but where individual sub-problems fit within the
 available memory. In this case, arrays that are not required for the current
-calculation can be evacuated from the device by transferring data back to the
+calculation could be evacuated from the device by transferring data back to the
 associated host-side array, and re-transferred back to the device only once
 required.
 
@@ -2663,7 +2665,7 @@ change the physical location of the data, such as moving the data to disk in
 order to free up memory for other applications. Since the location of pageable
 memory can change, and may not exist in physical RAM at all, this memory can not
 be directly accessed by the GPU\@. Instead, when copying data to the GPU from
-pageable memory, the CUDA library must first copy the data to a staging area
+pageable memory, the CUDA runtime must first copy the data to a staging area
 allocated using pinned memory, and then transfer the data to the device from the
 staging area. Only the second step of this process proceeds asynchronously.
 Allocations on the host are currently handled by the core Accelerate package,
@@ -2787,7 +2789,7 @@ of the program AST are parameterised by the recursive knot
 (\S\ref{sec:knot_tying}):
 %
 \begin{lstlisting}[style=haskell]
-data PreOpenAcc acc aenv a where
+data PreOpenAcc acc aenv a where                -- the type parameter \emph{\texttt{acc}} is the ``recursive knot''
     Map :: (Shape sh, Elt a, Elt b)
         => PreFun     acc aenv (a -> b)
         -> acc            aenv (Array sh a)
@@ -2811,8 +2813,8 @@ rather than at each invocation of the function generating code for each
 operation and finding the compiled code already exists in the kernel cache, we
 would instead like to know precisely which kernel object needs to be executed
 without even consulting the caches. The Accelerate CUDA backend uses the
-knot-tying technique described in the previous section (\S\ref{sec:knot_tying})
-in order to achieve this.
+knot-tying technique % described in the previous section (\S\ref{sec:knot_tying}) in order
+to achieve this.
 % to decorate each node of the program AST with all of the information required to
 % execute the kernel(s) implementing that operation, and exposes this
 % functionality by use of the @run1@ operation.
@@ -2873,7 +2875,7 @@ data AccKernel a where
 \item Once the kernel is compiled, details such as the number of registers
     required for each thread can be used to determine the optimal launch
     configuration of the kernel. In particular, the configuration is chosen in
-    order to maximum \indexe{thread occupancy}, which is discussed further in
+    order to maximise \indexe{thread occupancy}, which is discussed further in
     section~\ref{sec:thread_occupancy}.
 %    , which is the ratio of active
 %    warps (i.e.\ warps that could run) to the maximum possible number of active
@@ -3012,12 +3014,12 @@ cases:
 %
 In summary, the execution pass interleaves host-side evaluation and the
 invocation of GPU kernels, while keeping track of device memory, allocating
-intermediates, and releasing memory once no longer required (see
-section~\ref{sec:memory_management} for details on memory management). GPU
+intermediates, and releasing memory once no longer required. See
+section~\ref{sec:memory_management} for details on memory management. GPU
 kernels execute asynchronously, so the evaluator is able to immediately begin to
 set up the next stage of the computation while the current kernel executes. The
-CUDA runtime maintains a queue of kernels to be executed on the device, known as
-an execution \emph{stream}.
+CUDA runtime maintains the sequence of kernels to be executed on the device,
+known as the execution \emph{stream}.
 % so if the result of an asynchronously executing kernel is needed before the
 % kernel completes, any kernels that depend on that result will only be invoked
 % after the kernel completes.
@@ -3040,7 +3042,7 @@ execute in order; different streams, on the other hand, may execute their
 commands out of order with respect to one another or concurrently. To allow
 streams to synchronise, an \indexe{event} may be inserted into a stream. Any
 stream may delay execution until a given event has been posted, which allows
-efficient cross-stream synchronisation managed by the device.
+efficient cross-stream synchronisation that is managed by the device.
 
 The Accelerate CUDA backend introduces concurrency when evaluating the bound
 expression at a let binding, and synchronises when looking up a bound variable
@@ -3104,23 +3106,31 @@ streaming ctx rsv`(Reservoir _ weak_rsv) bnd body = do
     return body'
 \end{lstlisting}
 %
-Here the function @create@ allocates a new execution stream (1). It uses a
-technique similar to the @Nursery@ (\S\ref{sec:memory_manager_implementation})
-to reuse execution streams that are currently idle. Thus @create@ takes an
-inactive stream from the @Reservoir@ if one is available, allocating a new
-execution stream otherwise.
+\begin{enumerate}
+\item The function @create@ allocates a new execution stream. It uses a
+    technique similar to the @Nursery@
+    (\S\ref{sec:memory_manager_implementation}) to reuse execution streams that
+    are currently idle, taking an inactive stream from the @Reservoir@ if one is
+    available, or allocating a new execution stream otherwise.
 %
-\begin{lstlisting}[style=haskell]
-type RSV        = MVar ( HashTable CUDA.Context (FullList () Stream) )
-data Reservoir  = Reservoir RSV (Weak RSV)
-\end{lstlisting}
-%
-The bound expression is then executed asynchronously assigned to the new stream
-(2), and then the body expression evaluated (3). Unlike the implementation of
-the memory manager, events and streams never remain active outside the
-evaluation of an Accelerate program, so the stream and event associated with
-evaluating the binding are explicitly deallocated after evaluation of the body
-completes (4).
+% \begin{lstlisting}[style=haskell]
+% type RSV        = MVar ( HashTable CUDA.Context (FullList () Stream) )
+% data Reservoir  = Reservoir RSV (Weak RSV)
+% \end{lstlisting}
+
+\item The bound expression is executed asynchronously, assigned to the new
+    @Stream@.
+
+\item The body of the expression is evaluated. The extended array environment
+    includes the event @end@, which will be signalled once the result of the
+    binding is available.
+
+\item Unlike the implementation of the memory manager, events and streams never
+    remain active outside the evaluation of an Accelerate program, so the stream
+    and event associated with evaluating the binding are explicitly deallocated
+    after evaluation of the body completes.
+
+\end{enumerate}
 
 At an example, Listing~\ref{lst:concurrent_kernels} contains an example program
 that is able to execute the nine @map@ operations concurrently on devices of
@@ -3177,18 +3187,19 @@ opportunities for concurrent kernel execution.
 
 It is left to future work to provide some analysis of when it would be
 beneficial to avoid fusing operations, on the basis that it would be more
-efficient to instead execute the two parts concurrently. Such an analysis would
-need to take into account the hardware that the program is to be executed on, as
-well as an estimate of how much of the GPU's resources each kernel requires, in
-order to determine if the two kernels could be scheduled concurrently.
+efficient to instead execute the two sub-computations concurrently. Such an
+analysis would need to take into account the hardware that the program is to be
+executed on, as well as an estimate of how much of the GPU's resources each
+kernel requires. This is required in order to determine if the two kernels could
+be scheduled concurrently.
 
 
 \subsection{Conclusion}
 
 Runtime system operations are important, as they partially compensate for the
-overhead of being an embedded language; of needing to traverse the program AST
-in order to evaluate it. The Accelerate runtime system is designed to execute
-programs as efficiently as possible, which in turn helps maximise the
+overhead of being an embedded language; that is, of needing to traverse the
+program AST in order to evaluate it. The Accelerate runtime system is designed
+to execute programs as efficiently as possible, which in turn helps maximise the
 computational utilisation of the device, and ensure all processors are kept
 busy.
 
@@ -3200,7 +3211,7 @@ can be executed concurrently, on devices which support this. The single most
 important optimisation, however, is that each node of the program AST is
 decorated with all of the data required do execute that operation. For programs
 which are executed more than once, this means that the costly front-end analysis
-and code generation states of program execution can be skipped on the second and
+and code generation steps of program execution can be skipped on the second and
 subsequent invocations of the program, and kernels can begin executing
 immediately. This process happens automatically, and almost\footnote{The user
 user must express their program in the form of a function of one array argument,

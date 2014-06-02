@@ -3353,10 +3353,21 @@ been released.
 
 \section{Discussion}
 
+This chapter has detailed the implementation of the Accelerate language and the
+CUDA generating backend targeting parallel execution on NVIDIA GPUs. We
+discussed our approach to skeleton-based code generation, as well as the caching
+mechanisms that are implemented in order to reduce the overheads of the
+embedding, such as of runtime code generation and compilation. This chapter also
+dealt with the issue of memory management and data transfer, which is a key
+consideration to achieving high performance. Finally, we discussed the execution
+of the generated GPU kernels, including launch configuration and concurrent
+execution optimisations, in order to maximise device utilisation and help reduce
+overall program run times.
 
-%
-% END
-%
+Now that we can compile and run Accelerate programs on the GPU, the next chapter
+covers how to optimise Accelerate programs. In particular, we introduce our
+type-safe approaches to sharing recovery and array fusion, which we identify as
+the two most pressing performance limitations.
 
 
 % \marginnote{perhaps split differently: real vs. embedded languages?}

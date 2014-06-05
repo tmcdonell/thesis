@@ -80,7 +80,7 @@ Accelerate is a \emph{deeply embedded} language, meaning that evaluating an
 Accelerate program does not directly issue computations; instead, it builds an
 \indexe{abstract syntax tree} (AST) that represent the embedded computation
 (\S\ref{sec:EDSLs}). This AST is later executed by an Accelerate backend to
-compute the result on a given backend target.
+compute the result on a given backend target (\S\ref{sec:executing_programs}).
 
 A well known problem of defining deeply embedded languages in this way is the
 issue of \indexe{sharing}. The deeply embedded language implementation of
@@ -244,7 +244,7 @@ other floated subterms; here, 8 stays inside the subterm rooted at 5.
 
 Finally, each floated subterm gets let-bound right above the node it floated to,
 as shown in the rightmost diagram of Figure~\ref{fig:sharing_recovery}. At the
-same time, we convert the AST into nameless \indext{de Bruijn} form by
+same time, the AST is converted into nameless \indext{de Bruijn} form by
 introducing de Bruijn indices at the same time as introducing the lets.
 
 
@@ -261,12 +261,14 @@ elimination, where we look for expressions of the form:
 %\bf$\langle$ common subexpression elimination $\rangle$% let x = e1 in [x/e1]e2
 \end{lstlisting}
 %
-and replace all occurrences of @e1@ in @e2@ with @x@. Thus, this method relies on the
-introduction of let-bindings into the reified program by the sharing recovery algorithm, described
-in the previous section (\S\ref{sec:sharing_recovery}). Moreover, this method will not eliminate any
-common subexpressions that are not already defined in the source program. This might not completely
-eliminate redundant expressions from the program, but is sufficient to catch some cases, in
-particular those that tend to be introduced during the array fusion optimisation.
+and replace all occurrences of @e1@ in @e2@ with @x@. This method relies on the
+introduction of let-bindings into the reified program by the sharing recovery
+algorithm, described in the previous section (\S\ref{sec:sharing_recovery}), so
+can not eliminate any common subexpressions that are not already defined in the
+source program. Thus, the method might not completely eliminate all redundant
+expressions from the program, but is sufficient to catch some cases, in
+particular those that tend to be introduced during the array fusion
+optimisation, described in the following section.
 %\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
 
 While it may seem that common subexpression elimination is always worthwhile, as
@@ -277,8 +279,8 @@ shared expression's value, which hence reduces the number of registers available
 for other uses. Even worse is if that value has to be spilled to memory because
 there are insufficient registers available, or if the number of active threads
 is too low to be able to hide global memory access latency
-(\S\ref{sec:thread_occupancy}). We sidestep this tricky and target-dependent
-issue by, for now, simply ignoring it.
+(\S\ref{sec:thread_occupancy}). Investigation of this tricky target-dependent
+issue is left for future work.
 
 
 \section{Array fusion}
@@ -298,7 +300,7 @@ sum_of_squares n
     $ enumFromTo 1 n            -- generate list of numbers [1..n]
 \end{lstlisting}
 %
-but while the meaning of the program is clear, it is inefficient, as this code
+While the meaning of the program is clear, it is inefficient, as this code
 produces two intermediate lists of numbers which each require $O(n)$ memory to
 store and data transfers to manipulate. Instead, one could write the program
 as a single tail-recursive loop as such:
@@ -468,22 +470,27 @@ parallel processors such as GPUs\index{graphics processing unit}. Consumers are
 a different story, as we need to know exactly how the elements depend on each
 other in order to implement them efficiently in parallel. For example, a
 reduction (with associative operator) can be implemented efficiently in
-parallel as a tree reduction, but a parallel scan requires two distinct phases
-(\S\ref{sec:parallel_scan}). Unfortunately, this is the sort of
-information that is obfuscated by most fusion techniques
-(\S\ref{sec:fusion_related_work}). To support the different properties of
-producers and consumers, the fusion transform is split into two distinct phases:
+parallel as a recursive tree reduction (\S\ref{sec:parallel_reduction}), but a
+parallel scan requires two distinct phases (\S\ref{sec:parallel_scan}).
+Unfortunately, this is the sort of information that is obfuscated by most fusion
+techniques (\S\ref{sec:fusion_related_work}). To support the different
+properties of producers and consumers, the fusion transform is split into two
+distinct phases:
 %
-\begin{itemize}
-    \item \emph{Producer/producer:} fuse sequences of producers into a single
-        producer. This is implemented as a source-to-source transformation on
-        the \index{abstract syntax tree}AST\@.
+\begin{enumerate}
+    \item \emph{Producer/producer:} A bottom-up contraction of the AST that
+        fuses sequences of producers into a single producer. This is implemented
+        as a source-to-source transformation on the \index{abstract syntax
+        tree}AST\@.
 
-    \item \emph{Producer/consumer:} fuse producers followed by a consumer into
-        the consumer. This happens during code generation, where we specialise
-        the consumer skeleton by directly embedding the producer code for
-        generating each element.
-\end{itemize}
+    \item \emph{Producer/consumer:} A top-down transformation that annotates the
+        AST as to which nodes should be computed to manifest data and which
+        should be embedded into their consumers. This process is ultimately
+        completed during code generation, where we specialise the consumer
+        skeleton by directly embedding the code for producing each element into
+        the skeleton.
+
+\end{enumerate}
 
 \begin{figure}[htb]
     \flushright \small(Before fusion)\qquad\\
@@ -542,7 +549,8 @@ this would require a number of rewrite rules quadratic in the number of
 operations that are to be fused. This was the problem with Wadler's original
 deforestation algorithm~\cite{Wadler:1981hy,Wadler:1990ix}. The representation
 must also be sufficiently expressive to represent all operations we want to
-fuse, which was a limitation of \index{fusion!foldr/build}@foldr/build@ fusion.
+fuse, which was a limitation of \index{fusion!foldr/build}@foldr/build@
+fusion~\cite{Gill:1993de}.
 
 
 \subsection{Representing Producers}
@@ -550,7 +558,7 @@ fuse, which was a limitation of \index{fusion!foldr/build}@foldr/build@ fusion.
 
 The basic idea behind the representation of producer arrays in Accelerate is
 well known: simply represent an array by its size and a function mapping array
-indices to their corresponding values. This method is used successively to
+indices to their corresponding values. This method has been used successfully to
 optimise purely functional array programs in \index{fusion!delayed
 arrays}Repa~\cite{Keller:2010er}, and has also been used by
 others~\cite{Claessen:2012hl}.
@@ -581,7 +589,7 @@ intent. Indeed, if @mmMult@ consumes its elements in a non-linear manner,
 accessing elements more than once, the computation of @f@ will be performed
 every time. We must be able to represent some terms as manifest arrays so that a
 delayed-by-default representation can not lead to an arbitrary loss of sharing.
-This is a well known problem with Repa.
+This is a well known problem with Repa~\cite{Lippmeier:2012g}.
 
 The other consideration is \emph{efficiency}. Since we are targeting a massively
 parallel architecture designed for performance, it is better to use more
@@ -641,7 +649,7 @@ array environment @aenv@, and has three constructors:
 \end{enumerate}
 
 Note that the argument arrays to @Done@ and @Step@ are not expressed as terms in
-@acc@, the type of collective array operations. Instead requiring a \indext{de
+@acc@, the type of collective array operations. Instead, requiring a \indext{de
 Bruijn} index (@Idx@) into the array environment ensures that the argument array
 is manifest. Thus the definition of @Cunctation@ is non-recursive in the type of
 array computations. This allows the representation to be (later) embedded within
@@ -673,7 +681,7 @@ let-bindings currently in scope at this point of the AST\index{abstract syntax
 tree} that we are analysing. The data constructor contains an
 existentially typed @aenv'@. This existential is witnessed by the first argument
 @Extend@, that contains any additional array terms collected during the fusion
-process (\S\ref{sec:environment_manipulation}). The actual array representation
+process (\S\ref{sec:environment_manipulation}). The delayed array representation
 in the second argument is expressed in terms of this extended environment, so
 has access to any terms from the AST (@aenv@) as well as those additional
 bindings introduced by @Extend@ (@aenv'@).
@@ -733,23 +741,23 @@ compute (Embed env cc) = bind env (compute' cc)
 
 compute' :: Arrays arrs => Cunctation acc aenv arrs -> PreOpenAcc acc aenv arrs
 compute' cc = case simplify cc of
-  Done v        -> Avar v               -- a manifest array
-  Yield sh f    -> Generate sh f        -- array from indexing function
-  Step sh p f v                         -- special cases...
+  Done v        -> Avar v                       -- a manifest array
+  Yield sh f    -> Generate sh f                -- array from indexing function
+  Step sh p f v                                 -- special cases...
     | Just REFL <- match sh (arrayShape v)
     , Just REFL <- isIdentity p
     , Just REFL <- isIdentity f
-    -> Avar v                           -- an unmodified manifest array
+    -> Avar v                                   -- an unmodified manifest array
 
     | Just REFL <- match sh (arrayShape v)
     , Just REFL <- isIdentity p
-    -> Map f (avarIn v)                 -- linear indexing OK
+    -> Map f (avarIn v)                         -- linear indexing OK
 
     | Just REFL <- isIdentity f
-    -> Backpermute sh p (avarIn v)      -- pure index transform
+    -> Backpermute sh p (avarIn v)              -- pure index transform
 
     | otherwise
-    -> Transform sh p f (avarIn v)      -- index \& value transform
+    -> Transform sh p f (avarIn v)              -- index \& value transform
 \end{lstlisting}
 
 Finally, we convert the delayed representations into manifest data using the
@@ -766,15 +774,23 @@ the term $\lambda x.x$, and in the positive case witnesses that its type must be
 
 \subsection{Producer/Producer Fusion}
 \label{sec:producer_producer_fusion}
-% TK: rules for each of the smart constructors? kinda obvious once the
-% representation is established
 
-Producer/producer fusion is achieved by converting terms into the array
-representation discussed in the previous section
-(\S\ref{sec:representing_producers}), and merging sequences of producers into a
-single operation. Smart constructors for each producer term manage the
-integration with successive producers. For example, Listing~\ref{lst:mapD} shows
-the smart constructor used to generate the fused version of @map@.
+The first phase of the fusion transformation is to merge sequences of producer
+functions. Consider the canonical example of map/map fusion, where we would like
+to convert the operation @map f (map g xs)@ into the equivalent but more
+efficient representation of @map (f . g) xs@, which only makes a single
+traversal over the array. While it would be relatively straightforward to
+traverse the AST and replace the @map/map@ sequence with the combined
+expression, manipulating the source terms directly in this manner requires a
+number of rewrite rules quadratic in the number of combinators we wish to fuse.
+This approach does not scale.
+
+Instead, producer/producer fusion is achieved by converting terms into the array
+representation discussed in section~\ref{sec:representing_producers}, and
+merging sequences of these terms into a single operation. Smart constructors for
+each producer manage the integration with predecessor terms. For example,
+Listing~\ref{lst:mapD} shows the smart constructor used to generate the fused
+version of @map@.
 
 \begin{lstlisting}[style=haskell_float
     ,caption={Smart constructor for fusing the \code{map} operation}
@@ -787,12 +803,13 @@ mapD f (step  -> Just (Step sh ix g v)) = Step sh ix (f `compose` g) v
 mapD f (yield -> Yield sh g)            = Yield sh (f `compose` g)
 \end{lstlisting}
 
-We use two helper functions, @step@ and @yield@, to expose the only
-two interesting cases, and compose (\S\ref{sec:function_composition}) the
-input function @f@ into the appropriate place in the constructor. Index
-transformation functions such as @backpermute@ proceed in the same manner.
-The helper functions @step@ and @yield@ operate by converting the input
-@Cunctation@ into the constructor with the same name.
+The smart constructor @mapD@ uses two helper functions, @step@ and @yield@, to
+expose the only two interesting cases of the delayed representation for this
+operation, and compose (\S\ref{sec:function_composition}) the input function @f@
+into the appropriate place in the constructor. Index transformation functions
+such as @backpermute@ proceed in the same manner. The helper functions @step@
+and @yield@ operate by converting the input @Cunctation@ into the constructor of
+the same name:
 %
 \begin{lstlisting}[style=haskell]
 step :: Cunctation acc aenv (Array sh e) -> Maybe (Cunctation acc aenv (Array sh e))
@@ -821,74 +838,155 @@ representation (ignoring the impossible unmatched cases).
 The only producer case that must be handled specially is  that of @zipWith@, as
 this is the only producer which consumes multiple arrays (see
 Listing~\ref{lst:producer_consumer_operations}). In contrast to, for example,
-@foldr/build@\index{fusion!foldr/build}, we are able to fuse in both of the
-input arguments.
+@foldr/build@\index{fusion!foldr/build}, we are able to fuse the operation in
+both of the input arguments. The @zipWith@ smart constructor is shown in
+Listing~\ref{lst:zipWithD}. We note the following characteristics:
 %
-\begin{lstlisting}[style=haskell
+\begin{enumerate}
+\item Because it is advantageous to express operations in the most specific way
+    possible, @zipWith@ considers the special case of when the two input arrays
+    derive from the same manifest source data with the same indexing pattern.
+
+\item The default behaviour is to convert both input arrays into functions from
+    indices to elements, and @combine@ these into a single indexing function.
+
+\item The function @combine@ completes the task of drawing an element from each
+    of the input arrays and combining them with the binary function @f@, being
+    sure to let-bind the intermediate results along the way.
+
+\item The first guard requires a type signature, otherwise the type variable @e@
+    introduced by the weakening step will ``escape'', and can not be unified
+    correctly. This new parameter @e@ represents for (1) the array element type,
+    and at (2) the array index type.
+
+\end{enumerate}
+
+\begin{lstlisting}[style=haskell_float
     ,name=zipWithD
     ,label=lst:zipWithD
-    ,caption={[Smart constructor for fusing the \code{zipWith} operation]}]
+    ,caption={Smart constructor for fusing the \code{zipWith} operation}]
 zipWithD :: (Shape sh, Elt a, Elt b, Elt c)
          => PreFun     acc aenv (a -> b -> c)
          -> Cunctation acc aenv (Array sh a)
          -> Cunctation acc aenv (Array sh b)
          -> Cunctation acc aenv (Array sh c)
 zipWithD f cc1 cc0
-\end{lstlisting}
-%
-Because it is advantageous to express operations in the most specific way
-possible, @zipWith@ considers the special case of when the two input arrays
-happen to derive from the same manifest data:
-%
-\begin{lstlisting}[style=haskell,name=zipWithD]
   | Just (Step sh1 p1 f1 v1)    <- step cc1
   , Just (Step sh0 p0 f0 v0)    <- step cc0
   , Just REFL                   <- match v1 v0
   , Just REFL                   <- match p1 p0
-  = Step (sh1 `Intersect` sh0) p0 (combine f f1 f0) v0
-\end{lstlisting}
-%
-In general, we simply convert both inputs into functions from indices to
-elements and combine:
-%
-\begin{lstlisting}[style=haskell,name=zipWithD]
+  = Step (sh1 `Intersect` sh0) p0 (combine f f1 f0) v0                                 -- (1)
+
   | Yield sh1 f1                <- yield cc1
   , Yield sh0 f0                <- yield cc0
-  = Yield (sh1 `Intersect` sh0) (combine f f1 f0)
-\end{lstlisting}
-%
-The function @combine@ completes the task of drawing an element from each
-of the input arrays and combining them with the binary function @f@, being
-sure to let-bind the intermediate results along the way.
-%
-\begin{lstlisting}[style=haskell
-    ,name=zipWithD
-    ,caption={Smart constructor for fusing the \code{zipWith} operation}]
+  = Yield (sh1 `Intersect` sh0) (combine f f1 f0)                                      -- (2)
   where
     combine :: forall acc aenv a b c e. (Elt a, Elt b, Elt c)
             => PreFun acc aenv (a -> b -> c)
             -> PreFun acc aenv (e -> a)
             -> PreFun acc aenv (e -> b)
             -> PreFun acc aenv (e -> c)
-    combine c ixa ixb
-      | Lam (Lam (Body c')) <- weakenFE SuccIdx c                                    -- (1)
+    combine c ixa ixb                                                                  -- (3)
+      | Lam (Lam (Body c')) <- weakenFE SuccIdx c                                      -- (4)
                                         :: PreOpenFun acc ((),e) aenv (a->b->c)
       , Lam (Body ixa')     <- ixa
       , Lam (Body ixb')     <- ixb
       = Lam $ Body $ Let ixa' $ Let (weakenE SuccIdx ixb') c'
 \end{lstlisting}
+
+The first phase of fusion can now be completed via bottom-up tree contraction of
+the AST\index{abstract syntax tree}. Smart constructors for each of the producer
+functions are used to convert terms into the intermediate representation, and
+adjacent producer/producer terms are merged. Listing~\ref{lst:embedPreAcc}
+demonstrates the procedure.
 %
-Note the first guard in @combine@ \emph{(1)} requires a type signature,
-otherwise the type variable @e@ introduced by the weakening step will
-``escape'', and can not be unified correctly. This new parameter @e@ represents
-in the first case of @Step@ the array element type, and in the second instance
-via @Yield@ the array index type.
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:embedPreAcc
+    ,caption={Producer fusion via bottom-up contraction of the AST}]
+embedPreAcc
+    :: forall acc aenv arrs. Arrays arrs
+    => PreOpenAcc acc aenv arrs
+    -> Embed      acc aenv arrs
+embedPreAcc pacc =
+  case pacc of
+    Alet bnd body       -> aletD bnd body                                              -- (1)
+    Use arrs            -> done  (Use arrs)                                            -- (2)
+
+    Map f a             -> fuse  (into  mapD     (cvtF f)) a                           -- (3)
+    ZipWith f a b       -> fuse2 (into  zipWithD (cvtF f)) a b
+
+    Fold f z a          -> embed (into2 Fold     (cvtF f) (cvtE z)) a                  -- (4)
+    ...
+  where
+    done :: Arrays a => PreOpenAcc acc aenv a -> Embed acc aenv a
+    done (Avar v) = Embed BaseEnv                  (Done v)
+    done pacc     = Embed (BaseEnv `PushEnv` pacc) (Done ZeroIdx)
+
+    into :: Sink f => (f env' a -> b) -> f env a -> Extend acc env env' -> b
+    into op a env = op (sink env a)
+
+    fuse :: Arrays as
+         => (forall aenv'. Extend acc aenv aenv'
+                       -> Cunctation acc aenv' as
+                       -> Cunctation acc aenv' bs)
+         ->       acc aenv as
+         -> Embed acc aenv bs
+    fuse op (embedAcc -> Embed env cc) = Embed env (op env cc)
+
+    embed :: (Arrays as, Arrays bs)
+          => (forall aenv'. Extend acc aenv aenv'
+                        ->            acc aenv' as
+                        -> PreOpenAcc acc aenv' bs)
+          ->       acc aenv as
+          -> Embed acc aenv bs
+    embed op (embedAcc -> Embed env cc)
+      = Embed (env `PushEnv` op env (injectAcc (compute' cc))) (Done ZeroIdx)
+
+injectAcc :: PreOpenAcc acc aenv a -> acc aenv a
+embedAcc  :: Arrays arrs => acc aenv arrs -> Embed acc aenv arrs
+\end{lstlisting}
+
+\begin{enumerate}
+\item Non-computation forms such as control flow and let bindings may also
+    employ smart constructors. We discuss fusion of let bindings in
+    section~\ref{sec:binder_elimination}.
+
+\item Array introduction forms convert their argument into the internal
+    representation by adding the term as manifest data into the extended
+    environment. This also illustrates why we require both @Done@ and @Step@
+    constructors in the delayed representation (Listing~\ref{lst:cunctation}).
+    It would be conveninet to represent manifest data as a @Step@ node with
+    identity transformation functions, but the type of @Step@ is restricted to a
+    single @Array@, whereas @Done@ is generalised to the @Arrays@ class.
+
+\item Producer terms such as @map@ and @zipWith@ are converted into the internal
+    representation using their smart constructors. In order to do this, all
+    terms must be defined with respect to the same environment type. The helper
+    function @fuse@ encodes the bottom-up traversal by first converting the
+    argument array @a@ into the @Embed@ representation. The extendend
+    environment type and delayed representation are then passed to the
+    continuation function @into@, which sinks
+    (\S\ref{sec:environment_manipulation}) the argument @f@ into the extended
+    environment type of the delayed representation, before applying the smart
+    constructor @mapD@ (Listing~\ref{lst:mapD}). This resuts into a new delayed
+    representation that can be further fused into later terms.
+
+\item Consumer operations such as @fold@ force the operation to be evaluated to
+    a manifest array at this point in the program, by converting the @Embed@
+    representation back into AST terms using @compute'@
+    (Listing~\ref{lst:compute}) and pushing the result onto the extended
+    environment. Consumers fusion will be treated in
+    section~\ref{sec:producer_consumer_fusion}.
+
+\end{enumerate}
+
+The result of this process is an AST where all adjacent producer/producer
+operations have been combined into a single producer. The next step of the
+fusion pipeline is to fuse producers into consumers.
 
 
 \subsection{Producer/Consumer Fusion}
 \label{sec:producer_consumer_fusion}
-% TK: The Delayed type and embedding producers into consumers (second phase of
-% fusion)
 
 Now that we have a story for producer/producer fusion, we discuss how to deal
 with consumers. Recall the classic array fusion example that is vector dot
@@ -912,29 +1010,18 @@ into the implementation for @fold@ so that the values are generated online,
 without an intermediate array. However, these two steps happen at different
 phases of the compilation pipeline: producers are fused using smart
 constructors, as described in the previous section, but producers are only
-finally embedded into consumers during code generation.
+finally embedded into consumers during code
+generation~(\S\ref{sec:code_generation}).
 
-% The basic idea is to pass producers encoded in the @Cunctation@
-% representation directly to consumers, and implementation of the consumer can
-% decide how best to access values of the input. Consumers themselves have no
-% @Cunctation@ representation, however.
-
-\note{why is this here?}
-Consumers such as @stencil@ apply a function with access to all array
-elements within a local neighbourhood of the focal point of the stencil. As
-overlapping stencils from neighbouring elements access the same elements in
-their argument arrays many times, they must be implemented carefully not to
-duplicate work. Even when the argument of such a consumer is a manifest array,
-the consumer should still ensure that it caches already fetched elements, as
-GPUs impose a high performance penalty for repeated memory access. So, stencil
-operations fully compute their input array(s) before evaluating their outputs.
-On the other hand, some consumers can be implemented more efficiently when given
-a producer that is expressed in terms of a function from a multi-dimensional
-array index to an element value, so that the elements the consumer needs are
-generated on-the-fly instead of simply read from manifest data. Other consumers
-can be further optimised by utilising functions that map the flat linear index
-of the underlying array to its value. The consumer friendly representation
-therefore contains all of these versions:
+To work around this stage mismatch, the second phase of the fusion
+transformation annotates the program AST (see section~\ref{sec:knot_tying}) with
+the representation shown in Listing~\ref{lst:DelayedOpenAcc}. This encodes the
+information as to which nodes should be computed to manifest arrays, and which
+should be embedded into their consumers. During code generation, the code for
+the embedded producer terms, such as @indexD@, is generated and integrated
+directly into the skeleton for the consumer
+(\S\ref{sec:instantiating_skeletons}). The end result is that no intermediate
+array needs to be created.
 
 \begin{lstlisting}[style=haskell_float
     ,name=DelayedOpenAcc
@@ -951,186 +1038,95 @@ data DelayedOpenAcc aenv a where
     }                   -> DelayedOpenAcc aenv (Array sh e)
 \end{lstlisting}
 
-This representation is used to annotate the AST\index{abstract syntax tree} in
-the recursive knot to distinguish standard AST terms from operand arrays that
-should be fused into their consumers so that the elements are generated
-on-the-fly.
+The second phase of fusion is implemented as a top-down translation of the
+@Embed@ representation from the first phase
+(\S\ref{sec:producer_producer_fusion}) into an AST that uses @DelayedOpenAcc@ to
+make the representation of fused producer/consumer pairs explicit. This
+procedure, shown in Listing~\ref{lst:convertOpenAcc}, has the following points
+of note:
 
-Producers can only be embedded into consumers during the (much later) code
-generation phase. During code generation, the code for the embedded producer
-terms such as @indexD@ is generated and integrated directly into the
-skeleton code of the consumer (\S\ref{sec:??}). The end result is that no
-intermediate array needs to be created.
-
-
-\subsection{The Fusion Pipeline}
-\label{sec:fusion_pipeline}
-
-The fusion transformation of Accelerate array programs consists of two phases:
-%
-\begin{enumerate}
-    \item A bottom-up contraction of the AST that fuses sequences of producer
-        terms into a single producer. This is a source-to-source transformation
-        of the AST\@.
-
-    \item A top-down transformation that annotates the AST as to which nodes
-        should be computed to manifest data and which should be embedded into
-        their consumers.
-\end{enumerate}
-
-\paragraph{Phase 1: Fusing Producers}
-\label{sec:fusing_producers}
-
-The first phase of fusion completes via bottom-up tree contraction of the
-AST\index{abstract syntax tree}. Terms are converted into the intermediate
-representation and merged as described in the previous section
-(\S\ref{sec:producer_consumer_fusion}). The following example demonstrates the
-procedure for a producer (@map@), a consumer (@fold@) as well as a
-non-computation form (@use@). Non-computation forms may also employ smart
-constructors, the most interesting of which is that for let-bindings, although
-we defer that discussion until section~\ref{sec:binder_elimination}.
-%
-\begin{lstlisting}[style=haskell
-    ,name=embedPreAcc
-    ,label=lst:embedPreAcc
-    ,caption={[Producer fusion via bottom-up contraction of the AST]}]
-embedPreAcc :: PreOpenAcc acc aenv arrs -> Embed acc aenv arrs
-embedPreAcc pacc =
-  case pacc of
-    Alet bnd body       -> aletD bnd body                           -- see section~\ref{sec:binder_elimination}
-    Use arrs            -> done  (Use arrs)                         -- non-computation node
-    Map f a             -> fuse  (into  mapD (cvtF f)) a            -- producers
-    Fold f z a          -> embed (into2 Fold (cvtF f) (cvtE z)) a   -- consumers
-    ...
-\end{lstlisting}
-
-The function @done@ simply converts an AST node into the internal
-representation as a manifest array. This also illustrates why we require both
-@Done@ and @Step@ representations. It would be convenient to represent
-manifest data as @Step@ with identity transformation functions, but the
-result type of @Step@ is restricted to a single @Array@, whereas
-@Done@ generalises to any instance of the @Arrays@ class.
-
-\begin{lstlisting}[style=haskell,name=embedPreAcc]
-  where
-    done :: Arrays a => PreOpenAcc acc aenv a -> Embed acc aenv a
-    done (Avar v) = Embed BaseEnv                  (Done v)
-    done pacc     = Embed (BaseEnv `PushEnv` pacc) (Done ZeroIdx)
-\end{lstlisting}
-
-In order to use our smart constructors for producer terms, such as @mapD@
-(Listing~\ref{lst:mapD}), all of the terms must be expressed with respect to the
-same array environment. This simplifies the definition of the fusion rules, but
-recall that the representation of producer arrays includes additional array
-environment bindings (see section~\ref{sec:representing_producers}). The
-function @into@ is used to convert a function of one type-annotated
-argument into a function of one argument \emph{plus} a witness that sinks the
-argument from one environment type into another.
-
-\begin{lstlisting}[style=haskell,name=embedPreAcc]
-    into :: Sink f => (f env' a -> b) -> f env a -> Extend acc env env' -> b
-    into op a env = op (sink env a)
-\end{lstlisting}
-
-In the example, @into@ is partially applied with the smart constructor
-@mapD@ and the scalar function applied at each element. This result is
-passed to @fuse@ which does the work of traversing the AST\index{abstract
-syntax tree} bottom-up to produce the fused @Embed@ representation. The
-modified @mapD@ is saturated with the extra environment bindings and the
-array representation, to produce a new delayed representation that can be
-further fused into later terms.
-
-\begin{lstlisting}[style=haskell,name=embedPreAcc]
-    fuse :: Arrays as
-         => (forall aenv'. Extend acc aenv aenv' -> Cunctation acc aenv' as
-                                            -> Cunctation acc aenv' bs)
-         ->       acc aenv as
-         -> Embed acc aenv bs
-    fuse op (embedAcc -> Embed env cc) = Embed env (op env cc)
-\end{lstlisting}
-
-In contrast to @fuse@, which allows the result to be combined with later
-terms, the @embed@ function instead evaluates the argument array at this
-point in the program to a manifest array. This is achieved by converting the
-@Embed@ representation into a real AST\index{abstract syntax tree} node
-using @compute'@ (see Listing~\ref{lst:compute}). The only point of note is
-that the argument array (@cc@) is placed adjacent to the term consuming it
-(@op@), which is important for the second fusion phase discussed in the
-next section (\S\ref{sec:producer_consumer_fusion}).
-
-\begin{lstlisting}[style=haskell
-    ,name=embedPreAcc
-    ,caption={Producer fusion via bottom-up contraction of the AST}]
-    embed :: (Arrays as, Arrays bs)
-          => (forall aenv'. Extend acc aenv aenv' -> acc aenv' as -> PreOpenAcc acc aenv' bs)
-          ->       acc aenv as
-          -> Embed acc aenv bs
-    embed op (embedAcc -> Embed env cc) =
-      = Embed (env `PushEnv` op env (inject (compute' cc))) (Done ZeroIdx)
-\end{lstlisting}
-
-\paragraph{Phase 2: Embedding Producers}
-\label{sec:embedding_producers}
-
-The second phase of fusion is a top-down translation from the @Embed@
-representation from the first phase (\S\ref{sec:producer_producer_fusion}) into
-an AST using @DelayedOpenAcc@ (Listing~\ref{lst:DelayedOpenAcc}) to
-annotate which nodes of the AST should be computed to manifest arrays and which
-should be embedded into consumers.
-
-\begin{lstlisting}[style=haskell
-    ,name=fuseOpenAcc
-    ,label=lst:fuseOpenAcc
-    ,caption={[Consumer fusion via top-down knot-tying of the AST]}]
-fuseOpenAcc :: Arrays arrs => Embed OpenAcc aenv arrs -> DelayedOpenAcc aenv arrs
-fuseOpenAcc = manifest . inject . compute
-\end{lstlisting}
-
-The function @manifest@ for the most part simply wraps each node of the
-AST\index{abstract syntax tree} in a @Manifest@ constructor, indicating
-that this node should must be computed to memory. In the first phase (see
-Listing~\ref{lst:embedPreAcc}) we left all producers such as @map@ in a
-state ready for further fusion. Some producers might still exist as a manifest
-array, however. These producer terms may be the last stage of the computation,
-or the result of a let-binding to be used multiple times, for example.
-
-\begin{lstlisting}[style=haskell,name=fuseOpenAcc]
+\begin{lstlisting}[style=haskell_float,
+    label=lst:convertOpenAcc,
+    caption={Consumer fusion via top-down annotation of the AST}]
+convertOpenAcc
+    :: Arrays arrs
+    =>        OpenAcc aenv arrs
+    -> DelayedOpenAcc aenv arrs
+convertOpenAcc = manifest . computeOpenAcc . embedOpenAcc                              -- (1)
   where
     manifest :: OpenAcc aenv a -> DelayedOpenAcc aenv a
-    manifest (OpenAcc pacc) = Manifest $ case pacc of
-      Alet bnd body     -> Alet (manifest bnd) (manifest body)
-      Use arr           -> Use arr
-      Map f a           -> Map  (cvtF f) (delayed a)
-      Fold f z a        -> Fold (cvtF f) (cvtE z) (delayed a)
-      ...
-\end{lstlisting}
+    manifest (OpenAcc pacc) =
+      Manifest $ case pacc of                                                          -- (2)
+        Use arr         -> Use arr
+        Alet a b        -> alet (manifest a) (manifest b)                              -- (3)
+        Map f a         -> Map  (cvtF f) (delayed a)
+        Fold f z a      -> Fold (cvtF f) (cvtE z) (delayed a)                          -- (4)
+        Stencil f b a   -> Stencil (cvtF f) b (manifest a)                             -- (5)
+        ...
 
-Here the function @delayed@ is used to traverse the input array arguments
-to the computation nodes @map@ and @fold@. This inspects the
-@Embed@ representation of producer terms to generate the fragments that
-will be later embedded into producer functions during code generation. We take
-care to recover optimisation opportunities such as linear indexing of the
-underlying array data.
-
-\begin{lstlisting}[style=haskell,name=fuseOpenAcc]
     delayed :: (Shape sh, Elt e)
             => OpenAcc        aenv (Array sh e)
             -> DelayedOpenAcc aenv (Array sh e)
-    delayed (embedOpenAcc -> Embed BaseEnv cc) = case cc of
-      Done v
-        -> Delayed (arrayShape v) (indexArray v) (linearIndex v)
+    delayed (embedOpenAcc fuseAcc -> Embed BaseEnv cc) =                               -- (6)
+      case cc of
+        Done v          -> Delayed (arrayShape v) (indexArray v) (linearIndex v)
+        ...
 
-      Yield (cvtE -> sh) (cvtF -> f)
-        -> Delayed sh f (f `compose` fromIndex sh)
-
-      Step  (cvtE -> sh) (cvtF -> p) (cvtF -> f) v
-        | Just REFL <- match sh (arrayShape v)
-        , Just REFL <- isIdentity p
-        -> Delayed sh (f `compose` indexArray v) (f `compose` linearIndex v)
-
-        | f'        <- f `compose` indexArray v `compose` p
-        -> Delayed sh f' (f' `compose` fromIndex sh)
+    cvtF :: OpenFun env aenv f -> DelayedOpenFun env aenv f
+    cvtE :: OpenExp env aenv t -> DelayedOpenExp env aenv t
 \end{lstlisting}
+% embedOpenAcc   :: Arrays arrs => OpenAcc aenv arrs -> Embed OpenAcc aenv arrs
+% computeOpenAcc :: Arrays arrs => Embed OpenAcc aenv aenv arrs -> OpenAcc aenv arrs
+
+
+\begin{enumerate}
+\item The fusion pipeline proceeds in two phases. A bottom-up traversal that
+    merges adjacent producer/producer pairs, which is implemented by the
+    function @embedOpenAcc@, described in
+    section~\ref{sec:producer_producer_fusion}. The second phase is the top-down
+    traversal which annotates the AST as to which nodes should be computed to
+    manifest data and which should be embedded into their consumers, which is
+    implemented by the function @manifest@.
+
+\item For the most part, the function @manifest@ simply wraps each node of the
+    AST in the @Manifest@ constructor, indicating that this term should be
+    computed to memory.
+
+\item Similarly, let bindings compute both the binding and body to manifest
+    arrays. The smart constructor @alet@ flattens needless let bindings of the
+    form @let var = x in var@ to @x@. This form is common, as the delayed array
+    constructors always refers to manifest data via de Bruijn indices (see
+    Listing~\ref{lst:cunctation}), meaning that all manifest terms will be let
+    bound regardless of the number of use sites.
+
+\item A consumer such as @fold@ specifies that its array valued argument should
+    be @delayed@, so the @Embed@ representation of producer terms generated in
+    the first phase is used to annotate the AST node directly. Code generation
+    will later embed this functional representation of how to generate the input
+    array elements directly into the consumer skeleton, thereby completing the
+    producer/consumer fusion process.
+
+\item In contrast, stencil operations (\S\ref{sec:parallel_stencil}) ---where
+    the computation of each element has access to all array elements within a
+    local neighbourhood--- first fully computes the argument to a manifest array
+    in order to avoid duplicating the work of the delayed representation at each
+    array access. The transformation thus makes it clear for which operations
+    the argument arrays will be delayed, and for which operations the arguments
+    will manifest.
+
+\item The function @delayed@ generates the delayed array representation that can
+    be directly embedded into consumers. The function takes care to recover
+    optimisation opportunities such as linear indexing of the underlying array
+    data. Note that it is safe to match on @BaseEnv@ --- indicating no
+    additional terms are being brought into scope --- because the first phase
+    always places producers adjacent to the term that will consume it; see
+    definition of @embed@ in Listing~\ref{lst:embedPreAcc}.
+
+\end{enumerate}
+
+Overall, adjacent producer/producer pairs have been merged, and consumers can
+integrate directly into the skeleton the code for on-the-fly producing each
+element so that no intermediate array needs to be created.
 
 
 \subsection{Exploiting all opportunities for fusion}

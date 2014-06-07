@@ -1522,7 +1522,9 @@ example, the following rewrite is always applied:
 %\bf$\langle$ constant folding $\rangle$%
     PrimAdd (%\rm$\langle$elided type info$\rangle$%)
       `PrimApp`
-      Tuple (NilTup `SnocTup` Const x `SnocTup` Const y) $\mapsto$ Const (x+y)
+      Tuple (NilTup `SnocTup` Const x `SnocTup` Const y)
+    $\mapsto$
+    Const (x+y)
 \end{lstlisting}
 %
 The attentive reader will note that it is straightforward to choose a positive
@@ -1531,7 +1533,7 @@ non-zero floating-point value @eps@ such that @eps + 1.0 > 1.0@ is
 are currently ignored, but this is not so outrageous as it would be for a
 traditional offline compiler: since Accelerate programs are just-in-time
 compiled, any such issues still occur only at program runtime. The only
-distinction is from in phase of program execution the problem manifests, not
+distinction is from which phase of program execution the problem manifests, not
 that it does.
 
 % Constant folding is also used to eliminate branches when the value of the
@@ -1544,7 +1546,7 @@ The effectiveness of constant folding can be increased by combining it with
 other data-flow optimisations, particularly constant propagation. When
 determining whether the arguments to a primitive function application are
 constants, we consider let-bound constants and constant-valued tuple components
-in addition to literal constants as material for constant folding.
+in addition to literal constants.
 
 
 \subsubsection{Algebraic Simplification}
@@ -1585,15 +1587,15 @@ strength reductions are not currently applied.
 
 \emph{Reassociation} refers to using specific algebraic properties --- namely
 associativity, commutativity and distributivity --- to divide an expression into
-parts that are constant and variable.
+parts that are constant and parts that are variable.
 %To further increase opportunities for constant folding, algebraic reassociations
 %are applied.
-This is particularly relevant when only one operand of a binary
-operator is identified as being constant valued. For example, the expression
-@x + 1 + 2@ would only be simplified if the second addition occurred
-first. For the case of commutative binary operators where only one operand is
-constant valued, the constant expression is applied as the first operand. The
-previous term would then be rewritten as:
+This is particularly relevant when only one operand of a binary operator is
+identified as being constant valued. For example, the expression @x + 1 + 2@
+would only be simplified if the second addition occurred first. For the case of
+commutative binary operators where only one operand is constant valued, the term
+is rewritten so that the constant expression is the first operand. The previous
+term would then be rewritten as:
 %
 \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
 %\bf$\langle$ algebraic reassociation $\rangle$%
@@ -1606,17 +1608,21 @@ previous term would then be rewritten as:
 \subsubsection{Summary}
 
 Constant folding and algebraic simplifications are applied to scalar and array
-term. The list of algebraic simplifications presented here and currently
+terms. The list of algebraic simplifications presented here and currently
 implemented is not necessarily exhaustive, and adding additional simplifications
 might be eased through the use of a rewrite rule system expressed in terms of
-the source language, rather than by direct manipulation of \indext{de Bruijn}
+the source language, rather than by direct manipulation of de Bruijn
 terms. Furthermore, it may be important to assess the validity of constant
 folding based on the type of the expression, particularly for floating point
 terms. Both these concerns are left for future work. An example of the current
-implementation of constant folding is shown below.
+implementation of constant folding is shown in
+Listing~\ref{lst:constant_folding_example}.
 
-\marginnote{bugs in the associativity code; needs to be fixed}
-\begin{lstlisting}[style=Haskell,mathescape,caption={Example of constant expression evaluation}]
+% \marginnote{bugs in the associativity code; needs to be fixed}
+\begin{lstlisting}[style=haskell_float
+    ,mathescape
+    ,label=lst:constant_folding_example
+    ,caption={Example of constant expression evaluation}]
 f :: Exp Float -> Exp Float
 f x = let a = lift (constant 30, x)
           b = 9 - fst a / 5

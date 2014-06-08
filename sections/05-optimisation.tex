@@ -447,6 +447,7 @@ replicate   :: Slice slix                                             %\rm exten
 slice       :: Slice slix                                             %\rm remove existing dimensions%
             => Acc (Array (FullShape  slix) e) -> Exp slix
             -> Acc (Array (SliceShape slix) e)
+reshape     :: Exp sh' -> Acc (Array sh e) -> Acc (Array sh' e)       %\rm reshape an array%
 
 generate    :: Exp sh -> (Exp sh -> Exp a) -> Acc (Array sh a)        %\rm array from index mapping%
 
@@ -1438,6 +1439,7 @@ simplification system guaranteed not to lead to code blowup or nonterminating
 compilation.
 
 \subsection{Shrinking}
+\label{sec:shrinking}
 
 The \emph{shrinking reduction} arises as a restriction of $\beta$-reduction
 (i.e. inlining) to cases where the bound variable is used zero (dead-code
@@ -1487,6 +1489,7 @@ shrink ...
 
 
 \subsection{Constant-Expression Evaluation}
+\label{sec:constant_expression_evaluation}
 
 \emph{Constant-expression evaluation}, or \emph{constant folding}, refers to the
 evaluation at compile time of scalar expressions whose operands are known to be
@@ -1764,129 +1767,6 @@ f x = let a = lift (constant 30, x)
 % performance code. In future, it would be beneficial to augment it with related
 % loop optimisations such as loop invariant code motion in the frontend and
 % lower-level code generation optimisations in a backend.
-
-
-\section{The transformations interacting}
-
-This section follows a few examples to discuss the effect of applying the
-transformations described in the preceding sections. Many of these motivating
-examples have shown up in real applications. The effects usually involve a
-combination of many transformations and so give an idea of how the
-transformations interact with one another.
-
-\subsection{Ordering}
-
-\note{TK: review}
-
-There are several possible orderings for the transformations discussed in this
-chapter, and one can easily invent examples to show that no order can be optimal
-for all programs, but some orderings are generally preferable to others. This
-section describes the motivation for the current sequence of transformations.
-
-Consider the term @zipWith f xs xs@. The fusion transformation rewrites
-this into @generate@ style as per
-section~\ref{sec:producer_producer_fusion}. Before simplification this produces
-the following term, rewritten slightly: \note{TK: no, it doesn't anymore}
-%
-\begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)
-    a1 = a0
-    a2 = a1
-    a3 = a1
-in generate (intersect (shape a2) (shape a3))
-            (\x0 -> let x1 = a2!x0
-                        x2 = a3!x0
-                    in x1 + x2)
-\end{lstlisting}
-%
-There are a number of simplifications we would like to apply to this expression,
-including shrinking (\S\ref{sec:simplification}) and common subexpression
-elimination (\S\ref{sec:redundancy_elimination}). The additional array bindings
-are an artefact of the way the fusion transformation handles extended
-environment bindings \note{which Trevor is ashamed of and has promised to fix},
-and clearly all array variables refer to the same manifest data, @xs@ in
-the expression expression. Applying shrinking to the array terms conceals this
-infelicity:
-%
-\begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)
-in generate (intersect (shape a0) (shape a0))
-            (\x0 -> let x1 = a0!x0
-                        x2 = a0!x0
-                    in  x1 + x2)
-\end{lstlisting}
-%
-Applying shrinking simplifies the binding structure making it apparent that the
-scalar terms are indeed referring to the same array. If we follow the same
-strategy of shrinking the scalar expressions:
-%
-\begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)
-in generate (intersect (shape a0) (shape a0))
-            (\x0 -> a0!x0 + a0!x0)
-\end{lstlisting}
-%
-This term is a completely valid interpretation of the source program that does
-not introduce any additional work, but we can do better. Applying shrinking
-inlines the two terms @x1@ and @x2@ because they are each only
-referenced once in the body, resulting in two accesses of the array to the same
-index. Since the straightforward implementation of common subexpression
-elimination is aimed at removing redundant let-bindings, we should always apply
-redundancy elimination before shrinking, resulting in a term that only accesses
-the underlying array once:
-%
-\begin{lstlisting}[style=haskell]
-let a0 = use (Array ...)
-in generate (intersect (shape a0) (shape a0))
-            (\x0 -> let x1 = a0!x0
-                    in  x1 + x1)
-\end{lstlisting}
-
-\subsection{Repeated Evaluations}
-\note{TK: we only do this for scalar simplifications}
-
-\subsection{Error tests eliminated}
-\note{TK: for example: reshape, indexing}
-
-\subsection{Confluence and Termination}
-
-The set of transformations can be seen as a set of term rewriting rules. We
-would like this set of transformations to be:
-%
-\begin{itemize}
-    \item Correct: The transformed code retains the same semantics as the
-        original code. This correctness is proved in
-        section~\derp.
-
-    \item Improving efficiency: The transformed code should require less time
-        and/or fewer resources to execute than the original. We return to this
-        topic in the analysis of benchmarks in chapter~\ref{ch:results}.
-\end{itemize}
-%
-In addition, it would be of significant practical advantage if the
-transformations were:
-%
-\begin{itemize}
-    \item Confluent: When more than one transformation is applicable to a given
-        term, applying the transformations in any ordering should yield the same
-        result. This is important to ensure that opportunities to apply
-        transformations are not lost, or worse code is generated, due to
-        the choice of applying one transformation before another.
-
-    \item Terminating: We reach a point when no transformation is applicable so
-        the simplification process stops. One must be careful that one
-        transformation [sequence] can not generate terms that can be transformed
-        back to the original; that no transformation undoes the work of another.
-\end{itemize}
-
-\note{TK: Do some work dis/proving these two things, then write about it here.}
-
-
-% \section{Compiling the TK program}
-%
-% \note{TK: Step through compiling a particular program, the effect each
-% optimisation has, needing to iterate simplifications etc. Probably need a few
-% different example programs.}
 
 
 \section{Related Work}
@@ -2212,8 +2092,149 @@ languages~\cite{Warren:1984ka,Sarkar:1991ff}.
 %
 \section{Discussion}
 
-Future work: making accurate cost estimates of when it is beneficial to fuse
-operations / duplicate work.
+TK: more intro to general discussion; what the chapter covered.
+
+The set of optimisations that have been described in this chapter can be seen as
+a set of term rewriting rules. We would like this set of transformations to be:
+%
+\begin{itemize}
+    \item \emph{Correct:} The transformed code retains the same semantics as the
+        original code.
+
+    \item \emph{Improving efficiency:} The transformed code should require less
+        time and/or fewer resources to execute than the original. We address
+        this through a series of benchmarks in chapter~\ref{ch:results}.
+\end{itemize}
+%
+In addition, it would be of significant practical advantage if the
+transformations were:
+%
+\begin{itemize}
+    \item \emph{Confluent:} When more than one transformation is applicable to a
+        given term, applying the transformations in any ordering should yield
+        the same result. This is important to ensure that opportunities to apply
+        transformations are not lost, or worse code is generated, due to the
+        choice of applying one transformation before another.
+
+    \item \emph{Terminating:} We reach a point when no transformation is
+        applicable so the simplification process stops. One must be careful that
+        one transformation [sequence] can not generate terms that can be
+        transformed back to the original; that no transformation undoes the work
+        of another.
+\end{itemize}
+
+
+\subsection{Correctness}
+
+Strict language, so fusion is always valid. Somebody brought this up at my IUB
+talk but I wasn't fully sure what the complaint was, except that he seemed to be
+satisfied when I said that terms are strongly normalising (which in hindsight I
+think is untrue, since one can write @while True@. eep).
+
+
+
+\subsection{Confluence and termination}
+
+The array fusion transformation (\S\ref{sec:implementing_array_fusion}) is
+designed to be a single-pass algorithm that specifies only a single rewrite to
+be applied at each node. Thus, the transformation does not need to select from a
+set of possible rewrites to apply or the order in which to apply them, based on
+heuristics or otherwise. Since the delayed representation of producers is
+non-recursive (Listing~\ref{lst:cunctation}), referencing input arrays via
+environment indices rather than as general terms, a subsequent shrinking pass
+(\S\ref{sec:shrinking}) is not required to eliminate or combine the uses of
+bound variables. Hence, it is not necessary to iterate the fusion and shrinking
+steps, so that shrinking can expose all opportunities for fusion.
+
+Informally, then, we are confident that the fusion transformation is both
+confluent and terminating. Furthermore, since we fuse Accelerate programs by
+rewriting typed de Bruijn terms in a type preserving manner, we are confident
+that the transformation is correct, since the type information amounts to a
+partial proof of correctness checked by the type checker.
+
+
+\subsection{Error tests eliminated}
+
+Collective operations in Accelerate are rank polymorphic. For example, the
+@fold@ reduces along the innermost dimension of an array, reducing the rank of
+that array by one. The @reshape@ operation allows us to change the shape of an
+array without altering its contents. This is useful to, for example, reduce an
+array of arbitrary rank to a single value:
+%
+\begin{lstlisting}[style=haskell]
+foldAll :: (Shape sh, Elt e)
+        => (Exp e -> Exp e -> Exp e)
+        -> Exp e
+        -> Acc (Array sh e)
+        -> Acc (Scalar e)
+foldAll f z a = fold f z $ reshape (index1 (size a)) a
+\end{lstlisting}
+%
+In order to reshape arrays efficiently, we require that the size of the source
+and result arrays are identical. This allows the runtime to simply change the
+interpretation of the array, without touching the actual data, and is thus a
+constant-time operation. This precondition must be checked at runtime, and an
+error generated if the sizes do not match.
+
+However, the @reshape@ operation is also a general producer
+(Listing~\ref{lst:producer_consumer_operations}), and can thus be fused into
+other operations. If this happens, the runtime can no longer check the
+precondition on the host --- because the term has been removed from the source
+program --- and since it is not possible to throw exceptions from massively
+parallel GPU code, fusion has effectively eliminated the runtime error check.
+
+It is left for future work to add the ability to represent error terms in the
+embedded language. For @reshape@ --- currently the only term which includes a
+runtime test --- we minimise the loss of the error test by only fusing the
+operation into delayed terms, while still emitting the @reshape@ term whenever
+it is applied to manifest data in order to preserve the error test.
+
+
+\subsection{Work duplication}
+
+While the fusion transformation is cautious and only fuses producer terms that
+have a single use site, it is still possible to introduce some amount of work
+duplication. For example, fusing an operation such as @replicate sh (map f xs)@
+results in the function @f@ being applied a number of times equal to the size of
+the resulting shape @sh@, rather than the size of the source array @xs@. If @f@
+is expensive or @sh@ is large, even though there is a single use site for the
+source array @xs@, it might still be beneficial to not fuse these terms.
+
+The second source of work duplication can arise through the use of array
+indexing. At an example, consider the following function, where each element of
+the array @xs@ is repeated four times sequentially in the result, i.e.
+@[a,b,c]@ $\mapsto$ @[a,a,a,a,b,b,b,b,c,c,c,c]@:
+%
+\begin{lstlisting}[style=haskell]
+quad = generate sh (\ix -> xs ! ilift1 (`div` 4) ix)
+  where
+    sh = index1 (size xs * 4)
+    xs = map f (use (Array ...))
+\end{lstlisting}
+%
+Since @xs@ has a single use site in @generate@, the function @f@ will be fused
+directly into this location. The fusion transformation has thus just committed
+to evaluating @f@ four times more than was specified in the original program.
+
+For GPUs, which support thousands of active threads, recomputing values to
+reduce memory bandwidth is usually beneficial, but for a CPU with relatively few
+cores, this might not be the case. Allowing users to explicitly specify in the
+source language terms which should always be computed to memory, or conversely
+fused unconditionally, is left to future work. Adding an analysis that estimates
+when such work duplication is beneficial is also left to future work.
+
+
+\subsection{Scalar expressions}
+
+
+\subsubsection{Ordering}
+
+There are several possible orderings for the transformation passes that have
+been discussed in this chapter, and it would be possible to invent examples to
+show that no one order can be optimal for all programs.
+
+
+\subsubsection{Repeated evaluations}
 
 
 % \section*{NOTES}

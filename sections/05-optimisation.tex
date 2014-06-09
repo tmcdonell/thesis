@@ -2088,11 +2088,20 @@ languages~\cite{Warren:1984ka,Sarkar:1991ff}.
 % contraction can then remove or reduce the size of the
 % intermediate arrays. These systems require fusion-specific compiler support and
 % more global reasoning than short-cut fusion.
-%
-%
+
+
 \section{Discussion}
 
-TK: more intro to general discussion; what the chapter covered.
+This chapter has detailed our approach to optimising programs written in
+Accelerate, a language of parallel array operations suitable execution on
+bulk-parallel SIMD architectures such as GPUs and multicore CPUs. Our previous
+work identified sharing and array fusion as the key bottlenecks to achieving
+high performance. This chapter discusses our novel approaches that tackle these
+problems. While we motivate our approaches in the context of Accelerate, both
+approaches are more widely applicable. In particular, our sharing recovery
+algorithm applies to any embedded language based on the typed lambda calculus,
+and our array fusion optimisation applies to any dynamic compiler targeting
+SIMD hardware.
 
 The set of optimisations that have been described in this chapter can be seen as
 a set of term rewriting rules. We would like this set of transformations to be:

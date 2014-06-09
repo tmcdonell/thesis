@@ -2141,11 +2141,11 @@ transformations are performed automatically by the compiler, we would like to be
 sure that the left and right hand side of the rewrite are equivalences.
 In particular, we are concerned as to whether:
 %
-\begin{enumerate}
+\begin{itemize}
     \item Can a safely terminating program be transformed into a failing one?
     \item Can a safely terminating program be transformed into another safely
         terminating program that gives a different value as the result?
-\end{enumerate}
+\end{itemize}
 
 For \texttt{foldr/build} fusion applied to regular Haskell lists, it is possible
 to distinguish cases where the two sides of the transformation are not
@@ -2313,12 +2313,16 @@ simplification was thus designed to convert the unrolled loop body back into an
 explicit iteration form, and in part this relied on the structure of let terms,
 which could be obfuscated by shrinking. Following the introduction of explicit
 iteration, loop recovery has since been disabled.}
-we perform scalar simplifications before shrinking. Moreover, both the
+we perform scalar simplifications before shrinking. Additionally, both the
 simplification and shrinking operations return a boolean indicating whether or
 not the operation made any changes to the AST. The scalar optimisation pipeline
 applies one round of simplification, then iterates shrinking and simplification
 until the expression no longer changes, or the limit of two applications of each
-operation is reached.
+operation is reached. Moreover, although shrinking and simplification must be
+iterated, all of the operations performed only work to reduce the size of the
+term tree (such as $\beta$-reduction and common subexpression elimination), so
+no operation can undo the work of another to transform the term back into the
+original.
 
 
 % \section*{NOTES}

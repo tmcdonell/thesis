@@ -2278,23 +2278,47 @@ to evaluating @f@ four times more than was specified in the original program.
 For GPUs, which support thousands of active threads, recomputing values to
 reduce memory bandwidth is usually beneficial, but for a CPU with relatively few
 cores, this might not be the case. Allowing users to explicitly specify in the
-source language terms which operations should always be computed to memory, or
-conversely fused unconditionally, is left to future work. Adding an analysis
-that estimates when such work duplication is beneficial is also left to future
-work.
+source language those terms which operations should always be computed to
+memory, or conversely fused unconditionally, is left to future work. Adding an
+analysis that estimates when such work duplication is beneficial is also left to
+future work.
 
 
-\subsection{Scalar expressions}
-
-
-\subsubsection{Ordering}
+\subsection{Ordering and repeated evaluations}
 
 There are several possible orderings for the transformation passes that have
 been discussed in this chapter, and it would be possible to invent examples to
 show that no one order can be optimal for all programs.
 
+As described above, the array fusion pass is designed so that it only needs to
+be applied to the source program once, and not iterated with the shrinking step
+in order to expose all opportunities for fusion. However, for the case of
+let-elimination, if the bound term is eliminated by inlining it directly into
+the body, then the new redex must be re-traversed. For the fusion
+transformation, let-elimination is the only source of repeated evaluation.
 
-\subsubsection{Repeated evaluations}
+On the other hand, scalar expressions must alternate between simplification and
+shrinking steps. Thus, we must decide in which order to apply the two
+operations. Because the shrinking step changes the structure of the AST by
+removing let bindings, which might be useful for the simplification process,%
+\footnote{In particular, before the introduction of an explicit value recursion
+term into the source language, uses encoded iteration by defining a single step
+of the loop body as a collective operation, and using Haskell to repeatedly
+apply it, effectively unrolling the loop a fixed number of times. Fusion would
+then combine these $n$ collective operations into a single operation containing
+$n$ instances of the loop body. However, it was found that the CUDA compiler was
+not well suited to compiling the manually unrolled loop C compilers don't
+compile C code, they compile \emph{idiomatic} C code. The loop recovery
+simplification was thus designed to convert the unrolled loop body back into an
+explicit iteration form, and in part this relied on the structure of let terms,
+which could be obfuscated by shrinking. Following the introduction of explicit
+iteration, loop recovery has since been disabled.}
+we perform scalar simplifications before shrinking. Moreover, both the
+simplification and shrinking operations return a boolean indicating whether or
+not the operation made any changes to the AST. The scalar optimisation pipeline
+applies one round of simplification, then iterates shrinking and simplification
+until the expression no longer changes, or the limit of two applications of each
+operation is reached.
 
 
 % \section*{NOTES}

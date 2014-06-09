@@ -2160,8 +2160,8 @@ elements are never demanded: \footcode{length [1, error "boom!", 3]} $\mapsto$
 element in order to demand its evaluation, then the error will be raised, and
 our program will fail.}
 We avoid this issue because the Accelerate language itself is strict: every term
-in the language always evaluates to a value, so an operator like @seq@ to force
-evaluation is unnecessary, and thus can not be used to distinguish fused and
+in the language always evaluates to a value. An operator like @seq@ to force
+evaluation is thus unnecessary, and can not be used to distinguish fused and
 unfused programs.
 
 The Accelerate language does not have an explicit term to represent exceptional
@@ -2205,19 +2205,19 @@ bound variables. Hence, it is not necessary to iterate the fusion and shrinking
 steps, so that shrinking can expose all opportunities for fusion.
 
 Informally, then, we are confident that the fusion transformation is both
-confluent and terminating. Furthermore, since we fuse Accelerate programs by
-rewriting typed de Bruijn terms in a type preserving manner, we are confident
-that the transformation is correct, since the type information amounts to a
-partial proof of correctness checked by the type checker.
+confluent and terminating. Furthermore, since we fuse programs by rewriting
+typed de Bruijn terms in a type preserving manner, we are confident that each
+individual rewrite is correct, since the type information amounts to a partial
+proof of correctness checked by the type checker.
 
 
 \subsection{Error tests eliminated}
 
-Collective operations in Accelerate are rank polymorphic. For example, the
-@fold@ reduces along the innermost dimension of an array, reducing the rank of
-that array by one. The @reshape@ operation allows us to change the shape of an
-array without altering its contents. This is useful to, for example, reduce an
-array of arbitrary rank to a single value:
+Collective operations in Accelerate are rank polymorphic. For example, @fold@
+reduces along the innermost dimension of an array, reducing the rank of that
+array by one. The @reshape@ operation allows us to change the shape of an array
+without altering its contents. This is useful to, for example, reduce an array
+of arbitrary rank to a single value:
 %
 \begin{lstlisting}[style=haskell]
 foldAll :: (Shape sh, Elt e)
@@ -2278,10 +2278,9 @@ to evaluating @f@ four times more than was specified in the original program.
 For GPUs, which support thousands of active threads, recomputing values to
 reduce memory bandwidth is usually beneficial, but for a CPU with relatively few
 cores, this might not be the case. Allowing users to explicitly specify in the
-source language those terms which operations should always be computed to
-memory, or conversely fused unconditionally, is left to future work. Adding an
-analysis that estimates when such work duplication is beneficial is also left to
-future work.
+source language which terms should always be computed to memory, or conversely
+fused unconditionally, is left to future work. Adding an analysis that estimates
+when such work duplication is beneficial is also left to future work.
 
 
 \subsection{Ordering and repeated evaluations}
@@ -2295,12 +2294,13 @@ be applied to the source program once, and not iterated with the shrinking step
 in order to expose all opportunities for fusion. However, for the case of
 let-elimination, if the bound term is eliminated by inlining it directly into
 the body, then the new redex must be re-traversed. For the fusion
-transformation, let-elimination is the only source of repeated evaluation.
+transformation, let-elimination is the only reason a term might be inspected
+more than once.
 
-On the other hand, scalar expressions must alternate between simplification and
-shrinking steps. Thus, we must decide in which order to apply the two
+On the other hand, scalar expressions must alternate between the simplification
+and shrinking steps. Thus, we must decide in which order to apply the two
 operations. Because the shrinking step changes the structure of the AST by
-removing let bindings, which might be useful for the simplification process,%
+removing let bindings, which might be useful for the simplification analysis,%
 \footnote{In particular, before the introduction of an explicit value recursion
 term into the source language, uses encoded iteration by defining a single step
 of the loop body as a collective operation, and using Haskell to repeatedly

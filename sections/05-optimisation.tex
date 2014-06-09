@@ -2135,11 +2135,61 @@ transformations were:
 
 \subsection{Correctness}
 
-Strict language, so fusion is always valid. Somebody brought this up at my IUB
-talk but I wasn't fully sure what the complaint was, except that he seemed to be
-satisfied when I said that terms are strongly normalising (which in hindsight I
-think is untrue, since one can write @while True@. eep).
+Fusion systems such as \texttt{foldr/build}~\cite{Gill:1993de} and the system
+presented here, work by eliminating intermediate data structures. Since these
+transformations are performed automatically by the compiler, we would like to be
+sure that the left and right hand side of the rewrite are equivalences.
+In particular, we are concerned as to whether:
+%
+\begin{enumerate}
+    \item Can a safely terminating program be transformed into a failing one?
+    \item Can a safely terminating program be transformed into another safely
+        terminating program that gives a different value as the result?
+\end{enumerate}
 
+For \texttt{foldr/build} fusion applied to regular Haskell lists, it is possible
+to distinguish cases where the two sides of the transformation are not
+equivalent. Breaking semantic equivalence for \texttt{foldr/build} requires the
+use of the special operator @seq@, which evaluates its first argument to head
+normal form and returns the second argument as the result.%
+\footnote{Recall that Haskell has non-strict evaluation semantics. This means,
+for example, that it is possibly to evaluate the length of the following list,
+even though the second list element raises an error, because the individual list
+elements are never demanded: \footcode{length [1, error "boom!", 3]} $\mapsto$
+\footcode{3}. However, if we were to first apply \footcode{seq} to each list
+element in order to demand its evaluation, then the error will be raised, and
+our program will fail.}
+We avoid this issue because the Accelerate language itself is strict: every term
+in the language always evaluates to a value, so an operator like @seq@ to force
+evaluation is unnecessary, and thus can not be used to distinguish fused and
+unfused programs.
+
+The Accelerate language does not have a term to represent exceptional values, so
+it is not possible to write the preceding example that raises an error. However,
+it is possible to compute undefined values, such as division by zero. Consider
+the following program:
+%
+\begin{lstlisting}[style=haskell]
+xs :: Acc (Vector Float)
+xs = map (\x -> 131.95 / x)                                             -- [42, $\infty$, $\infty$, \ldots]
+   $ generate (constant (Z:.10))                                        -- [3.14159, 0, 0, \ldots]
+              (\ix -> let i = unindex1 ix in i ==* 0 ? (%$\pi$%, 0))
+\end{lstlisting}
+%
+Evaluating this program, the second and subsequent entries in the array evaluate
+to infinity, as the program attempts to divide by zero. However, if we were to
+use this term in the following program that extracts only the first value:
+%
+\begin{lstlisting}[style=haskell]
+unit (xs ! constant (Z:.0)) %$\mapsto$% unit 42
+\end{lstlisting}
+%
+The program is fused into a single operation that no longer performs the
+division by zero. If we classify invalid arithmetic as a kind of program
+failure, then the fusion system presented in this chapter has just transformed a
+failing program into a safely terminating program, because the intermediate
+states that performed the invalid operations have been eliminated. It is left to
+future work to provide a formal proof that the converse can not happen.
 
 
 \subsection{Confluence and termination}

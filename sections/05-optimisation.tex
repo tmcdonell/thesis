@@ -2151,7 +2151,7 @@ For \texttt{foldr/build} fusion applied to regular Haskell lists, it is possible
 to distinguish cases where the two sides of the transformation are not
 equivalent. Breaking semantic equivalence for \texttt{foldr/build} requires the
 use of the special operator @seq@, which evaluates its first argument to head
-normal form and returns the second argument as the result.%
+normal form.%
 \footnote{Recall that Haskell has non-strict evaluation semantics. This means,
 for example, that it is possibly to evaluate the length of the following list,
 even though the second list element raises an error, because the individual list
@@ -2164,10 +2164,9 @@ in the language always evaluates to a value, so an operator like @seq@ to force
 evaluation is unnecessary, and thus can not be used to distinguish fused and
 unfused programs.
 
-The Accelerate language does not have a term to represent exceptional values, so
-it is not possible to write the preceding example that raises an error. However,
-it is possible to compute undefined values, such as division by zero. Consider
-the following program:
+The Accelerate language does not have an explicit term to represent exceptional
+values. However, it is possible to compute undefined values, such as division by
+zero. Consider the following program:
 %
 \begin{lstlisting}[style=haskell]
 xs :: Acc (Vector Float)
@@ -2246,7 +2245,8 @@ It is left for future work to add the ability to represent error terms in the
 embedded language. For @reshape@ --- currently the only term which includes a
 runtime test --- we minimise the loss of the error test by only fusing the
 operation into delayed terms, while still emitting the @reshape@ term whenever
-it is applied to manifest data in order to preserve the error test.
+it is applied to manifest data, in order to preserve the error test for this
+case.
 
 
 \subsection{Work duplication}
@@ -2278,9 +2278,10 @@ to evaluating @f@ four times more than was specified in the original program.
 For GPUs, which support thousands of active threads, recomputing values to
 reduce memory bandwidth is usually beneficial, but for a CPU with relatively few
 cores, this might not be the case. Allowing users to explicitly specify in the
-source language terms which should always be computed to memory, or conversely
-fused unconditionally, is left to future work. Adding an analysis that estimates
-when such work duplication is beneficial is also left to future work.
+source language terms which operations should always be computed to memory, or
+conversely fused unconditionally, is left to future work. Adding an analysis
+that estimates when such work duplication is beneficial is also left to future
+work.
 
 
 \subsection{Scalar expressions}

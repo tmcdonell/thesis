@@ -1775,8 +1775,11 @@ f x = let a = lift (constant 30, x)
 The desire to program in a functional style while still achieving the
 performance level of an imperative language has been around for as long as
 functional programming itself. Fusion has received plenty of attention in the
-context of functional program. This section briefly summarises some of the
-related work in this area.
+context of functional
+programming~\cite{Coutts:2007kp,Gill:1993de,Hu:1997tk,Meijer:1991,Rompf:2013er,Takano:1995,Wadler:1984ia,Waters:1991fp}.
+While most prior work focuses on removing intermediate lists, some methods apply
+to arrays~\cite{Chakravarty:2001dt,Claessen:2012hl,Grelck:2006ci,Keller:2010er}.
+This section briefly summarises some of the related work in this area.
 
 
 \subsection{Short-cut fusion}
@@ -1806,6 +1809,46 @@ practice. Operations in the library are written in terms of the @Stream@ data
 type, which consists of some abstract state and a stepper function that advances
 the stream to the next state. A single rule eliminates matching pairs of
 constructor and destructor.
+
+Short-cut fusion systems typically only work when there is a single use site of
+the data structure. Work in the intersection of data flow languages and array
+fusion has yielded systems that do not have this restriction. Tupling
+transformations~\cite{Hu:1997tk,Grelck:2006ci} can fuse a restricted form of
+branching data flow, where two results are computed by directly traversing the
+same input structure. More recent work was able to fuse programs in a restricted
+% (first order, non-recursive, synchronous, finite)
+data flow language into a single loop, where the input array is used to produce
+multiple output arrays and/or values~\cite{Lippmeier:2013vz}.
+
+% Full data flow languages~\cite{Caspi:1987jw,Caspi:1996jj,Pouzet:2006uf} are
+% designed primarily for implementing embedded control systems, writing signal
+% processing circuits as code. Support for infinite streams in this context is
+% essential, as the input signal must be processed indefinitely, so these systems
+% aim to fuse the data flow network into a form that does not require unbounded
+% buffers of intermediate signal data.
+
+
+\subsection{Loop fusion in imperative languages}
+
+In contrast, \emph{loop fusion} methods used in imperative languages merge
+multiple loop nests, typically using loop dependence graphs~\cite{Warren:1984ka}
+to determine whether fusion is legal and beneficial. When a producer and
+consumer loop are merged, array contraction~\cite{Sarkar:1991ff} can then remove
+or reduce the size of the intermediate arrays.
+
+Most recent work in imperative languages focuses on the polyhedral model, an
+algebraic representation of imperative loop nests and the transformations on
+them, including fusion transformations. Polyhedral systems are able to express
+all possible distinct loop transformations where the array indices,
+conditionals, and loop bounds are affine functions of the surrounding loop
+indices~\cite{Pouchet:2011ig,Mehta:2014ir}. Recent work extends the polyhedral
+model to support arbitrary indexing~\cite{Venkat:2014cg}, as well as conditional
+control flow that is predicated on arbitrary, non-affine functions of the loop
+indices~\cite{Benabderrahmane:2010vc}. However, the indices used to write into
+the destination array must still be computed with affine functions.
+
+These systems require fusion-specific compiler support and more global reasoning
+than short-cut fusion techniques.
 
 
 \subsection{Fusion in a parallel context}
@@ -1856,10 +1899,8 @@ system similar to delayed arrays, which would be equivalently implemented using
 CUDA templates.
 
 
-tk: dandelion~\cite{Rossbach:2013bj}, series
-expressions/repa-4~\cite{Lippmeier:2013vz}, hylomorphism
-fusion~\cite{Takano:1995}, loop fusion from imperative
-languages~\cite{Warren:1984ka,Sarkar:1991ff}.
+% TODO:
+%  - dandelion~\cite{Rossbach:2013bj},
 
 
 % \subsection{Deforestation}

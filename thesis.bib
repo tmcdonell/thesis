@@ -1,4 +1,4 @@
-%% Created using Papers on Sun, 05 Jan 2014.
+%% Created using Papers on Tue, 10 Jun 2014.
 %% http://papersapp.com/papers/
 
 @book{Altenkirch:2003kz,
@@ -169,16 +169,17 @@ address = {New York, NY, USA}
 @inproceedings{Gill:1993de,
 author = {Gill, Andrew and Launchbury, John and Peyton Jones, Simon L.},
 title = {{A short cut to deforestation}},
-booktitle = {Proceedings of the conference on Functional programming languages and computer architecture},
+booktitle = {FPCA '93: The 1993 conference on Functional programming languages and computer architecture},
 year = {1993},
 pages = {223--232},
-publisher = {ACM},
-address = {New York, NY, USA}
+publisher = {ACM}
 }
 
-@article{AccelerEyes:vq,
-author = {Melonakos, John and Malcolm, James},
-title = {{AccelerEyes}}
+@book{Anonymous:2006up,
+title = {{Implementation and Application of {\ldots}}},
+publisher = {Springer Berlin Heidelberg},
+year = {2006},
+address = {Berlin, Heidelberg}
 }
 
 @phdthesis{Bratvold:1994,
@@ -187,6 +188,11 @@ title = {{Skeleton-based parallelisation of functional programs}},
 school = {Heriot-Watt University},
 year = {1994},
 month = nov
+}
+
+@article{AccelerEyes:vq,
+author = {Melonakos, John and Malcolm, James},
+title = {{AccelerEyes}}
 }
 
 @inproceedings{Larsen:2011fa,
@@ -263,7 +269,7 @@ month = sep
 }
 
 @inproceedings{Onoue:1997,
-author = {Onoue, Y. and Hu, Z. and Takeichi, M. and Iwasaki, H.},
+author = {Onoue, Yoshiyuki and Hu, Zhenjiang and Takeichi, Masato and Iwasaki, Hideya},
 title = {{A calculational fusion system HYLO}},
 booktitle = {Proceedings of the IFIP TC 2 WG 2.1 international workshop on Algorithmic languages and calculi},
 year = {1997},
@@ -447,11 +453,22 @@ year = {2012},
 month = aug
 }
 
-@techreport{Kessenich:2006,
-author = {Kessenich, John and Baldwin, Dave and Rost, Randi},
-title = {{The OpenGL Shading Language, v1.20}},
-year = {2006},
-month = sep
+@inproceedings{Pouchet:2011ig,
+author = {Pouchet, Louis-No{\"e}l and Bondhugula, Uday and Bastoul, C{\'e}dric and Cohen, Albert and Ramanujam, J. and Sadayappan, P. and Vasilache, Nicolas},
+title = {{Loop transformations: convexity, pruning and optimization}},
+booktitle = {POPL '11: The 38th annual ACM SIGPLAN-SIGACT symposium on Principles of programming languages},
+year = {2011},
+publisher = { ACM  Request Permissions},
+month = jan
+}
+
+@inproceedings{Mehta:2014ir,
+author = {Mehta, Sanyam and Lin, Pei-Hung and Yew, Pen-Chung},
+title = {{Revisiting loop fusion in the polyhedral framework}},
+booktitle = {PPoPP '14: The 19th ACM SIGPLAN symposium on Principles and practice of parallel programming},
+year = {2014},
+publisher = { ACM  Request Permissions},
+month = feb
 }
 
 @article{Skillicorn:1998,
@@ -512,6 +529,15 @@ year = {2009},
 annote = {This is Sean's work on embedding GPU array computations in Haskell, upon which I will base my research. This work is limited to flat data parallelism, and my goal is to extend this to support nested data parallelism, most likely via the flattening transformation introduced by NESL, and used in DPH. Includes various benchmarks comparing CPU and hand-written GPU implementations. At the time of writing, the system was not complete and some parts of the EDSL were implemented by hand. Presents a reasonable argument for embedding the GPU language in a purely functional language (namely, Haskell) -- stream processing languages based in traditional imperative languages force the developer to limit side effects themselves, whereas pure languages are by-default safe for parallel execution. Uses the Haskell type system to automatically enforce pure GPU kernels and limit the variety of array operations (flat, basic data types). Avoids the need to decompose programs/functions based on architectural constraints rather than standard software engineering considerations. The main limitation of the approach, which is at the same time a key strength, is the high-level nature of the language. While this makes it easy for developers to express their algorithms without being over-burdeneded with parallel implementation details, there is (at least currently) no fine-grain control available for things like data layout and use of the memory hierarchy. As memory bandwidth is usually a major bottleneck, this lack of control could limit the ability to optimise critical sections of an algorithm for best performance.}
 }
 
+@inproceedings{Venkat:2014cg,
+author = {Venkat, Anand and Shantharam, Manu and Hall, Mary and Strout, Michelle Mills},
+title = {{Non-affine Extensions to Polyhedral Code Generation}},
+booktitle = {CGO '14: The 12th IEEE/ACM International Symposium on Code Generation and Optimization},
+year = {2014},
+publisher = { ACM  Request Permissions},
+month = feb
+}
+
 @article{Lefohn:2006,
 author = {Lefohn, Aaron E and Sengupta, Shubhabrata and Kniss, Joe M and Strzodka, Robert and Owens, John D},
 title = {{Glift: Generic, efficient, random-access GPU data structures}},
@@ -523,6 +549,13 @@ pages = {60--99},
 annote = {Provides a generic template library that simplifies the design and development of GPU-based data structures.}
 }
 
+@techreport{Kessenich:2006,
+author = {Kessenich, John and Baldwin, Dave and Rost, Randi},
+title = {{The OpenGL Shading Language, v1.20}},
+year = {2006},
+month = sep
+}
+
 @inproceedings{Chakravarty:2003tt,
 author = {Chakravarty, Manuel M T and Keller, Gabriele},
 title = {{An Approach to Fast Arrays in Haskell}},
@@ -532,6 +565,15 @@ editor = {Jeuring, Johan and Jones, Simon Peyton},
 pages = {27--58},
 publisher = {Springer-Verlag},
 annote = {Dissects the performance inefficiencies present in the standard Haskell Array type, and proposes a new approach based on program transformation and generic programming (types). Goes through the process of developing an array library including program transformation and fusion operations to generate fast code. Possibly useful mainly as background reference.}
+}
+
+@inproceedings{Benabderrahmane:2010vc,
+author = {Benabderrahmane, Mohamed-Walid and Pouchet, Louis-No{\"e}l and Cohen, Albert and Bastoul, C{\'e}dric},
+title = {{The polyhedral model is more widely applicable than you think}},
+booktitle = {CC '10: The 2010 International Conference on Compiler Construction},
+year = {2010},
+publisher = { Springer-Verlag},
+month = mar
 }
 
 @inproceedings{Baskaran:2008,
@@ -834,11 +876,14 @@ pages = {196},
 annote = {A short treatise that advocates the use of domain-specific embedded languages as the "ultimate abstraction". Argues that the problem of building and gracefully evolving large and complex software systems is easiest when the programming language is designed to precisely capture the semantics of the application domain -- no more and no less.}
 }
 
-@techreport{UPC:2005,
-author = {{UPC Consortium}},
-title = {{UPC Language Specification, v1.2}},
-year = {2005},
-month = may
+@inproceedings{Caspi:1987jw,
+author = {Caspi, P and Pilaud, D and Halbwachs, N and Plaice, J A},
+title = {{LUSTRE: a declarative language for real-time programming}},
+booktitle = {the 14th ACM SIGACT-SIGPLAN symposium},
+year = {1987},
+pages = {178--188},
+publisher = {ACM Press},
+address = {New York, New York, USA}
 }
 
 @article{Puschel:2005,
@@ -853,6 +898,14 @@ month = feb,
 annote = {Develops methods and tools for automatically generating high performance libraries. The tuning of an algorithm for a given platform is expressed as an optimisation problem, and the domain specific mathematical structure of the algorithm is used to create a feedback--driven optimiser. Based on the algebra of combinators? Could be interesting (much later...)}
 }
 
+@book{Pouzet:2006uf,
+author = {Pouzet, Marc},
+title = {{Lucid Synchrone: Tutorial and Reference Manual}},
+publisher = {Universit\'{e} Paris-Sud, LRI},
+year = {2006},
+month = apr
+}
+
 @inproceedings{Wang:2007,
 author = {Wang, Perry H. and Collins, Jamison D. and Chinya, Gautham N. and Jiang, Hong and Tian, Xinmin and Girkar, Milind and Yang, Nick Y. and Lueh, Guei-Yuan and Wang, Hong},
 title = {{EXOCHI: architecture and programming environment for a heterogeneous multi-core multithreaded system}},
@@ -864,12 +917,21 @@ address = {New York, NY, USA},
 annote = {Platform developed by intel to program heterogenous environments consisting of general purpose CPUs and specialised accelerator units such as GPUs. Consists of two components: * an architecture to represent heterogenous accelerators as ISA-based MIMD resources, with a shared virtual-memory multithreaded execution model * an integrated C/C++ environment that supports accelerator-specific instructions in a single binary, with a runtime system that can optimally spread the parallel computation across the available cores. Differers from the CUDA model, in which the GPU has a separate device address space, and all CPU/GPU communication and synchronisation is explicit.}
 }
 
-@techreport{Blelloch:1990vl,
-author = {Blelloch, Guy E.},
-title = {{Prefix Sums and Their Applications}},
-year = {1990},
-number = {CMU-CS-90-190},
-month = nov
+@inproceedings{Caspi:1996jj,
+author = {Caspi, Paul and Pouzet, Marc},
+title = {{Synchronous Kahn networks}},
+booktitle = {ICFP '96: The 1st ACM SIGPLAN international conference on Functional Programming},
+year = {1996},
+pages = {226--238},
+publisher = {ACM},
+month = jun
+}
+
+@techreport{UPC:2005,
+author = {{UPC Consortium}},
+title = {{UPC Language Specification, v1.2}},
+year = {2005},
+month = may
 }
 
 @article{McCormick:2007,
@@ -918,6 +980,14 @@ year = {1999},
 editor = {Cheng, W and Sajeev, A S M},
 publisher = {Springer-Verlag},
 annote = {Demonstrates that nested data-parallel languages can be used to generate efficient code on a wide range of architectures (distributed vs. shared memory, and scalar vs. vector processors). Essentially combines the flattening transformation, to convert a nested parallel program into an equivalent flat program without reducing the parallelism specified in the original program, together with calculational fusion (deforestation) to remove unnecessary intermediate data structures. The deforestation and code generation phases are parameterised for the target architecture. A structured communication library is provided which handles one-way collective communication operations.}
+}
+
+@techreport{Blelloch:1990vl,
+author = {Blelloch, Guy E.},
+title = {{Prefix Sums and Their Applications}},
+year = {1990},
+number = {CMU-CS-90-190},
+month = nov
 }
 
 @techreport{CTM:2006,
@@ -1509,6 +1579,7 @@ author = {Takano, Akihiko and Meijer, Erik},
 title = {{Shortcut deforestation in calculational form}},
 booktitle = {FPCA '95: The 7th international conference on Functional programming languages and computer architecture},
 year = {1995},
+pages = {306--313},
 publisher = { ACM  Request Permissions},
 month = oct,
 annote = {Automatic program transformations to remove unnecessary intermediate data structures (deforestation). States that the technique is applicable for any functional program in function composition style, for any algebraic data type. Seems to generalise the foldr/build rule and its dual, and can be extended to work on primitive recursion.}
@@ -2144,7 +2215,7 @@ month = sep
 @inproceedings{Bell:2009bl,
 author = {Bell, Nathan and Garland, Michael},
 title = {{Implementing sparse matrix-vector multiplication on throughput-oriented processors}},
-booktitle = {SC '09: The 2009 conference on High Performance Computing Networking, Storage and Analysis},
+booktitle = {SC '09: The 2009 International Conference on High Performance Computing Networking, Storage and Analysis},
 year = {2009},
 pages = {1--11},
 publisher = {ACM},
@@ -2621,7 +2692,7 @@ pages = {18--35}
 @inproceedings{Catanzaro:2011cn,
 author = {Catanzaro, Bryan and Garland, Michael and Keutzer, Kurt},
 title = {{Copperhead: Compiling an embedded data parallel language}},
-booktitle = {PPoPP '11: The 16th ACM symposium on Principles and practice of parallel programming},
+booktitle = {PPoPP '11: The 16th ACM Symposium on Principles and Practice of Parallel Programming},
 year = {2011},
 publisher = { ACM  Request Permissions},
 month = feb
@@ -2713,7 +2784,7 @@ month = jun
 
 @inproceedings{Sewell:2007jw,
 author = {Sewell, Peter and Nardelli, Francesco Zappa and Owens, Scott and Peskine, Gilles and Ridge, Thomas and Sarkar, Susmit and Strni{\v s}a, Rok},
-title = {{Ott: effective tool support for the working semanticist}},
+title = {{Ott: Effective tool support for the working semanticist}},
 booktitle = {ICFP '07: The 12th ACM SIGPLAN international conference on Functional programming},
 year = {2007},
 publisher = { ACM  Request Permissions},
@@ -2743,11 +2814,145 @@ month = nov
 @article{Schwartz:1980cy,
 author = {Schwartz, Jacob T},
 title = {{Ultracomputers}},
-journal = {Transactions on Programming Languages and Systems (TOPLAS},
+journal = {ACM Transactions on Programming Languages and Systems},
 year = {1980},
 volume = {2},
 number = {4},
 month = oct
+}
+
+@inproceedings{Fluet:2013ha,
+author = {Fluet, Matthew},
+title = {{The Manticore project}},
+booktitle = {FHPC '13: The 2nd ACM SIGPLAN Workshop on Functional High-Performance Computing},
+year = {2013},
+pages = {1--2}
+}
+
+@inproceedings{Bergstrom:2010jq,
+author = {Bergstrom, Lars and Rainey, Mike and Reppy, John and Shaw, Adam and Fluet, Matthew},
+title = {{Lazy Tree Splitting}},
+booktitle = {ICFP '10: The 15th ACM SIGPLAN international conference on Functional programming},
+year = {2010},
+pages = {93--104}
+}
+
+@inproceedings{Diamos:2010dc,
+author = {Diamos, Gregory Frederick and Kerr, Andrew Robert and Yalamanchili, Sudhakar and Clark, Nathan},
+title = {{Ocelot: A dynamic optimization framework for bulk-synchronous applications in heterogeneous systems}},
+booktitle = {PACT '10: The 19th international conference on Parallel Architectures and Compilation Techniques},
+year = {2010},
+pages = {353--364},
+publisher = {ACM Press},
+address = {New York, New York, USA}
+}
+
+@inproceedings{Merrill:2012dl,
+author = {Merrill, Duane and Garland, Michael and Grimshaw, Andrew and Merrill, Duane and Garland, Michael and Grimshaw, Andrew},
+title = {{Scalable GPU graph traversal}},
+booktitle = {PPoPP '12: Proceedings of the 17th ACM SIGPLAN symposium on Principles and Practice of Parallel Programming},
+year = {2012},
+pages = {117--128},
+publisher = {ACM},
+address = {New York, New York, USA},
+month = sep
+}
+
+@article{Grelck:2006gh,
+author = {Grelck, Clemens and Scholz, Sven-Bodo},
+title = {{SAC---A Functional Array Language for Efficient Multi-threaded Execution}},
+journal = {International Journal of Parallel Programming},
+year = {2006},
+volume = {34},
+number = {4},
+pages = {383--427},
+month = jul
+}
+
+@inproceedings{Goldfarb:2013bm,
+author = {Goldfarb, Michael and Jo, Youngjoon and Kulkarni, Milind},
+title = {{General transformations for GPU execution of tree traversals}},
+booktitle = {SC '13: The 2013 International Conference for High Performance Computing, Networking, Storage and Analysis},
+year = {2013},
+pages = {1--12},
+publisher = {ACM Press},
+address = {New York, New York, USA}
+}
+
+@inproceedings{Wang:2013fp,
+author = {Wang, Zhenning and Zheng, Long and Chen, Quan and Guo, Minyi},
+title = {{CAP: Co-scheduling based on asymptotic profiling in CPU+GPU hybrid systems}},
+booktitle = {PMAM '13: Proceedings of the 2013 International Workshop on Programming Models and Applications for Multicores and Manycores},
+year = {2013},
+pages = {107--114},
+publisher = {ACM Press},
+address = {New York, New York, USA}
+}
+
+@inproceedings{Kameyama:2014fe,
+author = {Kameyama, Yukiyoshi and Kiselyov, Oleg and Shan, Chung-chieh},
+title = {{Combinators for impure yet hygienic code generation}},
+booktitle = {PEPM '14: The ACM SIGPLAN 2014 Workshop on Partial Evaluation and Program Manipulation},
+year = {2014},
+pages = {3--14},
+month = jan
+}
+
+@inproceedings{Kuper:2013ti,
+author = {Kuper, Lindsey and Newton, Ryan},
+title = {{LVars: Lattice-based data structures for deterministic parallelism}},
+booktitle = {FHPC '13: The 2nd ACM SIGPLAN Workshop on Functional High-Performance Computing},
+year = {2013},
+month = sep
+}
+
+@inproceedings{Tzannes:2010il,
+author = {Tzannes, Alexandros and Caragea, George C and Barua, Rajeev and Vishkin, Uzi},
+title = {{Lazy binary-splitting: a run-time adaptive work-stealing scheduler}},
+booktitle = {PPoPP '10: The 15th ACM Symposium on Principles and Practice of Parallel Programming},
+year = {2010},
+pages = {179--190},
+publisher = {ACM},
+month = jan
+}
+
+@inproceedings{Newburn:2011fu,
+author = {Newburn, Chris and So, Byoungro and Liu, Zhenying and McCool, Michael D and Ghuloum, Anwar and Du Toit, Stefanus and Wang, Zhi Gang and Du, Zhao Hui and Chen, Yongjian and Wu, Gansha and Guo, Peng and Liu, Zhanglin and Zhang, Dan},
+title = {{Intel's Array Building Blocks: A retargetable, dynamic compiler and embedded language}},
+booktitle = {CGO '11: The 9th IEEE/ACM International Symposium on Code Generation and Optimization},
+year = {2011},
+pages = {224--235}
+}
+
+@article{Carette:2009ce,
+author = {Carette, Jacques and Kiselyov, Oleg and Shan, Chung-chieh},
+title = {{Finally tagless, partially evaluated: Tagless staged interpreters for simpler typed languages}},
+journal = {Journal of Functional Programming},
+year = {2009},
+volume = {19},
+number = {05},
+pages = {509},
+month = apr
+}
+
+@inproceedings{Lee:2013vf,
+author = {Lee, Janghaeng and Samadi, Mehrzad and Park, Yongjun and Mahlke, Scott},
+title = {{Transparent CPU-GPU collaboration for data-parallel kernels on heterogeneous systems}},
+booktitle = {PACT '13: The 22nd international conference on Parallel Architectures and Compilation Techniques},
+year = {2013},
+pages = {245--256},
+publisher = {PACT '13},
+month = oct
+}
+
+@inproceedings{Geoffray:2010ue,
+author = {Geoffray, N and Thomas, G and Lawall, J and Muller, G and Folliot, B},
+title = {{VMKit: a Substrate for Managed Runtime Environments}},
+booktitle = {VEE 2010: Virtual Execution Environment Conference},
+year = {2010},
+publisher = {ACM Press},
+address = {Pittsburgh, USA},
+month = mar
 }
 
 @inproceedings{Yorgey:2012fs,
@@ -2769,6 +2974,94 @@ publisher = {ACM Press},
 address = {New York, New York, USA}
 }
 
+@inproceedings{Terei:2010ds,
+author = {Terei, David A and Chakravarty, Manuel M T},
+title = {{An LLVM backend for GHC}},
+booktitle = {Haskell '10: The 3rd ACM SIGPLAN Symposium on Haskell},
+year = {2010},
+pages = {109--120},
+publisher = {ACM},
+address = {New York, New York, USA},
+month = nov
+}
+
+@inproceedings{Lattner:2003tv,
+author = {Lattner, Chris and Adve, Vikram},
+title = {{Architecture for a Next-Generation GCC}},
+booktitle = {The First Annual GCC Developers' Summit},
+year = {2003},
+address = {Ottawa, Canada},
+month = may
+}
+
+@article{Blumofe:1999jg,
+author = {Blumofe, Robert D and Leiserson, Charles E},
+title = {{Scheduling multithreaded computations by work stealing}},
+journal = {Journal of the ACM},
+year = {1999},
+volume = {46},
+number = {5},
+pages = {720--748},
+month = sep
+}
+
+@inproceedings{Robison:2008ij,
+author = {Robison, Arch and Voss, Michael and Kukanov, Alexey},
+title = {{Optimization via Reflection on Work Stealing in TBB}},
+booktitle = {IPDPS '08: The 2008 IEEE International Symposium on Parallel and Distributed Processing},
+year = {2008},
+pages = {1--8},
+publisher = {IEEE},
+month = apr
+}
+
+@inproceedings{Leiserson:2009kq,
+author = {Leiserson, Charles E},
+title = {{The Cilk++ concurrency platform}},
+booktitle = {DAC '09: The 46th Annual Design Automation Conference},
+year = {2009},
+pages = {522--527},
+publisher = {ACM Press},
+address = {New York, New York, USA}
+}
+
+@inproceedings{Marlow:2012kn,
+author = {Marlow, Simon and Newton, Ryan and Jones, Simon Peyton},
+title = {{A monad for deterministic parallelism}},
+booktitle = {Haskell '11: The 4th ACM SIGPLAN Symposium on Haskell},
+year = {2012},
+publisher = { ACM  Request Permissions},
+month = jan
+}
+
+@inproceedings{Pharr:2012dp,
+author = {Pharr, Matt and Mark, William R.},
+title = {{ispc: A SPMD compiler for high-performance CPU programming}},
+booktitle = {InPar '12: Innovative Parallel Computing},
+year = {2012},
+pages = {1--13},
+publisher = {IEEE},
+month = may
+}
+
+@article{Cryton:1991tw,
+author = {Cryton, Ron and Ferrante, Jeanne and Rosen, Barry K and Wegman, Mark N. and Zadeck, F. Kenneth},
+title = {{Efficiently computing static single assignment form and the control dependence graph}},
+journal = {ACM Transactions on Programming Languages and Systems},
+year = {1991},
+volume = {13},
+number = {4},
+pages = {451--490},
+month = oct
+}
+
+@inproceedings{Hu:1997tk,
+author = {Hu, Zhenjiang and Iwasaki, Hideya and Takeichi, Masato and Takano, Akihiko},
+title = {{Tupling calculation eliminates multiple data traversals}},
+booktitle = {ICFP '97: The 2nd ACM SIGPLAN international conference on Functional Programming},
+year = {1997}
+}
+
 @article{Sewell:2010ds,
 author = {Sewell, Peter and Nardelli, Francesco Zappa and Owens, Scott and Peskine, Gilles and Ridge, Thomas and Sarkar, Susmit and Strni{\v s}a, Rok},
 title = {{Ott: Effective tool support for the working semanticist}},
@@ -2777,6 +3070,17 @@ year = {2010},
 volume = {20},
 number = {01},
 pages = {71},
+month = jan
+}
+
+@article{Waters:1991fp,
+author = {Waters, Richard C},
+title = {{Automatic transformation of series expressions into loops}},
+journal = {ACM Transactions on Programming Languages and Systems},
+year = {1991},
+volume = {13},
+number = {1},
+pages = {52--98},
 month = jan
 }
 
@@ -2898,6 +3202,16 @@ volume = {12},
 number = {4-5},
 pages = {393--434},
 month = jul
+}
+
+@incollection{Grelck:2006ci,
+author = {Grelck, Clemens and Hinckfu{\ss}, Karsten and Scholz, Sven-Bodo},
+title = {{With-Loop Fusion for Data Locality and Parallelism}},
+booktitle = {Implementation and Application of Functional Languages},
+year = {2006},
+pages = {178--195},
+publisher = {Springer Berlin Heidelberg},
+address = {Berlin, Heidelberg}
 }
 
 @inproceedings{Alpern:1988hw,

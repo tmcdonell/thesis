@@ -301,8 +301,10 @@ Fusion in a massively data-parallel (embedded) language such as Accelerate
 requires several uncommon considerations. We discuss related work further in
 section~\ref{sec:fusion_related_work}.
 
-\paragraph{Parallelism:} While fusing parallel collective operations, we must be
-careful not to lose information essential to parallel execution. For example,
+\subsubsection{Parallelism}
+
+While fusing parallel collective operations, we must be careful not to lose
+information essential to parallel execution. For example,
 @foldr/build@\index{fusion!foldr/build}~\cite{Gill:1993de} and
 stream\index{fusion!stream}~\cite{Coutts:2007kp} fusion are not applicable,
 because they produce sequential tail-recursive loops rather than massively
@@ -318,35 +320,40 @@ any fusion system must preserve the combinator representation of the
 intermediate code.
 
 
-\paragraph{Sharing:} \index{fusion!short-cut}Short-cut fusion transforms rely on
-inlining to move producer and consumer expressions next to each other, which
-allows adjacent constructor/destructor pairs to be detected and eliminated. When
-let-bound variables are used multiple times in the body of an expression,
-unrestrained inlining can lead to duplication of work. Compilers such as GHC
-handle this situation by inlining the definitions of let-bound variables that
-have a single use site, or by relying on some heuristic about the size of the
-resulting code to decide what to inline~\cite{PeytonJones:2003gb}. In typical
-Accelerate programs, each array is used at least twice: once to access the shape
+\subsubsection{Sharing}
+
+\index{fusion!short-cut}Short-cut fusion transforms rely on inlining to move
+producer and consumer expressions next to each other, which allows adjacent
+constructor/destructor pairs to be detected and eliminated. When let-bound
+variables are used multiple times in the body of an expression, unrestrained
+inlining can lead to duplication of work. Compilers such as GHC handle this
+situation by inlining the definitions of let-bound variables that have a single
+use site, or by relying on some heuristic about the size of the resulting code
+to decide what to inline~\cite{PeytonJones:2003gb}. In typical Accelerate
+programs, each array is used at least twice: once to access the shape
 information and once to access the array data, so we must handle at least this
 case specially.
 
-\paragraph{Fusion at runtime:} As the Accelerate language is embedded in
-Haskell, compilation of the Accelerate program happens at Haskell \emph{runtime}
-rather than when compiling the Haskell
+\subsubsection{Fusion at runtime}
+
+As the Accelerate language is embedded in Haskell, compilation of the Accelerate
+program happens at Haskell \emph{runtime} rather than when compiling the Haskell
 program~(\S\ref{sec:dynamic_compilation}). For this reason, optimisations
 applied to an Accelerate program contribute to its overall runtime, so we must
 be mindful of the cost of analysis and code transformations. On the flip-side,
 we are able to make use of information that is only available at runtime.
 
-\paragraph{Filtering:} General array fusion transformations must deal with
-filter-like operations, for which the size of the result structure depends on
-the \emph{values} of the input array, as well as its size. For example
-\index{fusion!stream}stream fusion includes the @Skip@ constructor in
-order to support filtering operations (among other uses). Although easily
-implementable as a combination of the core primitives and provided by the
-library as such, filtering is difficult to implement as a single-step parallel
-operation. Since filter-like operations are not part of the core Accelerate
-operations, we do not need to consider them further.
+\subsubsection{Filtering}
+
+General array fusion transformations must deal with filter-like operations, for
+which the size of the result structure depends on the \emph{values} of the input
+array, as well as its size. For example \index{fusion!stream}stream fusion
+includes the @Skip@ constructor in order to support filtering operations (among
+other uses). Although easily implementable as a combination of the core
+primitives and provided by the library as such, filtering is difficult to
+implement as a single-step parallel operation. Since filter-like operations are
+not part of the core Accelerate operations, we do not need to consider them
+further.
 
 % Today I did some of my thesis. I wrote LOOOOOTS of pages of words and thingies.
 % I think I should get to have ALLLLL the plays and ALLLLLL the rests now. Thesis,
@@ -358,11 +365,12 @@ operations, we do not need to consider them further.
 %
 %   - pookie 19/06/2013
 
-\paragraph{Fusion on typed de Bruijn indices:} We fuse Accelerate programs by
-rewriting typed \indext{de Bruijn} terms in a type preserving manner.
-Maintaining type information adds complexity to the definitions and rules, but
-amounts to a partial proof of correctness checked by the type checker
-(\S\ref{sec:richly_typed_terms}).
+\subsubsection{Fusion on typed de Bruijn indices}
+
+We fuse Accelerate programs by rewriting typed \indext{de Bruijn} terms in a
+type preserving manner. Maintaining type information adds complexity to the
+definitions and rules, but amounts to a partial proof of correctness checked by
+the type checker (\S\ref{sec:richly_typed_terms}).
 
 
 \subsection{The Main Idea}
@@ -435,13 +443,12 @@ because independent element-wise operations have an obvious mapping to massively
 parallel processors such as GPUs\index{graphics processing unit}. Consumers are
 a different story, as we need to know exactly how the elements depend on each
 other in order to implement them efficiently in parallel. For example, a
-reduction (with associative operator) can be implemented efficiently in
-parallel as a recursive tree reduction (\S\ref{sec:parallel_reduction}), but a
-parallel scan requires two distinct phases (\S\ref{sec:parallel_scan}).
-Unfortunately, this is the sort of information that is obfuscated by most fusion
-techniques (\S\ref{sec:fusion_related_work}). To support the different
-properties of producers and consumers, the fusion transform is split into two
-distinct phases:
+reduction (with associative operator) can be implemented efficiently in parallel
+as a recursive tree reduction, but a parallel scan requires two distinct phases
+(\S\ref{sec:parallel_algorithms_in_cuda}). Unfortunately, this is the sort of
+information that is obfuscated by most fusion techniques. To support the
+different properties of producers and consumers, the fusion transform is split
+into two distinct phases:
 %
 \begin{enumerate}
     \item \emph{Producer/producer:} A bottom-up contraction of the AST that
@@ -460,11 +467,11 @@ distinct phases:
 
 \begin{figure}[htb]
     \flushright \small(Before fusion)\qquad\\
-    \centering  \includegraphics[scale=0.25]{images/sec-5/fusion1.pdf}
+    \centering  \includegraphics[scale=0.245]{images/sec-5/fusion1.pdf}
     \flushright \small(After producer/producer fusion)\qquad\\
-    \centering  \includegraphics[scale=0.25]{images/sec-5/fusion2.pdf}
+    \centering  \includegraphics[scale=0.245]{images/sec-5/fusion2.pdf}
     \flushright \small(After producer/consumer fusion)\qquad\\
-    \centering  \includegraphics[scale=0.25]{images/sec-5/fusion3.pdf}
+    \centering  \includegraphics[scale=0.245]{images/sec-5/fusion3.pdf}
     \caption[Fusion in Accelerate]{Producer/producer and Producer/consumer fusion in Accelerate.}
     \label{fig:fusion}
 \end{figure}
@@ -533,14 +540,15 @@ optimise purely functional array programs in \index{fusion!delayed
 arrays}Repa~\cite{Keller:2010er}, and has also been used by
 others~\cite{Claessen:2012hl}.
 
-The use of delayed arrays in Repa was originally motived by the desire to avoid
-superfluous copying of array elements during index space transformations such as
-@backpermute@ (see Listing~\ref{lst:producer_consumer_operations}). Another
-major benefit of delayed arrays is that it offers by-default automatic fusion.
-Moreover, this fusion does not require sophisticated compiler transformations or
-for the two fusible terms to be statically juxtaposed; fusion is a property of
-the data representation.
-
+% The use of delayed arrays in Repa was originally motived by the desire to avoid
+% superfluous copying of array elements during index space transformations such as
+% @backpermute@ (see Listing~\ref{lst:producer_consumer_operations}).
+The major benefit of the use of delayed arrays in Repa is that it offers
+by-default automatic fusion. Moreover, this form of fusion does not require
+sophisticated compiler transformations or for the two fusible terms to be
+statically juxtaposed --- fusion is an inherent property of the data
+representation.
+%
 Automatic fusion sounds too good to be true, and indeed it is. There are at
 least two reasons why it is not always beneficial to represent all array terms
 uniformly as functions. The first issue is \emph{sharing}. Consider the
@@ -551,15 +559,15 @@ let b = map f a
 in  mmMult b b
 \end{lstlisting}
 %
-Every access to an element @b@ will apply the (arbitrarily expensive)
-function @f@ to the corresponding element of @a@. It follows that
-these arbitrarily expensive computations will be done \emph{at least twice},
-once for each argument of @mmMult@, quite contrary to the programmer's
-intent. Indeed, if @mmMult@ consumes its elements in a non-linear manner,
-accessing elements more than once, the computation of @f@ will be performed
-every time. We must be able to represent some terms as manifest arrays so that a
-delayed-by-default representation can not lead to an arbitrary loss of sharing.
-This is a well known problem with Repa~\cite{Lippmeier:2012g}.
+Every access to an element @b@ will apply the (arbitrarily expensive) function
+@f@ to the corresponding element of @a@. It follows that these computations will
+be done \emph{at least twice}, once for each argument of @mmMult@, quite
+contrary to the programmer's intent. Indeed, if @mmMult@ consumes its elements
+in a non-linear manner, accessing elements more than once, the computation of
+@f@ will be performed every time. Thus it is important to be able to represent
+some terms as manifest arrays so that a delayed-by-default representation can
+not lead to an arbitrary loss of sharing. This is a well known problem with
+Repa~\cite{Lippmeier:2012gx}.
 
 The other consideration is \emph{efficiency}. Since we are targeting a massively
 parallel architecture designed for performance, it is better to use more
@@ -577,16 +585,16 @@ fusing successive producers by combining these scalar functions.
     ,label=lst:cunctation
     ,caption={Representation of fusible producer arrays}]
 data Cunctation acc aenv a where
-    Done  :: Arrays arrs
+    Done  :: Arrays arrs                                -- (1)
           => Idx            aenv arrs                   -- manifest array(s)
           -> Cunctation acc aenv arrs
 
-    Yield :: (Shape sh, Elt e)
+    Yield :: (Shape sh, Elt e)                          -- (2)
           => PreExp     acc aenv sh                     -- output shape
           -> PreFun     acc aenv (sh -> e)              -- compute an element at each index
           -> Cunctation acc aenv (Array sh e)
 
-    Step  :: (Shape sh, Shape sh', Elt a, Elt b)
+    Step  :: (Shape sh, Shape sh', Elt a, Elt b)        -- (3)
           => PreExp     acc aenv sh'                    -- output shape
           -> PreFun     acc aenv (sh' -> sh)            -- backwards permutation into input array
           -> PreFun     acc aenv (a   -> b)             -- function to apply to input value
@@ -622,8 +630,8 @@ Note that the argument arrays to @Done@ and @Step@ are not expressed as terms in
 @acc@, the type of collective array operations. Instead, requiring a \indext{de
 Bruijn} index (@Idx@) into the array environment ensures that the argument array
 is manifest. Thus the definition of @Cunctation@ is non-recursive in the type of
-array computations. This allows the representation to be (later) embedded within
-producer terms (\ref{sec:producer_consumer_fusion}) with the guarantee that an
+array computations. This allows the representation to be embedded within
+producer terms (\S\ref{sec:producer_consumer_fusion}) with the guarantee that an
 embedded scalar computation will not invoke further parallel computations
 (\S\ref{sec:array_computations_vs_scalar_expressions}).
 % \footnote{While scalar expression terms are mutually recursive in
@@ -664,7 +672,7 @@ following is a valid alternative definition for the @Yield@ constructor:
 \begin{lstlisting}[style=haskell]
   Yield' :: (Shape sh, Elt e)                   -- Alternative definition (bad)
          => Extend     acc aenv aenv'           -- NEW: supplementary environment bindings
-         -> PreExp     acc      aenv' sh        -- CHANGED: terms now defined w.r.t. \texttt{aenv'}
+         -> PreExp     acc      aenv' sh        -- CHANGED: inner terms now defined w.r.t. \texttt{aenv'}
          -> PreFun     acc      aenv' (sh -> e)
          -> Cunctation acc aenv       (Array sh e)
 \end{lstlisting}
@@ -686,8 +694,8 @@ meet the requirements for the more restrictive @Step@ --- then this
 additional work is wasted.
 
 Why can we not analyse terms with respect to the exposed environment type
-@aenv@, ignoring for the moment the existential? At some point we will need
-to combine the extended environments, and we have no way to do this even if the
+@aenv@? At some point we will need to merge the extended environments. What
+would be the type of this operation? We have no way to express this, even if the
 existential types are exposed.
 %
 \begin{lstlisting}[style=haskell]
@@ -716,18 +724,14 @@ compute' cc = case simplify cc of
   Step sh p f v                                 -- special cases...
     | Just REFL <- match sh (arrayShape v)
     , Just REFL <- isIdentity p
-    , Just REFL <- isIdentity f
-    -> Avar v                                   -- an unmodified manifest array
+    , Just REFL <- isIdentity f -> Avar v                       -- an unmodified manifest array
 
     | Just REFL <- match sh (arrayShape v)
-    , Just REFL <- isIdentity p
-    -> Map f (avarIn v)                         -- linear indexing OK
+    , Just REFL <- isIdentity p -> Map f (avarIn v)             -- linear indexing OK
 
-    | Just REFL <- isIdentity f
-    -> Backpermute sh p (avarIn v)              -- pure index transform
+    | Just REFL <- isIdentity f -> Backpermute sh p (avarIn v)  -- pure index transform
 
-    | otherwise
-    -> Transform sh p f (avarIn v)              -- index \& value transform
+    | otherwise                 -> Transform sh p f (avarIn v)  -- index \& value transform
 \end{lstlisting}
 
 Finally, we convert the delayed representations into manifest data using the
@@ -736,11 +740,10 @@ terms of the representation to identify special cases, such as @map@ and
 @backpermute@.
 %
 The helper functions @match@ and @isIdentity@ check for congruence of
-expressions. As discussed in section~\ref{sec:equality}, we match on \code{Just
-REFL} to inject information on the positive case to both the type and value
-level. For example, @isIdentity@ checks whether a function corresponds to
-the term $\lambda x.x$, and in the positive case witnesses that its type must be
-@a -> a@.
+expressions. As discussed in section~\ref{sec:equality}, we match on @Just REFL@
+to inject information on the positive case to both the type and value level. For
+example, @isIdentity@ checks whether a function corresponds to the term $\lambda
+x.x$, and in the positive case witnesses that its type must be @a -> a@.
 
 \subsection{Producer/Producer Fusion}
 \label{sec:producer_producer_fusion}
@@ -925,7 +928,7 @@ embedAcc  :: Arrays arrs => acc aenv arrs -> Embed acc aenv arrs
     representation by adding the term as manifest data into the extended
     environment. This also illustrates why we require both @Done@ and @Step@
     constructors in the delayed representation (Listing~\ref{lst:cunctation}).
-    It would be conveninet to represent manifest data as a @Step@ node with
+    It would be convenient to represent manifest data as a @Step@ node with
     identity transformation functions, but the type of @Step@ is restricted to a
     single @Array@, whereas @Done@ is generalised to the @Arrays@ class.
 
@@ -933,20 +936,22 @@ embedAcc  :: Arrays arrs => acc aenv arrs -> Embed acc aenv arrs
     representation using their smart constructors. In order to do this, all
     terms must be defined with respect to the same environment type. The helper
     function @fuse@ encodes the bottom-up traversal by first converting the
-    argument array @a@ into the @Embed@ representation. The extendend
-    environment type and delayed representation are then passed to the
-    continuation function @into@, which sinks
-    (\S\ref{sec:environment_manipulation}) the argument @f@ into the extended
-    environment type of the delayed representation, before applying the smart
-    constructor @mapD@ (Listing~\ref{lst:mapD}). This resuts into a new delayed
-    representation that can be further fused into later terms.
+    argument array @a@ into the @Embed@ representation. The extended environment
+    type and delayed representation are then passed to the continuation function
+    @into@, which sinks (\S\ref{sec:environment_manipulation}) the argument @f@
+    into the extended environment type of the delayed representation, before
+    applying the smart constructor @mapD@ (Listing~\ref{lst:mapD}). This results
+    into a new delayed representation that can be further fused into later
+    terms. At the @zipWith@ case @fuse2@ acts analogously, but must ensure that
+    the two input array terms are lowered into the same extended environment.
 
 \item Consumer operations such as @fold@ force the operation to be evaluated to
     a manifest array at this point in the program, by converting the @Embed@
     representation back into AST terms using @compute'@
     (Listing~\ref{lst:compute}) and pushing the result onto the extended
     environment. Consumers fusion will be treated in
-    section~\ref{sec:producer_consumer_fusion}.
+    section~\ref{sec:producer_consumer_fusion}, although note that the producer
+    is placed adjacent to the term that consumes it.
 
 \end{enumerate}
 
@@ -1055,8 +1060,8 @@ convertOpenAcc = manifest . computeOpenAcc . embedOpenAcc                       
     function @embedOpenAcc@, described in
     section~\ref{sec:producer_producer_fusion}. The second phase is the top-down
     traversal which annotates the AST as to which nodes should be computed to
-    manifest data and which should be embedded into their consumers, which is
-    implemented by the function @manifest@.
+    manifest data and which should be embedded into their consumers. This phase
+    is implemented by the function @manifest@.
 
 \item For the most part, the function @manifest@ simply wraps each node of the
     AST in the @Manifest@ constructor, indicating that this term should be
@@ -1070,27 +1075,28 @@ convertOpenAcc = manifest . computeOpenAcc . embedOpenAcc                       
     bound regardless of the number of use sites.
 
 \item A consumer such as @fold@ specifies that its array valued argument should
-    be @delayed@, so the @Embed@ representation of producer terms generated in
-    the first phase is used to annotate the AST node directly. Code generation
-    will later embed this functional representation of how to generate the input
-    array elements directly into the consumer skeleton, thereby completing the
-    producer/consumer fusion process.
+    be @delayed@, so the representation of producer terms is used to annotate
+    the AST node directly. Code generation will later embed this functional
+    representation directly into the consumer skeleton, thereby completing the
+    producer/consumer fusion process
+    (\S\ref{sec:fusion_by_template_instantiation}).
 
-\item In contrast, stencil operations (\S\ref{sec:parallel_stencil}) ---where
-    the computation of each element has access to all array elements within a
-    local neighbourhood--- first fully computes the argument to a manifest array
-    in order to avoid duplicating the work of the delayed representation at each
+\item In contrast, stencil operations (\S\ref{sec:parallel_stencil}) --- where
+    the computation of each element has access to elements within a local
+    neighbourhood --- first fully computes the argument to a manifest array in
+    order to avoid duplicating the work of the delayed representation at each
     array access. The transformation thus makes it clear for which operations
     the argument arrays will be delayed, and for which operations the arguments
-    will manifest.
+    are manifest.
 
-\item The function @delayed@ generates the delayed array representation that can
-    be directly embedded into consumers. The function takes care to recover
-    optimisation opportunities such as linear indexing of the underlying array
-    data. Note that it is safe to match on @BaseEnv@ --- indicating no
-    additional terms are being brought into scope --- because the first phase
-    always places producers adjacent to the term that will consume it; see
-    definition of @embed@ in Listing~\ref{lst:embedPreAcc}.
+\item The function @delayed@ generates the delayed array representation of how
+    to produce each array element that can be directly embedded into consumers.
+    The function takes care to recover optimisation opportunities such as linear
+    indexing of the underlying array data. Note that it is safe to match on
+    @BaseEnv@ --- indicating no additional terms are being brought into scope
+    --- because the first phase always places producers adjacent to the term
+    that will consume it; see the definition of @embed@ in
+    Listing~\ref{lst:embedPreAcc}.
 
 \end{enumerate}
 
@@ -1106,34 +1112,35 @@ The approach to array fusion employed by Accelerate is similar to that used by
 Repa~\cite{Keller:2010er,Lippmeier:2011cd,Lippmeier:2012gx}, although the idea
 of representing arrays as functions is well known. It was discovered that one of
 the most immediately pressing problems with delayed arrays in Repa was that it
-did not preserve sharing. The conversion between delayed and manifest arrays is
-done manually, which can cause shared expressions to be recomputed rather than
-stored. Depending on the algorithm such recomputation can be beneficial, but
-excessive recomputation quickly ruins performance.
+did not preserve sharing. In Repa, the conversion between delayed and manifest
+arrays is done manually, where by default shared expressions will be recomputed
+rather than stored. Depending on the algorithm, such recomputation can be
+beneficial, but excessive recomputation quickly ruins performance.
 
 However, since Accelerate has explicit sharing information encoded in the term
-tree as let bindings, we can avoid this problem of unrestrained inlining
-experienced with Repa. While we want to be careful about fusing shared array
-computations to avoid duplicating work, \emph{scalar} Accelerate computations
-that manipulate \emph{array shapes}, as opposed to the bulk array data, can lead
-to terms that employ sharing but can never duplicate work. Such terms are common
-in Accelerate code and so it is important that they do not inhibit fusion.
+tree as let bindings, we can avoid the problem of unrestrained inlining that can
+be a problem with when using Repa. While we want to be careful about fusing
+shared array computations to avoid duplicating work, \emph{scalar} Accelerate
+computations that manipulate \emph{array shapes}, as opposed to the bulk array
+data, can lead to terms that employ sharing but can never duplicate work. Such
+terms are common in Accelerate code and so it is important that they are treated
+specially so that they do not inhibit fusion.
 
 
-\paragraph{let-elimination}
+\subsubsection{let-elimination}
 
 Consider the following example that first reverses a vector with @backpermute@,
 and then maps a function @f@ over the result. Being a function of two producer
 term (see Listing~\ref{lst:producer_consumer_operations}) we would hope these
 are fused into a single operation:%
-\footnote{Some details of the backwards permutation function are elided for
-clarity. See the definition of \texttt{reverse}:
-\url{http://hackage.haskell.org/packages/archive/accelerate/latest/doc/html/Data-Array-Accelerate.html\#v:reverse}}
+% \footnote{Some details of the backwards permutation function are elided for
+% clarity. See the definition of \texttt{reverse}:
+% \url{http://hackage.haskell.org/packages/archive/accelerate/latest/doc/html/Data-Array-Accelerate.html\#v:reverse}}
 %
 \begin{lstlisting}[style=haskell]
 reverseMap f xs
   = map f
-  $ backpermute (shape xs) (\i -> length xs - i - 1) xs
+  $ backpermute (shape xs) (ilift1 $ \i -> length xs - i - 1) xs
 \end{lstlisting}
 %
 Unfortunately, sharing recovery, using the algorithm from
@@ -1171,7 +1178,7 @@ could compute an accurate cost model and make an informed decision. Such
 analysis is left to future work.
 
 
-\paragraph{let-floating}
+\subsubsection{let-floating}
 
 Similarly, the semantics of our program do not change if we float let bindings
 of manifest data across producer chains. This helps to expose further
@@ -1189,7 +1196,7 @@ must be careful to not change the \emph{scope} of let bindings, as that would
 increase the lifetime of bound variables, and hence increase live memory usage.
 
 
-\paragraph{}
+\par{} %\subsubsection{Smart constructor for let bindings}
 
 Both these tasks, let-floating and let-elimination, are handled by a smart
 constructor for let bindings during the first fusion phase that contracts the
@@ -1358,21 +1365,6 @@ In order to determine when let bindings should be eliminated, the smart
 constructor calls the argument function @elimAcc@. The current implementation is
 shown in Listing~\ref{lst:elimAcc}.
 
-\begin{enumerate}
-\item Although duplicating work is sometimes beneficial in order to reduce
-    memory traffic in exchange for increased computation, the current version of
-    Accelerate is conservative and never duplicates work. The bound expression
-    is only eliminated when there is a single use of the array data component of
-    the bound array. The function @count@ traverses the term and return the
-    number of uses of the data component at the bound variable, while ignoring
-    uses of the array shape.
-
-\item At a special case, the function looks for the definition of @unzip@
-    applied to manifest array data, which is defined by the Accelerate prelude
-    as a @map@ projecting out the appropriate element of the tuple.
-
-\end{enumerate}
-
 \begin{lstlisting}[style=haskell_float
     ,label=lst:elimAcc
     ,caption={Determining when a let binding should be eliminated}]
@@ -1392,6 +1384,21 @@ elimOpenAcc bnd body
     count idx (OpenAcc pacc) = usesOfPreAcc count idx pacc
 \end{lstlisting}
 
+\begin{enumerate}
+\item Although duplicating work is sometimes beneficial in order to reduce
+    memory traffic in exchange for increased computation, the current version of
+    Accelerate is conservative and never duplicates work. The bound expression
+    is only eliminated when there is a single use of the array data component of
+    the bound array. The function @count@ traverses the term and return the
+    number of uses of the data component at the bound variable, while ignoring
+    uses of the array shape.
+
+\item At a special case, the function looks for the definition of @unzip@
+    applied to manifest array data, which is defined by the Accelerate prelude
+    as a @map@ projecting out the appropriate element of the tuple.
+
+\end{enumerate}
+
 It is left to future work to implement a cost model analysis or similar, that
 can determine when it is beneficial to introduce work duplication, and to
 identify other special cases.
@@ -1400,19 +1407,18 @@ identify other special cases.
 \label{sec:simplification}
 
 Functional language compilers often perform optimisations. To avoid speculative
-optimisations that can blow up code size, we might wish to use only
-optimisations guaranteed to make the program smaller: these include
-dead-variable elimination, constant folding, and a restricted $\beta$-reduction
-rule that only inlines functions that are called just once. This leads to a
-simplification system guaranteed not to lead to code blowup or nonterminating
-compilation.
+optimisations that can blow up code size, we only use optimisations guaranteed
+to make the program smaller: these include dead-variable elimination, constant
+folding, and a restricted $\beta$-reduction rule that only inlines functions
+which are called once. This leads to a simplification system guaranteed not to
+lead to code blowup or non-terminating compilation.
 
 \subsection{Shrinking}
 \label{sec:shrinking}
 
-The \emph{shrinking reduction} arises as a restriction of $\beta$-reduction
-(i.e. inlining) to cases where the bound variable is used zero (dead-code
-elimination) or one (linear inlining) times. By simplifying terms,
+The \emph{shrinking reduction} arises as a restriction of $\beta$-reduction to
+cases where the bound variable is used zero (dead-code elimination) or one
+(linear inlining) times. By simplifying terms,
 %As well as reducing binding overhead,
 the shrinking reduction exposes opportunities for further optimisation such as
 more aggressive inlining, constant folding and common sub-expression
@@ -1426,13 +1432,20 @@ algorithm that re-traverses the whole reduct whenever a redex is reduced,
 although more efficient imperative algorithms exist
 \cite{Appel:1997gs,Benton:2004ua,Kennedy:2007cb}.
 
-The only interesting case of the @shrink@ function shown in
-Listing~\ref{lst:shrinking} is that of a
-$\beta$-redex where the number of uses is less than or equal to one. The
-implementation, outlined below, uses the \indext{de Bruijn} manipulation
-techniques developed in sections~\ref{sec:equality} and \ref{sec:substitution}.
-This also suffices to eliminate dead code, as Accelerate does not have separate
-forms for let-bindings and lambda abstractions.
+The implementation of the @shrink@ function is shown in
+Listing~\ref{lst:shrinking}. The only interesting case is that of a
+$\beta$-redex: when the number of uses is less than or equal to one, the bound
+term is inlined directly into the body. As Accelerate does not have separate
+forms for let bindings and lambda abstractions, this serves to implement both
+inlining and dead code elimination.
+
+% The only interesting case of the @shrink@ function shown in
+% Listing~\ref{lst:shrinking} is that of a $\beta$-redex where the number of uses
+% is less than or equal to one. The implementation uses the \indext{de Bruijn}
+% manipulation techniques developed in
+% section~\ref{sec:manipulating_embedded_programs}. This also suffices to
+% eliminate dead code, as Accelerate does not have separate forms for let-bindings
+% and lambda abstractions.
 
 \begin{lstlisting}[
     style=Haskell,
@@ -1472,12 +1485,12 @@ elimination, where we look for expressions of the form:
 %
 and replace all occurrences of @e1@ in @e2@ with @x@. This method relies on the
 introduction of let-bindings into the reified program by the sharing recovery
-algorithm, described in the previous section (\S\ref{sec:sharing_recovery}), so
-can not eliminate any common subexpressions that are not already defined in the
-source program. Thus, the method might not completely eliminate all redundant
-expressions from the program, but is sufficient to catch some cases, in
-particular those that tend to be introduced during the array fusion
-optimisation, described in the following section.
+algorithm (\S\ref{sec:sharing_recovery}), so can not eliminate any common
+subexpressions that are not already defined in the source program. Thus, the
+method might not completely eliminate all redundant expressions from the
+program, but is sufficient to catch some cases --- in particular those that tend
+to be introduced during the array fusion optimisation, because we always
+introduce let bindings for intermediate values when composing terms.
 %\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
 
 While it may seem that common subexpression elimination is always worthwhile, as
@@ -1778,9 +1791,8 @@ f x = let a = lift (constant 30, x)
 
 The desire to program in a functional style while still achieving the
 performance level of an imperative language has been around for as long as
-functional programming itself. Fusion has received plenty of attention in the
-context of functional
-programming~\cite{Coutts:2007kp,Gill:1993de,Hu:1997tk,Meijer:1991,Rompf:2013er,Takano:1995,Wadler:1984ia,Waters:1991fp}.
+functional programming itself, receiving plenty of attention in this
+context~\cite{Coutts:2007kp,Gill:1993de,Hu:1997tk,Meijer:1991,Rompf:2013er,Takano:1995,Wadler:1984ia,Waters:1991fp}.
 While most prior work focuses on removing intermediate lists, some methods apply
 to arrays~\cite{Chakravarty:2001dt,Claessen:2012hl,Grelck:2006ci,Keller:2010er}.
 This section briefly summarises some of the related work in this area.
@@ -1791,8 +1803,8 @@ This section briefly summarises some of the related work in this area.
 Most practically successful fusions systems are \emph{short-cut fusion}
 \index{fusion!short-cut} methods that rely on local program transformations, and
 are implemented as simple but specific rewrite rules combined with general
-purpose program transformations. The fusion system employed by Accelerate is in
-this vein.
+purpose program transformations. The fusion system described in this work and
+implemented in Accelerate is in this vein.
 
 % Inspired by earlier work in @fold/unfold@ methods~\cite{Burstall:1977kl},
 % deforestation~\cite{Wadler:1981hy,Wadler:1990ix} applies a set of rewrite rules
@@ -1801,11 +1813,11 @@ this vein.
 % requires a separate transformation rule for every combination of operators.
 
 @foldr/build@ fusion~\cite{Gill:1996tf,Gill:1993de}\index{fusion!foldr/build}
-instead implements library operations out of two basic functions: @build@
+implements library operations out of two basic functions: @build@
 constructs a list while @foldr@ consumes it, and a single rewrite rule suffices
 to remove intermediate structures. However, not all operations can be expressed
 in terms of these two operations, and the transformation does not handle
-functions with accumulators (@foldl@) or that consume multiple inputs (@zip@).
+functions with accumulators or that consume multiple inputs.
 
 Stream fusion~\cite{Coutts:2007kp}\index{fusion!stream} addresses the
 shortcomings of @foldr/build@ fusion, while remaining simple and useful in
@@ -1814,15 +1826,15 @@ type, which consists of some abstract state and a stepper function that advances
 the stream to the next state. A single rule eliminates matching pairs of
 constructor and destructor.
 
-Short-cut fusion systems typically only work when there is a single use site of
-the data structure. Work in the intersection of data flow languages and array
+Short-cut fusion systems typically only function when there is a single use site
+of the data structure. Work in the intersection of data flow languages and array
 fusion has yielded systems that do not have this restriction. Tupling
 transformations~\cite{Hu:1997tk,Grelck:2006ci} can fuse a restricted form of
 branching data flow, where two results are computed by directly traversing the
 same input structure. More recent work was able to fuse programs in a restricted
 % (first order, non-recursive, synchronous, finite)
-data flow language into a single loop, where the input array is used to produce
-multiple output arrays and/or values~\cite{Lippmeier:2013vz}.
+data flow language into a single loop, which can compute multiple arrays and
+values as output~\cite{Lippmeier:2013vz}.
 
 % Full data flow languages~\cite{Caspi:1987jw,Caspi:1996jj,Pouzet:2006uf} are
 % designed primarily for implementing embedded control systems, writing signal
@@ -1858,24 +1870,24 @@ than short-cut fusion techniques.
 \subsection{Fusion in a parallel context}
 
 Repa~\cite{Keller:2010er} is a Haskell library for parallel array programming on
-shared-memory SMP machines. Repa\index{fusion!delayed array} uses a split
+shared-memory multicore machines. Repa\index{fusion!delayed array} uses a split
 representation of arrays as either \emph{delayed} or \emph{manifest}, on which
-the @DelayedOpenAcc@ type is based (\S\ref{sec:array_fusion}).
-Representing arrays as functions avoids creating unnecessary intermediate
-structures, rather than relying on a subsequent fusion transformation to remove
-them. With Repa, the conversion between array representations is done manually
-and can cause subexpressions to be recomputed rather than stored and reused. In
-some cases this may improve runtime performance, but in general such
-unrestrained inlining is the most common cause of performance problems in Repa.
-In Accelerate, the conversion is automatic and conservative, so that shared
-subexpressions are never recomputed.
+the @DelayedOpenAcc@ type is based (\S\ref{sec:array_fusion}). Representing
+arrays as functions avoids creating unnecessary intermediate structures, rather
+than relying on a subsequent fusion transformation to remove them. With Repa,
+the conversion between array representations is done manually, where by default
+subexpressions are recomputed rather than stored. In Accelerate, the conversion
+is automatic and conservative, so that shared scalar and array subexpressions
+are never recomputed.
+% Uncontrolled fusion is know to be a common source of
+% performance problems in Repa~\cite{Lippmeier:2012gx}.
 
 Obsidian~\cite{Svensson:2008a} is an EDSL in Haskell for GPGPU programming,
 where more details of the GPU hardware are exposed to the programmer. Recent
 versions of Obsidian~\cite{Claessen:2012hl} implement Repa-style delayed
 \emph{pull arrays}\index{fusion!pull array} as well as \emph{push
 arrays}\index{fusion!push array}. Whereas a pull array represents a general
-producer, a pull array represents a general consumer. Push arrays allow
+producer, a push array represents a general consumer. Push arrays allow
 intermediate programs to be written in continuation passing style
 (CPS)\index{continuation passing style}\index{CPS|see{continuation passing
 style}}, and helps to compile and fuse append-like operations.
@@ -2141,9 +2153,9 @@ This chapter has detailed our approach to optimising programs written in
 Accelerate, a language of parallel array operations suitable execution on
 bulk-parallel SIMD architectures such as GPUs and multicore CPUs. Our previous
 work identified sharing and array fusion as the key bottlenecks to achieving
-high performance. This chapter discusses our novel approaches that tackle these
+high performance. This chapter discussed our novel approaches that tackle these
 problems. While we motivate our approaches in the context of Accelerate, both
-approaches are more widely applicable. In particular, our sharing recovery
+methods are more widely applicable. In particular, our sharing recovery
 algorithm applies to any embedded language based on the typed lambda calculus,
 and our array fusion optimisation applies to any dynamic compiler targeting
 SIMD hardware.
@@ -2183,7 +2195,7 @@ transformations were:
 Fusion systems such as \texttt{foldr/build}~\cite{Gill:1993de} and the system
 presented here, work by eliminating intermediate data structures. Since these
 transformations are performed automatically by the compiler, we would like to be
-sure that the left and right hand side of the rewrite are equivalences.
+sure that the left and right hand sides of the rewrite are equivalences.
 In particular, we are concerned as to whether:
 %
 \begin{itemize}
@@ -2205,9 +2217,9 @@ elements are never demanded: \footcode{length [1, error "boom!", 3]} $\mapsto$
 element in order to demand its evaluation, then the error will be raised, and
 our program will fail.}
 We avoid this issue because the Accelerate language itself is strict: every term
-in the language always evaluates to a value. An operator like @seq@ to force
-evaluation is thus unnecessary, and can not be used to distinguish fused and
-unfused programs.
+in the language always evaluates to a value. Thus an operator to force
+evaluation is unnecessary, and we can not distinguish fused and unfused programs
+in this way.
 
 The Accelerate language does not have an explicit term to represent exceptional
 values. However, it is possible to compute undefined values, such as division by

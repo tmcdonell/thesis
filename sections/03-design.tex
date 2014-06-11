@@ -280,7 +280,7 @@ To achieve performance competitive with hand-written
 CUDA~\cite{McDonell:2013wi}, we implement two primary optimisation techniques:
 sharing recovery~(\S\ref{sec:sharing_recovery}) tackles code explosion due to
 the embedding in Haskell, while array
-fusion~(\S\ref{sec:implementing_array_fusion}) eliminates superfluous
+fusion~(\S\ref{sec:array_fusion}) eliminates superfluous
 intermediate structures, which often arise due to the high-level nature of the
 language. Both of these techniques are well known from other contexts, but they
 present unique challenges for an embedded language compiled for execution on a

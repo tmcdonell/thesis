@@ -409,17 +409,17 @@ yield a singleton array rather than a scalar expression. We partition array
 operations into two categories:
 
 \begin{enumerate}
-    \item Operations where each element of the result array depends on (at most)
-        one element of each input array. Multiple elements of the output array
-        may depend on a single input array element, but all output array
-        elements can be computed independently. We refer to these operations as
+    \item Operations where each element of the output array can be computed
+        independently of all others. We refer to these operations as
         \index{producer}\emph{producers}.
 
-    \item Operations where each element of the result array depends on multiple
-        elements of the input array. We call these operations
+    \item Operations where each array element can not be computed independently,
+        or requires traversal over multiple array elements rather than access to
+        a single element. We call these operations
         \index{consumer}\emph{consumers}, in spite of the fact that, as with all
         collective operations in Accelerate, they also produce an array as
         output.
+
 \end{enumerate}
 
 \begin{lstlisting}[
@@ -506,11 +506,19 @@ distinct phases:
 
 Figure~\ref{fig:fusion} shows how the fusion technique affects the
 AST\index{abstract syntax tree}: blue boxes labelled $p_1$ to $p_7$ represent
-producers, where $p_5$ is a producer like @zipWith@ that takes two arrays
-as input. The consumers are labelled $c_1$ and $c_2$. In the first phase all
-adjacent producers are fused, with the exception of $p_1$ whose result is used
-by both $c_1$ and $p_2$. In the second phase, the fused producers are embedded
-into consumers where possible.
+producers, where $p_5$ is a producer like @zipWith@ that takes two arrays as
+input. The consumers are labelled $c_1$ and $c_2$. Each box represents an
+operation that will be computed to memory, so the goal is to combine the boxes
+into the smallest number of clusters as possible.
+% In the first phase all adjacent producers are fused, with the exception of
+% $p_1$ whose result is used by both $c_1$ and $p_2$. In the second phase, the
+% fused producers are embedded into consumers where possible.
+In the first phase (centre) successive producer operations are fused together
+($p_2$, $p_3$, $p_4$ and $p_5$). In the second phase (bottom) fused producers
+are embedded into consumers ($p_{2,3,4,5}$ into $ c_2$). The resulting fused
+producer/consumer terms are not fused into successive operations.
+% Overall, each box in Figure~\ref{fig:fusion} represents a term that will be
+% computed and stored to memory.
 
 Throughout the transformation $p_1$ is left as is, as its result is used by both
 $c_1$ and $p_2$. It would be straightforward to change the implementation such
@@ -528,30 +536,26 @@ fusing operations which have a single use site. To implement fusion where an
 array is efficiently consumed by multiple operations without work duplication
 would require fundamental changes to the algorithm.
 %
-Producer/consumer fusion of $c_1$ into $p_4$, or $c_2$ into $p_6$, would also
+Consumer/producer fusion of $c_1$ into $p_4$, or $c_2$ into $p_6$, would also
 require substantial changes to the fusion implementation.
 
+% \section{Implementing array fusion}
+% \label{sec:implementing_array_fusion}
 
-\section{Implementing array fusion}
-\label{sec:implementing_array_fusion}
-
-As we saw in Figure~\ref{fig:fusion}, the main idea is that successive producer
-operations are fused together ($p_2$, $p_3$, $p_4$ and $p_5$), and producers are
-fused into consumers ($p_{ 2,3,4,5 }$ into $ c_2$). The current implementation
-do not fuse the results of consumers into subsequent producers ($c_2$ is not
-fused into $p_{ 6,7 }$), and producers used multiple times ($p_1$) are not fused
-either.
+% The current implementation does not fuse the results of consumers
+% into subsequent producers ($c_2$ is not fused into $p_{ 6,7 }$), and producers
+% used multiple times ($p_1$) are not fused either.
 % This has the happy consequence of maintaining trickiest parts of the parallel
 % interpretation of the program.
 
-We require a representation that will facilitate embedding fused producer
-terms into consumers. We do not wish to manipulate source terms directly, as
-this would require a number of rewrite rules quadratic in the number of
-operations that are to be fused. This was the problem with Wadler's original
-deforestation algorithm~\cite{Wadler:1981hy,Wadler:1990ix}. The representation
-must also be sufficiently expressive to represent all operations we want to
-fuse, which was a limitation of \index{fusion!foldr/build}@foldr/build@
-fusion~\cite{Gill:1993de}.
+In order to implement the transformation, we require a representation that will
+facilitate fusing and embedding producer terms into consumers. We do not wish to
+manipulate source terms directly, as this would require a number of rewrite
+rules quadratic in the number of operations that are to be fused. This was the
+problem with Wadler's original deforestation
+algorithm~\cite{Wadler:1981hy,Wadler:1990ix}. The representation must also be
+sufficiently expressive to represent all operations we want to fuse, which was a
+limitation of \index{fusion!foldr/build}@foldr/build@ fusion~\cite{Gill:1993de}.
 
 
 \subsection{Representing Producers}
@@ -731,8 +735,8 @@ terms and sinking into a suitable type many times. If the extended environments
 are placed on the constructors of the delayed representations, the complexity of
 the fusion algorithm for an AST of $n$ nodes scales as $O(r^n)$, where $r$ is
 the number of different rules we have for combining delayed terms. While the
-semantics of the algorithm ultimately remain the same, for performance reasons
-this separation is critical.
+semantics of the algorithm are the same, for performance this separation is
+critical.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:compute
@@ -765,7 +769,7 @@ Finally, we convert the delayed representations into manifest data using the
 @compute@ function shown in Listing~\ref{lst:compute}. It inspects the argument
 terms of the representation to identify special cases, such as @map@ and
 @backpermute@.
-
+%
 The helper functions @match@ and @isIdentity@ check for congruence of
 expressions. As discussed in section~\ref{sec:equality}, we match on \code{Just
 REFL} to inject information on the positive case to both the type and value
@@ -1856,7 +1860,7 @@ than short-cut fusion techniques.
 Repa~\cite{Keller:2010er} is a Haskell library for parallel array programming on
 shared-memory SMP machines. Repa\index{fusion!delayed array} uses a split
 representation of arrays as either \emph{delayed} or \emph{manifest}, on which
-the @DelayedOpenAcc@ type is based (\S\ref{sec:implementing_array_fusion}).
+the @DelayedOpenAcc@ type is based (\S\ref{sec:array_fusion}).
 Representing arrays as functions avoids creating unnecessary intermediate
 structures, rather than relying on a subsequent fusion transformation to remove
 them. With Repa, the conversion between array representations is done manually
@@ -2234,7 +2238,7 @@ future work to provide a formal proof that the converse can not happen.
 
 \subsection{Confluence and termination}
 
-The array fusion transformation (\S\ref{sec:implementing_array_fusion}) is
+The array fusion transformation (\S\ref{sec:array_fusion}) is
 designed to be a single-pass algorithm that specifies only a single rewrite to
 be applied at each node. Thus, the transformation does not need to select from a
 set of possible rewrites to apply or the order in which to apply them, based on

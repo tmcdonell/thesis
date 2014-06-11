@@ -271,7 +271,7 @@ also.
 In order to avoid this, in some circumstances it might be beneficial for either
 (a) the first phase of the scan to store the entire partial scan result, rather
 than just the final element; or (b) to always read in manifest data, effectively
-disallowing producer/consumer fusion (\S\ref{sec:implementing_array_fusion}) for
+disallowing producer/consumer fusion (\S\ref{sec:array_fusion}) for
 scans in the CUDA backend. The latter option is undesirable, and the former may
 not work for non-commutative operators, such as the one we used in the
 operator-transformation-based definition of segmented scan. It is left to future
@@ -1170,7 +1170,7 @@ represent the computation implemented by @zipWith@ as a scalar function
 (actually, a pair of functions) that generates an element of the array at a
 given array index, together with the extent (domain) of the array, as a value of
 type @DelayedOpenAcc@. For details of the representation see
-section~\ref{sec:implementing_array_fusion}.
+section~\ref{sec:array_fusion}.
 
 The crucial step in enabling producer-consumer fusion in Accelerate's CUDA
 backend is in the function @codegenAcc@, which turns an AST node of type
@@ -2823,7 +2823,7 @@ Following the fusion transformation, the Accelerate array program is
 parameterised by a series of @Manifest@ and @Delayed@ nodes,
 representing operations that will eventually be executed on the device, and
 computations that have been fused (embedded) into other operations,
-respectively. See section~\ref{sec:implementing_array_fusion} for details of the
+respectively. See section~\ref{sec:representing_producers} for details of the
 representation. To execute a CUDA computation, manifest nodes are annotated with
 the compiled kernel code implementing the computation, while delayed
 computations recall only the extent of the computation that was embedded within

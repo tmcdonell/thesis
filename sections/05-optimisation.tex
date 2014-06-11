@@ -248,41 +248,6 @@ same time, the AST is converted into nameless \indext{de Bruijn} form by
 introducing de Bruijn indices at the same time as introducing the lets.
 
 
-\section{Common subexpression elimination}
-\label{sec:cse}
-
-\emph{Common subexpression elimination} finds computations that are performed at
-least twice on a given execution path and eliminates the second and later
-occurrences, replacing them with uses of saved values. The current
-implementation performs a simplified version of common subexpression
-elimination, where we look for expressions of the form:
-%
-\begin{lstlisting}[style=Haskell,numbers=none]
-%\bf$\langle$ common subexpression elimination $\rangle$% let x = e1 in [x/e1]e2
-\end{lstlisting}
-%
-and replace all occurrences of @e1@ in @e2@ with @x@. This method relies on the
-introduction of let-bindings into the reified program by the sharing recovery
-algorithm, described in the previous section (\S\ref{sec:sharing_recovery}), so
-can not eliminate any common subexpressions that are not already defined in the
-source program. Thus, the method might not completely eliminate all redundant
-expressions from the program, but is sufficient to catch some cases, in
-particular those that tend to be introduced during the array fusion
-optimisation, described in the following section.
-%\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
-
-While it may seem that common subexpression elimination is always worthwhile, as
-it reduces the number of arithmetic operations performed, this is not
-necessarily advantageous. The simplest case in which it may not be desirable is
-if it causes a register to be occupied for a long time in order to hold the
-shared expression's value, which hence reduces the number of registers available
-for other uses. Even worse is if that value has to be spilled to memory because
-there are insufficient registers available, or if the number of active threads
-is too low to be able to hide global memory access latency
-(\S\ref{sec:thread_occupancy}). Investigation of this tricky target-dependent
-issue is left for future work.
-
-
 \section{Array fusion}
 \label{sec:array_fusion}
 
@@ -1490,6 +1455,41 @@ shrink (Let bnd body)
         body' = shrink body
 shrink ...
 \end{lstlisting}
+
+
+\subsection{Common subexpression elimination}
+\label{sec:cse}
+
+\emph{Common subexpression elimination} finds computations that are performed at
+least twice on a given execution path and eliminates the second and later
+occurrences, replacing them with uses of saved values. The current
+implementation performs a simplified version of common subexpression
+elimination, where we look for expressions of the form:
+%
+\begin{lstlisting}[style=Haskell,numbers=none]
+%\bf$\langle$ common subexpression elimination $\rangle$% let x = e1 in [x/e1]e2
+\end{lstlisting}
+%
+and replace all occurrences of @e1@ in @e2@ with @x@. This method relies on the
+introduction of let-bindings into the reified program by the sharing recovery
+algorithm, described in the previous section (\S\ref{sec:sharing_recovery}), so
+can not eliminate any common subexpressions that are not already defined in the
+source program. Thus, the method might not completely eliminate all redundant
+expressions from the program, but is sufficient to catch some cases, in
+particular those that tend to be introduced during the array fusion
+optimisation, described in the following section.
+%\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
+
+While it may seem that common subexpression elimination is always worthwhile, as
+it reduces the number of arithmetic operations performed, this is not
+necessarily advantageous. The simplest case in which it may not be desirable is
+if it causes a register to be occupied for a long time in order to hold the
+shared expression's value, which hence reduces the number of registers available
+for other uses. Even worse is if that value has to be spilled to memory because
+there are insufficient registers available, or if the number of active threads
+is too low to be able to hide global memory access latency
+(\S\ref{sec:thread_occupancy}). Investigation of this tricky target-dependent
+issue is left for future work.
 
 
 \subsection{Constant folding}

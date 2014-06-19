@@ -274,17 +274,17 @@ K-Means
 Dot product, or scalar product, is an algebraic operation that takes two
 equal-length sequences of numbers and returns a single number by computing the
 sum of the products of the corresponding entries in the two sequences. Dot
-product can be defined in Accelerate using the code below, which was also seen
-in section~\ref{sec:producer_consumer_fusion}.
-%
-\begin{lstlisting}[style=haskell
+product can be defined in Accelerate using the code shown in
+Listing~\ref{lst:dotp}, and seen previously.
+
+\begin{lstlisting}[style=haskell_float
     ,label=lst:dotp
     ,caption={Vector dot-product in Accelerate}]
 dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
 dotp xs ys = A.fold (+) 0                       -- sum result of\ldots
            $ A.zipWith (*) xs ys                -- \ldots element-wise multiplying inputs
 \end{lstlisting}
-%
+
 Figure~\ref{fig:dotp} show the result of running this code, compared to several
 other sequential and parallel implementations. The \texttt{Data.Vector} baseline
 is sequential code produced by \index{fusion!stream}stream
@@ -292,10 +292,10 @@ fusion~\cite{Coutts:2007kp}, running on the host CPU. The \texttt{Repa} version
 runs in parallel on all eight cores of the host CPU, using the fusion method of
 \index{fusion!delayed arrays}delayed arrays~\cite{Keller:2010er}. The
 \texttt{NDP2GPU}~\cite{Bergstrom:2012bi} version compiles NESL
-code~\cite{Blelloch:1995ut} down to CUDA. The performance of this version
-suffers because the \texttt{NDP2GPU} compiler uses the legacy NESL compiler for
-the front-end, which introduces redundant administrative operations that are not
-strictly needed when evaluating a dot product.
+code~\cite{Blelloch:1995ut} down to CUDA. The performance of NDP2GPU suffers
+because it uses the legacy NESL compiler for the front-end, which introduces
+redundant administrative operations that are not strictly needed when evaluating
+a dot product.
 
 \begin{figure}
     \begin{center}
@@ -317,246 +317,263 @@ sharing.
 
 The slow-down in the unoptimised version is due to Accelerate generating one GPU
 kernel function for each aggregate operation in the source program. The use of
-two separate kernels requires the intermediate array produced by @zipWith@
-to be constructed in GPU memory before being immediately read back by
-@fold@. In contrast the CUBLAS version uses only a single kernel. As this
-is a simple memory bound benchmark, lack of fusion roughly doubles the runtime.
+two separate kernels requires the intermediate array produced by @zipWith@ to be
+constructed in GPU memory before being immediately read back by @fold@. In
+contrast, the CUBLAS version uses only a single kernel. As this is a simple
+memory bound benchmark, we would expect the lack of fusion to double the
+runtime, which is what we observe.
 
 The fused version of dot product combines the aggregate computations by
 embedding a function of type @(sh -> a)@ into the reduction, represented
 here as the second argument to the constructor @Delayed@. This scalar
 function does the work of element wise multiplying the two input vectors, and is
 performed on-the-fly as part of the reduction kernel instead of requiring an
-intermediate array:
-%
+intermediate array. See Section~\ref{sec:array_fusion} for more information.
+Applied to two manifest arrays, the following embedded program will be executed:
+
 \begin{lstlisting}[style=haskell]
 let a0 = use (Array ...) in
 let a1 = use (Array ...) in
 fold (\x0 x1 -> x0 + x1) 0.0
-   (Delayed (intersect (shape a0) (shape a1))   -- extent of the input array
-            (\x0 -> (a0!x0) * (a1!x0)))         -- function to generate a value at each index
+     (Delayed (intersect (shape a0) (shape a1))   -- extent of the input array
+              (\x0 -> (a0!x0) * (a1!x0)))         -- function to generate a value at each index
 \end{lstlisting}
 
 While the fused Accelerate version is $30\times$ faster than the sequential
 version executed on the CPU, it is still approximately $20\%$ slower than the
+\marginnote{tk:check this}
 hand-written CUBLAS version. As dot product is a computationally simple task,
 any additional overheads in the implementation will be significant. To see why
-this version is still slightly slower, we analyse the generated code to inspect
-it for sources of overhead.
+this version is still slightly slower, we continue by analysing the generated
+code to inspect it for sources of overhead.
 
 
-\subsection{Duplicate loop counters}
-
-The fused dot product operation will only perform the element wise
-multiplication of the two input arrays in the first step of the tree reduction
-(\S\ref{sec:parallel_reduction}). This occurs in the phase of the cascaded
-algorithm when individual threads sequentially sum multiple elements. After
-embedding the fused producer, the following CUDA code is generated for the inner
-loop of this step:
+% \subsection{Duplicate loop counters}
 %
-% pookie is the bestest
-% bubbaboo ish silly
-% kekekee
-% i can't put smiley faces in cause weird things happen
-% hehe^{this is my thesis
-% please like it
-% i worked really hard
-% and writed a lots
-% }<++>
+% The fused dot product operation will only perform the element wise
+% multiplication of the two input arrays in the first step of the tree reduction
+% (\S\ref{sec:parallel_reduction}). This occurs in the phase of the cascaded
+% algorithm when individual threads sequentially sum multiple elements. After
+% embedding the fused producer, the following CUDA code is generated for the inner
+% loop of this step:
+% %
+% % pookie is the bestest
+% % bubbaboo ish silly
+% % kekekee
+% % i can't put smiley faces in cause weird things happen
+% % hehe^{this is my thesis
+% % please like it
+% % i worked really hard
+% % and writed a lots
+% % }<++>
+% %
+% %
+% \begin{lstlisting}[style=cuda
+%     ,firstnumber=18
+%     ,label=lst:dotp_cuda
+%     ,caption={Generated CUDA code for the first step of fused dot product}]
+% for (ix += gridSize; ix < shapeSize; ix += gridSize) {
+%     const Int64 v2 = ix;
+%     const int v3 = toIndex(shIn0, shape(v2));
+%     const int v4 = toIndex(shIn1, shape(v2));
 %
+%     x0 = arrIn0_a0[v3] * arrIn1_a0[v4];
+%     y0 = x0 + y0;
+% }
+% \end{lstlisting}
+% %
+% We have four loop counters: @ix@, @v2@, @v3@ and @v4@ ---
+% two for the source arrays and two to convert between the multidimensional and
+% linear representations. These counters contain the same value and are
+% incremented in lockstep. In addition to the superfluous arithmetic, the
+% duplication of counters unnecessarily increases register pressure.
 %
-\begin{lstlisting}[style=cuda
-    ,firstnumber=18
-    ,label=lst:dotp_cuda
-    ,caption={Generated CUDA code for the first step of fused dot product}]
-for (ix += gridSize; ix < shapeSize; ix += gridSize) {
-    const Int64 v2 = ix;
-    const int v3 = toIndex(shIn0, shape(v2));
-    const int v4 = toIndex(shIn1, shape(v2));
-
-    x0 = arrIn0_a0[v3] * arrIn1_a0[v4];
-    y0 = x0 + y0;
-}
-\end{lstlisting}
+% \marginnote{this was unexpected}
+% The corresponding section of PTX~\cite{NVIDIA:2012vj} code is for this loop is
+% shown in Listing~\ref{lst:dotp_ptx}. To retrieve the data from the first input
+% array, the input array pointer is retrieved (line~\ref{lst:dotp_ptx_ldparam}),
+% the offset stored in register @rd16@ added to it
+% (line~\ref{lst:dotp_ptx_add}), and then the value read from global memory at
+% this address (line~\ref{lst:dotp_ptx_ldglobal}). Happily, we note that
+% retrieving the second input element \emph{also} uses the offset stored in
+% register @rd16@ (line~\ref{lst:dotp_ptx_ldglobal2}).
+% %
 %
-We have four loop counters: @ix@, @v2@, @v3@ and @v4@ ---
-two for the source arrays and two to convert between the multidimensional and
-linear representations. These counters contain the same value and are
-incremented in lockstep. In addition to the superfluous arithmetic, the
-duplication of counters unnecessarily increases register pressure.
-
-\marginnote{this was unexpected}
-The corresponding section of PTX~\cite{NVIDIA:2012vj} code is for this loop is
-shown in Listing~\ref{lst:dotp_ptx}. To retrieve the data from the first input
-array, the input array pointer is retrieved (line~\ref{lst:dotp_ptx_ldparam}),
-the offset stored in register @rd16@ added to it
-(line~\ref{lst:dotp_ptx_add}), and then the value read from global memory at
-this address (line~\ref{lst:dotp_ptx_ldglobal}). Happily, we note that
-retrieving the second input element \emph{also} uses the offset stored in
-register @rd16@ (line~\ref{lst:dotp_ptx_ldglobal2}).
+% \begin{lstlisting}[style=ptx
+%     ,float
+%     ,firstnumber=103
+%     ,label=lst:dotp_ptx
+%     ,caption={[PTX code for the first step of fused dot product]
+%         PTX code for the first step of fused dot product (sm13)}]
+%  //  18          for (ix += gridSize; ix < shapeSize; ix += gridSize) {
+%         cvt.u32.u16     %r10, %nctaid.x;
+%         mul.lo.u32      %r11, %r10, %r1;
+%         add.s32         %r12, %r11, %r7;
+%         mov.s32         %r13, %r12;
+%         setp.le.s32     %p2, %r8, %r12;
+%         `%p2 bra        $Lt_0_13058;
+%         cvt.s64.s32     %rd12, %r12;
+%         cvt.s64.u32     %rd13, %r11;
+% $Lt_0_14082:
+%  //<loop> Loop body line 18, nesting depth: 1, estimated iterations: unknown
+%         .loc    16      24      0
+%  //  20              const int v3 = toIndex(shIn0, shape(v2));
+%  //  21              const int v4 = toIndex(shIn1, shape(v2));
+%  //  22
+%  //  23              x0 = arrIn0\_a0[v3] * arrIn1\_a0[v4];
+%  //  24              y0 = x0 + y0;
+%         cvt.s32.s64     %rd14, %rd12;                           (@* \label{lst:dotp_ptx_cvt1} *@)
+%         cvt.s32.s64     %r14, %rd14;
+%         cvt.s64.s32     %rd15, %r14;                            (@* \label{lst:dotp_ptx_cvt3} *@)
+%         mul.wide.s32    %rd16, %r14, 4;
+%         .loc    16      17      0
+%         ld.param.u64    %rd9, [__cudaparm_foldAll_arrIn0_a0];   (@* \label{lst:dotp_ptx_ldparam} *@)
+%         .loc    16      24      0
+%         add.u64         %rd17, %rd16, %rd9;                     (@* \label{lst:dotp_ptx_add} *@)
+%         ld.global.f32   %f4, [%rd17+0];                         (@* \label{lst:dotp_ptx_ldglobal} *@)
+%         .loc    16      17      0
+%         ld.param.u64    %rd8, [__cudaparm_foldAll_arrIn1_a0];
+%         .loc    16      24      0
+%         add.u64         %rd18, %rd16, %rd8;
+%         ld.global.f32   %f5, [%rd18+0];                         (@* \label{lst:dotp_ptx_ldglobal2} *@)
+%         mad.f32         %f3, %f4, %f5, %f3;
+%         add.s32         %r13, %r13, %r11;
+%         add.s64         %rd12, %rd12, %rd13;
+%         setp.gt.s32     %p3, %r8, %r13;
+%         `%p3 bra        $Lt_0_14082;
+%         bra.uni         $Lt_0_13058;
+% $Lt_0_13314:
+%         mov.f32         %f3, %f6;
+% $Lt_0_13058:
+%         .loc    16      27      0
+%  //  25          }
+% \end{lstlisting}
 %
-\begin{lstlisting}[style=ptx
-    ,float
-    ,firstnumber=103
-    ,label=lst:dotp_ptx
-    ,caption={[Corresponding PTX code for the first step of fused dot product]
-        Corresponding PTX code for the first step of fused dot product (sm13)}]
- //  18          for (ix += gridSize; ix < shapeSize; ix += gridSize) {
-        cvt.u32.u16     %r10, %nctaid.x;
-        mul.lo.u32      %r11, %r10, %r1;
-        add.s32         %r12, %r11, %r7;
-        mov.s32         %r13, %r12;
-        setp.le.s32     %p2, %r8, %r12;
-        `%p2 bra        $Lt_0_13058;
-        cvt.s64.s32     %rd12, %r12;
-        cvt.s64.u32     %rd13, %r11;
-$Lt_0_14082:
- //<loop> Loop body line 18, nesting depth: 1, estimated iterations: unknown
-        .loc    16      24      0
- //  20              const int v3 = toIndex(shIn0, shape(v2));
- //  21              const int v4 = toIndex(shIn1, shape(v2));
- //  22
- //  23              x0 = arrIn0\_a0[v3] * arrIn1\_a0[v4];
- //  24              y0 = x0 + y0;
-        cvt.s32.s64     %rd14, %rd12;                           (@* \label{lst:dotp_ptx_cvt1} *@)
-        cvt.s32.s64     %r14, %rd14;
-        cvt.s64.s32     %rd15, %r14;                            (@* \label{lst:dotp_ptx_cvt3} *@)
-        mul.wide.s32    %rd16, %r14, 4;
-        .loc    16      17      0
-        ld.param.u64    %rd9, [__cudaparm_foldAll_arrIn0_a0];   (@* \label{lst:dotp_ptx_ldparam} *@)
-        .loc    16      24      0
-        add.u64         %rd17, %rd16, %rd9;                     (@* \label{lst:dotp_ptx_add} *@)
-        ld.global.f32   %f4, [%rd17+0];                         (@* \label{lst:dotp_ptx_ldglobal} *@)
-        .loc    16      17      0
-        ld.param.u64    %rd8, [__cudaparm_foldAll_arrIn1_a0];
-        .loc    16      24      0
-        add.u64         %rd18, %rd16, %rd8;
-        ld.global.f32   %f5, [%rd18+0];                         (@* \label{lst:dotp_ptx_ldglobal2} *@)
-        mad.f32         %f3, %f4, %f5, %f3;
-        add.s32         %r13, %r13, %r11;
-        add.s64         %rd12, %rd12, %rd13;
-        setp.gt.s32     %p3, %r8, %r13;
-        `%p3 bra        $Lt_0_14082;
-        bra.uni         $Lt_0_13058;
-$Lt_0_13314:
-        mov.f32         %f3, %f6;
-$Lt_0_13058:
-        .loc    16      27      0
- //  25          }
-\end{lstlisting}
-
-In this case the CUDA compiler was able to coalesce our four counters into a
-single counter. This is because our definition of @toIndex@ specialised for
-one-dimensional indices @DIM1@ does \emph{not} do bounds checking:
+% In this case the CUDA compiler was able to coalesce our four counters into a
+% single counter. This is because our definition of @toIndex@ specialised for
+% one-dimensional indices @DIM1@ does \emph{not} do bounds checking:
+% %
+% \begin{lstlisting}[style=cuda]
+% template <>
+% static __inline__ __device__ Ix toIndex(const DIM1 sh, const DIM1 ix)
+% {
+%     return ix;
+% }
+% \end{lstlisting}
+% %
+% Since we do not check that the current index @ix@ is within bounds of the
+% array shape @sh@, the compiler can see that the definitions of @v3@
+% and @v4@ in Listing~\ref{lst:dotp_cuda} are identical. Similarly
+% one-dimensional indices are just integers, and so the one-dimensional instance
+% of @shape@ is the identity function. For higher dimensional shapes,
+% however, this is not the case and @toIndex@ and @shape@ do real work
+% to their arguments. As the shape @shIn0@ and @shIn1@ are inputs
+% arguments to the kernel, the compiler will not be able to determine they are
+% equivalent and so the counters would not be combined.
 %
-\begin{lstlisting}[style=cuda]
-template <>
-static __inline__ __device__ Ix toIndex(const DIM1 sh, const DIM1 ix)
-{
-    return ix;
-}
-\end{lstlisting}
-%
-Since we do not check that the current index @ix@ is within bounds of the
-array shape @sh@, the compiler can see that the definitions of @v3@
-and @v4@ in Listing~\ref{lst:dotp_cuda} are identical. Similarly
-one-dimensional indices are just integers, and so the one-dimensional instance
-of @shape@ is the identity function. For higher dimensional shapes,
-however, this is not the case and @toIndex@ and @shape@ do real work
-to their arguments. As the shape @shIn0@ and @shIn1@ are inputs
-arguments to the kernel, the compiler will not be able to determine they are
-equivalent and so the counters would not be combined.
-
-Why don't we perform bounds checks in @toIndex@? Implementing exceptions in
-a massively parallel architecture is difficult, and support for throwing
-exceptions from kernel functions was only recently added for devices of compute
-capability 2.0 and later~\cite{NVIDIA:2012wf}. % [\SB.15]
+% Why don't we perform bounds checks in @toIndex@? Implementing exceptions in
+% a massively parallel architecture is difficult, and support for throwing
+% exceptions from kernel functions was only recently added for devices of compute
+% capability 2.0 and later~\cite{NVIDIA:2012wf}. % [\SB.15]
 
 
 \subsection{64-bit Arithmetic}
 
-CUDA devices are at their core 32-bit processors and thus are optimised for
-32-bit arithmetic. For example, our Tesla GPU with compute capability 1.3 has a
-throughput of eight 32-bit floating-point add, multiply, or multiply-add
-operations per clock cycle per multiprocessor, but only a single operation per
-cycle of the 64-bit equivalents of these~\cite{NVIDIA:2012wf}. % [\S5.4.1]
+The host architecture that the Haskell program executes on is likely to be a
+64-bit processor. If this is the case, then manipulating machine word sized
+types such as @Int@ in embedded code must generate instructions to manipulate
+64-bit integers in the GPU\@. On the other hand, CUDA devices are at their core
+32-bit processors, and are thus optimised for 32-bit arithmetic. For example, our
+Tesla GPU with compute capability 1.3 has a throughput of eight 32-bit
+floating-point add, multiply, or multiply-add operations per clock cycle per
+multiprocessor, but only a single operation per cycle per multiprocessor of the
+64-bit equivalents of these~\cite{NVIDIA:2012wf}. % [\S5.4.1]
+Additionally, while not explicitly stated, it appears that 64-bit integer
+instructions are not natively supported on any architectures, and require
+multiple clock cycles per instruction per multiprocessor.
 
-However, the host architecture that the Haskell program executes on is likely to
-be a 64-bit processor. This means that an @Int@ value from Haskell ---
-which may appear marshalled as array data or shape values --- will generate code
-to manipulate 64-bit integers, as well as conversions between 32- and 64-bit
-types. Lines~\ref{lst:dotp_ptx_cvt1}--\ref{lst:dotp_ptx_cvt3} of
-Listing~\ref{lst:dotp_ptx} contain such type conversions, which on our compute
-capability 1.3 device have a throughput of only a single operation per cycle per
-multiprocessor. These conversions would not be necessary if we were not
-cross-compiling from a 64-bit Haskell host, or if the programmer working
-directly with CUDA only used the @int@ type, which would be interpreted by
-the CUDA compiler as a 32-bit wide integer.
+The delayed producer function that is embedded into the consumer @fold@ kernel
+corresponds to the operation @zipWith (*)@, and has concrete type
+@(Exp (Z:.Int) -> Exp Float)@. Since this is executed on a 64-bit host machine,
+the indexing operations must generate embedded code for 64-bit integers. See
+Section~\ref{sec:instantiating_skeletons} for more information on code
+generation, which produces the following CUDA code:
+%
+\begin{lstlisting}[style=haskell]
+const Int64 v1 = ({ assert(ix >= 0 && ix < min(shIn1_0, shIn0_0)); ix; });
+y0 = arrIn1_0[v1] * arrIn0_0[v1];
+\end{lstlisting}
+%
+This is translated by the CUDA compiler into the following PTX assembly
+code~\cite{NVIDIA:2012vj}, which is the lowest level representation accessible
+to the developer:
+%
+\begin{lstlisting}[style=ptx]
+//  13      const Int64 v1 = ({ assert(ix >= 0 && ix < min(shIn1_0, shIn0_0)); ix; });
+        cvt.s64.s32     %rd5, %r5;
+        mov.s64         %rd6, %rd5;
+//  14
+//  15      y0 = arrIn1_0[v1] * arrIn0_0[v1];
+        mov.s64         %rd7, %rd6;
+        mul.lo.u64      %rd8, %rd7, 4;
+        ld.param.u64    %rd9, [__cudaparm_foldAll_arrIn1_0];
+        ld.param.u64    %rd10, [__cudaparm_foldAll_arrIn0_0];
+        add.u64         %rd11, %rd8, %rd9;
+        ld.global.f32   %f1, [%rd11+0];
+        add.u64         %rd12, %rd8, %rd10;
+        ld.global.f32   %f2, [%rd12+0];
+        mul.f32         %f3, %f1, %f2;
+\end{lstlisting}
+%
+The first instruction converts the loop variable @ix@ --- which was not shown
+but is declared with the C @int@ type --- to a 64-bit integer using the
+@cvt.s64.s32@ instruction. The @assert@ function does not contribute anything in
+this case as the kernel was not compiled with debugging enabled. Instructions in
+PTX assembly are appended with the type of their operands, where @s64@ and @u64@
+represent signed and unsigned 64-bit integers respectively, so it is clear that
+the instructions in this fragment are manipulating 64-bit values.
+
+In this instance, 64-bit arithmetic was introduced through the use of a
+one-dimensional shape index, which has Haskell type @(Z :. Int)@ and corresponds
+to a 64-bit wide integer on our host machine. Adding support for non-@Int@ shape
+dimensions is left for future work.
 
 
 \subsection{Non-neutral starting elements}
 \label{sec:non-neutral_starting_elements}
 
-For convenience, and to avoid possibly unexpected behaviour, Accelerate's
-@fold*@ family of functions do not require the combination function and
-starting element to form a moniod. We still require the function to be
-associative, so that the reduction can be implemented efficiently in parallel as
-a tree-reduction, but the initial element does not need to be a \emph{neutral}
-element.\marginnote{semigroup?} For example, @fold (+) 10@ is valid in
-Accelerate and evaluates to the correct answer.
+In order to support efficient parallel execution, the @fold@ function in
+Accelerate requires the combination function to be an associative operator.
+However, we do not require the starting value to be a neutral element of the
+combination function. For example, @fold (+) 42@ is valid in Accelerate, even
+though @42@ is not the neutral element of addition.
 
-However, this means that evaluation of the reduction is more complex. In
-particular, we can not simply initialise all threads to the initial value.
-In the first phase of the reduction, threads must be sure to initialise
-their local sum @y0@ with values from the input array before beginning the
-sequential loop show in Listing~\ref{lst:dotp_cuda}:
-%
-\begin{lstlisting}[style=cuda,firstnumber=12]
-if (ix < shapeSize) {
-    const Int64 v2 = ix;
-    const int v3 = toIndex(shIn0, shape(v2));
-    const int v4 = toIndex(shIn1, shape(v2));
+While convenient for the user, this feature complicates the implementation. In
+particular, threads can not initialise their local sum with the neutral element
+during the first sequential reduction phase, and during the second cooperative
+reduction step must be sure to only include elements from threads that were
+properly initialised from the input array. See
+Section~\ref{sec:parallel_reduction} for more information on the implementation
+of parallel reductions in CUDA\@. Both of these restrictions necessitate
+additional bounds checks, which increases overhead from ancillary instructions
+that are not loads, stores, or arithmetic for the core computation. As the
+summation reduction has low arithmetic intensity, which is the limiting factor
+in the performance of this kernel~\cite{Harris:2007te}, additional bounds checks
+further reduce performance.
 
-    y0 = arrIn0_a0[v3] * arrIn1_a0[v4];
-    for (ix += gridSize; ix < shapeSize; ix += gridSize) {
-\end{lstlisting}
+It is left for future work to have operations such as @fold@ and @scan@ observe
+when the combination function and starting element form a monoid, and provide
+optimised kernels that avoid these extra administrative instructions. This is
+the approach taken by, for example, Thrust~\cite{ThrustAParallelT:ub}.
 
-Similarly, in the second parallel tree reduction phase threads may only read
-values from shared memory that were properly initialised. This requires
-additional bounds checks at every step:
-%
-\begin{lstlisting}[style=cuda,firstnumber=27]
-sdata0[threadIdx.x] = y0;
-__syncthreads();
-ix = min(shapeSize - blockIdx.x * blockDim.x, blockDim.x);
-if (threadIdx.x + 512 < ix) {
-    x0 = sdata0[threadIdx.x + 512];
-    y0 = y0 + x0;
-    sdata0[threadIdx.x] = y0;
-}
-__syncthreads();
-if (threadIdx.x + 256 < ix) {
-    x0 = sdata0[threadIdx.x + 256];
-    y0 = y0 + x0;
-    sdata0[threadIdx.x] = y0;
-}
-__syncthreads();
-// etc...
-\end{lstlisting}
-
-These requirements increase overhead from ancillary instructions that are not
-loads, stores, or arithmetic for the core computation. A summation reduction has
-low arithmetic intensity to begin with, and is the limiting factor in the
-performance of this kernel, so additional bounds checks further reduce
-performance.
 
 \subsection{Kernel specialisation}
 
 To further reduce instruction overhead, it is possible to completely unroll the
-reduction by specialising the kernel for a specific block size. In standard CUDA
-this can be achieved through the use of C++ templates. Branches referring to the
-template parameter will be evaluated at compile time, resulting in a very
-efficient inner loop.
+reduction by specialising the kernel for a specific block size. In CUDA this can
+be achieved through the use of C++ templates. Branches referring to the template
+parameter will be evaluated at compile time, resulting in a very efficient inner
+loop.
 %
 \begin{lstlisting}[style=cuda]
 template <unsigned int blockSize> __global__ void reduce(...) {
@@ -572,13 +589,17 @@ This technique has shown to produce significant gains in
 practice~\cite{Harris:2007te}, although requires compiling a separate kernel for
 each thread block size we wish to specialise for. Accelerate can achieve this
 kind of kernel specialisation because the CUDA code is generated at program
-runtime, but this extra compilation adds significant additional overhead. Since
-compiled kernels are cached and reused (\S tk), if we know that the reduction
-will be computed many times the extra compilation overhead can be amortised by
-the improved kernel performance, and may thus be worthwhile. Such
-specialisations are left for future work.
+runtime. However, since compilation also occurs at program runtime, this adds
+significant additional runtime overhead. Since compiled kernels are cached and
+reused, if we know that the reduction will be computed many times, the extra
+compilation overhead can be amortized by the improved kernel performance, and
+thus may be worthwhile. See Section~\ref{sec:dynamic_compilation} for more
+information on the mechanism of compilation and code memoisation. Implementing
+kernel specialisations, and evaluating their effectiveness, is left to future
+work.
 
 
+\endinput
 \section{Black-Scholes option pricing}
 \label{sec:blackscholes}
 
@@ -1074,7 +1095,7 @@ times for just the first six data parallel phases, which exhibit linear speedup.
 
 Neglecting the final phase, note that the data parallel phase is still slightly
 slower than in OpenCV. As discussed in
-section~\ref{sec:parallel_stencil}, this is because the stencil kernels
+Section~\ref{sec:parallel_stencil}, this is because the stencil kernels
 in Accelerate currently make a test for every array access to see if the element
 is in bounds, or if it lies outside the array and needs to be handled specially,
 even though the vast majority of points in the array are far from the boundary.
@@ -1459,10 +1480,10 @@ matrix formats.
 % the vector read of each row is coalesced and aligned to the warp boundary to
 % maximise global memory throughput, but is then not able to amortize this extra
 % startup cost over the row length.
-% 
+%
 % Since Accelerate does not require the starting element of the reduction to be a
 % neutral element (see \S\ref{sec:non-neutral_starting_elements})
-% 
+%
 % The regression relative to
 % our previous result will be investigated. Nevertheless,
 

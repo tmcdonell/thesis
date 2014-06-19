@@ -1,4 +1,4 @@
-%% Created using Papers on Tue, 10 Jun 2014.
+%% Created using Papers on Mon, 16 Jun 2014.
 %% http://papersapp.com/papers/
 
 @book{Altenkirch:2003kz,
@@ -917,6 +917,15 @@ address = {New York, NY, USA},
 annote = {Platform developed by intel to program heterogenous environments consisting of general purpose CPUs and specialised accelerator units such as GPUs. Consists of two components: * an architecture to represent heterogenous accelerators as ISA-based MIMD resources, with a shared virtual-memory multithreaded execution model * an integrated C/C++ environment that supports accelerator-specific instructions in a single binary, with a runtime system that can optimally spread the parallel computation across the available cores. Differers from the CUDA model, in which the GPU has a separate device address space, and all CPU/GPU communication and synchronisation is explicit.}
 }
 
+@book{Marlow:2013wn,
+author = {Marlow, Simon},
+title = {{Parallel and Concurrent Programming in Haskell}},
+publisher = {O'Reilly Media},
+year = {2013},
+edition = {first},
+month = jul
+}
+
 @inproceedings{Caspi:1996jj,
 author = {Caspi, Paul and Pouzet, Marc},
 title = {{Synchronous Kahn networks}},
@@ -925,13 +934,6 @@ year = {1996},
 pages = {226--238},
 publisher = {ACM},
 month = jun
-}
-
-@techreport{UPC:2005,
-author = {{UPC Consortium}},
-title = {{UPC Language Specification, v1.2}},
-year = {2005},
-month = may
 }
 
 @article{McCormick:2007,
@@ -982,20 +984,20 @@ publisher = {Springer-Verlag},
 annote = {Demonstrates that nested data-parallel languages can be used to generate efficient code on a wide range of architectures (distributed vs. shared memory, and scalar vs. vector processors). Essentially combines the flattening transformation, to convert a nested parallel program into an equivalent flat program without reducing the parallelism specified in the original program, together with calculational fusion (deforestation) to remove unnecessary intermediate data structures. The deforestation and code generation phases are parameterised for the target architecture. A structured communication library is provided which handles one-way collective communication operations.}
 }
 
-@techreport{Blelloch:1990vl,
-author = {Blelloch, Guy E.},
-title = {{Prefix Sums and Their Applications}},
-year = {1990},
-number = {CMU-CS-90-190},
-month = nov
+@inproceedings{Orchard:2010cv,
+author = {Orchard, Dominic A and Bolingbroke, Max and Mycroft, Alan},
+title = {{Ypnos: declarative, parallel structured grid programming}},
+booktitle = {DAMP '10: The 5th workshop on Declarative Aspects of Multicore Programming},
+year = {2010},
+publisher = { ACM  Request Permissions},
+month = jan
 }
 
-@techreport{CTM:2006,
-author = {{AMD}},
-title = {{ATI CTM Guide, v1.01}},
-year = {2006},
-month = nov,
-annote = {Deprecated.}
+@techreport{UPC:2005,
+author = {{UPC Consortium}},
+title = {{UPC Language Specification, v1.2}},
+year = {2005},
+month = may
 }
 
 @inproceedings{Marlow:2006,
@@ -1008,6 +1010,14 @@ publisher = {ACM},
 address = {New York, NY, USA}
 }
 
+@techreport{Blelloch:1990vl,
+author = {Blelloch, Guy E.},
+title = {{Prefix Sums and Their Applications}},
+year = {1990},
+number = {CMU-CS-90-190},
+month = nov
+}
+
 @inproceedings{Strzodka:2004,
 author = {Strzodka, R and Telea, A},
 title = {{Generalized Distance Transforms and Skeletons in Graphics Hardware}},
@@ -1015,6 +1025,14 @@ booktitle = {Proceedings of the EUROGRAPHICS/IEEE TCVG Symposium on Visualizatio
 year = {2004},
 editor = {Deussen, O and Hansen, C and Keim, D A and Saupe, D},
 pages = {221--230}
+}
+
+@techreport{CTM:2006,
+author = {{AMD}},
+title = {{ATI CTM Guide, v1.01}},
+year = {2006},
+month = nov,
+annote = {Deprecated.}
 }
 
 @article{Williams:2009cy,

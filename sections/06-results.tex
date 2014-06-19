@@ -184,6 +184,86 @@ significant portion of the overall execution time for some benchmarks.
 
 \subsection{Code Generation \& Compilation}
 
+Table~\ref{tab:compilation_times} lists the code generation and compilation
+times for each of the benchmark programs considered in this chapter. Compilation
+times are measured by saving the Accelerated generated code to file and
+compiling separately with the @nvcc@ command line tool. Times are the average of
+tk evaluations.
+
+\begin{table}
+    \centering
+    \begin{tabular}{lrr}
+\textbf{Benchmark}
+    & \multicolumn{1}{c}{Code generation (ms)}
+    & \multicolumn{1}{c}{Compilation (ms)}
+    \\
+    \hline
+
+Dot Product
+    &
+    &
+    \\
+
+Black-Scholes
+    &
+    &
+    \\
+
+Mandelbrot
+    &
+    &
+    \\
+
+N-Body
+    &
+    &
+    \\
+
+Fluid Flow
+    &
+    &
+    \\
+
+Canny
+    &
+    &
+    \\
+
+Radix sort
+    &
+    &
+    \\
+
+SMVM
+    &
+    &
+    \\
+
+Hashcat
+    &
+    &
+    \\
+
+Ray
+    &
+    &
+    \\
+
+Floyd-Warshall
+    &
+    &
+    \\
+
+K-Means
+    &
+    &
+    \\
+
+    \end{tabular}
+    \caption{Code generation and compilation times for the benchmark programs}
+    \label{tab:compilation_times}
+\end{table}
+
 % tk: measure \& tabulate some code generation / compilation times
 % tk: persistent cache, perhaps just a mention?
 

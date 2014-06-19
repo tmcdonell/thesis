@@ -599,7 +599,6 @@ kernel specialisations, and evaluating their effectiveness, is left to future
 work.
 
 
-\endinput
 \section{Black-Scholes option pricing}
 \label{sec:blackscholes}
 
@@ -611,8 +610,8 @@ to maturity in years, the Black-Scholes formula computes the price of a call and
 put option. The function @callput@ evaluates the Black-Scholes formula for
 a single triple, and @blackscholes@ maps it over a vector of triples such
 that all individual applications of the formula are executed in parallel.
-%
-\begin{lstlisting}[style=haskell
+
+\begin{lstlisting}[style=haskell_float
     ,float
     ,label=lst:blackscholes
     ,caption={Black-Scholes option pricing in Accelerate}]
@@ -653,8 +652,8 @@ blackscholes = A.map callput
 Figure~\ref{fig:blackscholes} shows the result of running this code compared to
 the implementation that ships with the CUDA SDK. Without optimisations, the
 Accelerate version is almost twenty times slower than the equivalent
-implementation in CUDA C. As @blackscholes@ includes only one collective
-array operation, the problem can not be a lack of fusion.
+implementation in CUDA\@. As @blackscholes@ includes only one collective array
+operation, the problem can not be a lack of fusion.
 
 \begin{figure}
     \begin{center}
@@ -674,15 +673,16 @@ significant amount of sharing: the helper functions @cnd'@ and hence
 argument @d@ is used multiple times in the body. Furthermore, the
 conditional expression @d >* 0 ? (1 - c, c)@ results in a branch that,
 without sharing, results in a growing number of predicated instructions that
-leads to a large penalty on the SIMD architecture of the GPU.
+leads to a large penalty on the SIMD architecture of the GPU\@.
 
-Without sharing the generated code requires 2573 instructions and results in
-\marginnote{check instruction count difference}
-significant warp divergence which serialises portions of the execution. With
-sharing recovery the generated code requires 501 instructions and is actually
+Without sharing the generated code requires 5156 instructions per thread block
+(128 threads with an input of 128 options) and results in significant warp
+divergence which serialises portions of the execution. With sharing recovery the
+generated code requires 782 instructions per thread block and is actually
 slightly faster than the reference CUDA version because the latter contains a
-common subexpression that is not spotted by the programmer and not eliminated by
-the CUDA compiler. The common subexpression performs a single multiplication.
+common subexpression that was not spotted by the programmer and not eliminated
+by the CUDA compiler. The common subexpression performs a single multiplication.
+% The CUDA version executes 652 instructions per thread block. ???
 
 
 \section{Mandelbrot fractal}
@@ -938,6 +938,8 @@ constructs in the source language as well, rather than relying on potentially
 fragile post-hoc transformations. Avoiding thread divergence in CUDA programs is
 an active area of research~\cite{Zhang:2010jc}.
 
+
+\endinput
 \section{N-body gravitational simulation}
 \label{sec:nbody}
 

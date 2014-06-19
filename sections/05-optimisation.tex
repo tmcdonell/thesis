@@ -575,14 +575,14 @@ specific operations whenever possible. An opaque indexing function is too
 general, conveying no information about the pattern in which the underlying
 array is accessed, and hence no opportunities for optimisation.
 
-Listing~\ref{lst:cunctation} describes the ways in which the fusion
+Listing~\ref{lst:Cunctation} describes the ways in which the fusion
 transformation represents intermediate arrays. The fusion process operates by
 recasting producer array computations in terms of a set of scalar functions used
 to construct an element at each index, % encoded by this data structure, and
 fusing successive producers by combining these scalar functions.
 %
 \begin{lstlisting}[style=haskell_float
-    ,label=lst:cunctation
+    ,label=lst:Cunctation
     ,caption={Representation of fusible producer arrays}]
 data Cunctation acc aenv a where
     Done  :: Arrays arrs                                -- (1)
@@ -927,7 +927,7 @@ embedAcc  :: Arrays arrs => acc aenv arrs -> Embed acc aenv arrs
 \item Array introduction forms convert their argument into the internal
     representation by adding the term as manifest data into the extended
     environment. This also illustrates why we require both @Done@ and @Step@
-    constructors in the delayed representation (Listing~\ref{lst:cunctation}).
+    constructors in the delayed representation (Listing~\ref{lst:Cunctation}).
     It would be convenient to represent manifest data as a @Step@ node with
     identity transformation functions, but the type of @Step@ is restricted to a
     single @Array@, whereas @Done@ is generalised to the @Arrays@ class.
@@ -1071,7 +1071,7 @@ convertOpenAcc = manifest . computeOpenAcc . embedOpenAcc                       
     arrays. The smart constructor @alet@ flattens needless let bindings of the
     form @let var = x in var@ to @x@. This form is common, as the delayed array
     constructors always refers to manifest data via de Bruijn indices (see
-    Listing~\ref{lst:cunctation}), meaning that all manifest terms will be let
+    Listing~\ref{lst:Cunctation}), meaning that all manifest terms will be let
     bound regardless of the number of use sites.
 
 \item A consumer such as @fold@ specifies that its array valued argument should
@@ -1162,7 +1162,7 @@ twice to access shape information, but only once to access the array data ---
 in the final argument to @backpermute@.
 
 Fortunately there is a simple workaround. Since the delayed array constructors
-representing producer arrays, @Step@ and @Yield@ (Listing~\ref{lst:cunctation}),
+representing producer arrays, @Step@ and @Yield@ (Listing~\ref{lst:Cunctation}),
 carry the shape of the arrays they represent as part of the constructor, we can
 disregard all uses of the array that only access shape information. For this
 example, that leaves us with just a single reference to the array's payload.
@@ -2255,7 +2255,7 @@ designed to be a single-pass algorithm that specifies only a single rewrite to
 be applied at each node. Thus, the transformation does not need to select from a
 set of possible rewrites to apply or the order in which to apply them, based on
 heuristics or otherwise. Since the delayed representation of producers is
-non-recursive (Listing~\ref{lst:cunctation}), referencing input arrays via
+non-recursive (Listing~\ref{lst:Cunctation}), referencing input arrays via
 environment indices rather than as general terms, a subsequent shrinking pass
 (\S\ref{sec:shrinking}) is not required to eliminate or combine the uses of
 bound variables. Hence, it is not necessary to iterate the fusion and shrinking

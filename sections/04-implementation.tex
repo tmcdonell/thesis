@@ -96,8 +96,8 @@ section~\ref{sec:array_fusion}.
 \subsubsection{Parallel Reduction Complexity}
 \label{sec:parallel_reduction_complexity}
 
+% \marginnote{tk: for non power-of-2 n, add upper/lower bounds symbols}
 If each thread combines two elements at a time, then a vector of length $N$ will
-\marginnote{tk: for non power-of-2 n, add upper/lower bounds symbols}
 be reduced in $\mathcal{O}\left( \log N \right)$ parallel steps. Each step $S$
 does $\sfrac{N}{S^2}$ independent operations, so the \emph{step
 complexity}\index{complexity!step} of the algorithm is:

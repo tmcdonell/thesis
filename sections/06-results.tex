@@ -678,12 +678,12 @@ leads to a large penalty on the SIMD architecture of the GPU\@.
 Without sharing the generated code requires 5156 instructions to calculate 128
 options (2 thread blocks of 64 threads each) and results in significant warp
 divergence which serialises portions of the execution. With sharing recovery the
-generated code requires 628 instructions (one block at 128 threads per block)
-and is actually slightly faster than the reference CUDA version because the
-latter contains a common subexpression that was not spotted by the programmer
-and not eliminated by the CUDA compiler. The common subexpression performs a
-single multiplication. The CUDA version executes 652 instructions per thread
-block (128 threads).
+generated code requires 628 instructions (one thread block of 128 threads) and
+is actually slightly faster than the reference CUDA version because the latter
+contains a common subexpression that was not spotted by the programmer and not
+eliminated by the CUDA compiler. The common subexpression performs a single
+multiplication. The CUDA version executes 652 instructions (128 threads per
+block).
 
 
 \section{Mandelbrot fractal}

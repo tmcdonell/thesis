@@ -697,9 +697,21 @@ z_{n+1} = z_{n}^{2} + c
 that the magnitude of $z$ (written $\left| z_{n} \right|$) remains bounded
 however large $n$ gets. Images of the Mandelbrot set are created such that each
 pixel corresponds to a point $c$ in the complex plane, and its colour depends on
-the number of iterations $n$ before the relation diverges, with $z_{0} = c$. The
-set of points forming the boundary of this relation forms the distinctive and
-easily recognisable fractal shape, as was seen in Figure~\ref{fig:mandelbrot}.
+the number of iterations $n$ before the relation diverges, where $z_{0} = c$.
+The set of points forming the boundary of this relation forms the distinctive
+and easily recognisable fractal shape shown in Figure~\ref{fig:mandelbrot}.
+
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{images/sec-6/mandelbrot}
+    \end{center}
+    \caption[The Mandelbrot fractal]{Image of a Mandelbrot set with a
+        continuously coloured environment. Each pixel corresponds to a point $c$
+        in the complex plane, and its colour depends the number of iterations
+        $n$ before the relation diverges. Centre coordinate
+        $\left( -0.5+0i \right)$, horizontal width 3.2.}
+    \label{fig:mandelbrot}
+\end{figure}
 
 \begin{table}
 \centering
@@ -707,15 +719,15 @@ easily recognisable fractal shape, as was seen in Figure~\ref{fig:mandelbrot}.
 \begin{tabu}{lrrrr}
 \toprule
 
-                        & \multicolumn{1}{c}{\bf Time}
-                        & \multicolumn{1}{c}{\bf Bandwidth}
-                        & \multicolumn{1}{c}{\bf Step}
-                        & \multicolumn{1}{c}{\bf Cumulative} \\
+                        & \multicolumn{1}{c}{\textbf{Time}}
+                        & \multicolumn{1}{c}{\textbf{Bandwidth}}
+                        & \multicolumn{1}{c}{\textbf{Step}}
+                        & \multicolumn{1}{c}{\textbf{Cumulative}} \\
 
-\textbf{Benchmark}      & \multicolumn{1}{c}{\bf (ms)}
-                        & \multicolumn{1}{c}{\bf (GB/s)}
-                        & \multicolumn{1}{c}{\bf Speedup}
-                        & \multicolumn{1}{c}{\bf Speedup} \\\midrule
+\textbf{Benchmark}      & \multicolumn{1}{c}{\textbf{(ms)}}
+                        & \multicolumn{1}{c}{\textbf{(GB/s)}}
+                        & \multicolumn{1}{c}{\textbf{Speedup}}
+                        & \multicolumn{1}{c}{\textbf{Speedup}} \\\midrule
 
 Accelerate              &
                         &
@@ -733,6 +745,12 @@ Accelerate (+fusion)    &
                         & \\
 
 Accelerate (+loop recovery)
+                        &
+                        &
+                        &
+                        & \\
+
+Accelerate (+iteration)
                         &
                         &
                         &
@@ -757,98 +775,116 @@ CPU (avg)               & 1389
 \end{tabu}
 \caption[Mandelbrot fractal kernel benchmarks]{Mandelbrot fractal benchmarks in
     Accelerate with and without optimisations, compared to a hand written CUDA
-    version. \note{tk: figure?}}
+    version. The benchmark computes the Mandelbrot set shown in
+    Figure~\ref{fig:mandelbrot}, which has centre coordinates $-0.7 + 0i$ and
+    width $3.067$. The CUDA (limit) benchmark computes every pixel to the
+    maximum iteration count.}
 \label{tab:mandelbrot}
 \end{table}
 
-As expected, Table~\ref{tab:mandelbrot} shows that without fusion performance is
-poor because storing each step of the iteration saturates the memory bus to the
-point that reducing arithmetic intensity with sharing recovery
-(\S\ref{sec:sharing_observation}) provides no improvement.
+Table~\ref{tab:mandelbrot} shows the results of the Mandelbrot program. As
+expected, without fusion the performance of this benchmark is poor because
+storing each step of the iteration saturates the memory bus, to the point that
+reducing arithmetic intensity with sharing recovery provides no improvement.
 
 
 \subsection{Fixed unrolling}
 
 In order to meet the restrictions of what can be efficiently executed on
-specialised hardware such as GPUs, Accelerate does not directly support any form
-of recursion. To implement the recurrence relation we instead define each step
-as a collective operation and unfold the loop a fixed number of times.
+specialised hardware such as GPUs, Accelerate did not directly support any form
+of iteration or recursion. To implement the recurrence relation we instead
+define each step of computing $z_{n+1}$ given $z_n$ and $c$ as a collective
+operation, and apply the operation a fixed number of times. The trick then is to
+keep a pair @(z, i)@ for every point on the complex plane, where @i@ is the
+iteration at which the point @z@ diverged. The code implementing this is shown
+in Listing~\ref{lst:mandelbrot}.
 
-Given $z_{n}$ and $c$, we can easily compute $z_{n+1}$, and for each point we
-need to iterate this process until divergence, and then remember the number of
-iterations at which divergence happened. This creates a small problem: GPUs are
-designed to do the \emph{same thing} to lots of different data at the same time,
-whereas we want to do something different depending on whether or not a
-particular point has diverged or not.
-
-Conditionals in GPU code should be avoided as much as possible because they can
-lead to SIMD divergence. We can't avoid \emph{some} kind of conditional, but we
-can make sure there is only a bounded amount of divergence by having just one
-conditional per iteration, and a fixed number of iterations. The trick is to
-keep a pair @(z,i)@ for every array element, where @i@ is the
-iteration at which the point @z@ diverged. Each step of the iteration is
-then:
-%
-\begin{itemize}
-    \item Compute @z' = c @plus@ (z @times@ z)@
-    \item If @z'@ is greater than 4, then the result is @(z, i)@
-    \item Otherwise the result is @(z', i+1)@
-\end{itemize}
-
-\begin{lstlisting}[style=haskell
-    ,float=tbh
+\begin{lstlisting}[style=haskell_float
     ,label=lst:mandelbrot
-    ,caption={Mandelbrot set generator in Accelerate}]
-type Complex = (Float, Float)                   -- not all GPUs can use \emph{Double}
-
-mandelbrot :: Int -> Int -> Int -> Int
-           -> Acc (Scalar View)
-           -> Acc (Array DIM2 (Complex, Int))
+    ,caption={Mandelbrot set generator in Accelerate, using fixed unrolling}]
+mandelbrot
+    :: forall a. (Elt a, IsFloating a)
+    => Int
+    -> Int
+    -> Int
+    -> Acc (Scalar (View a))
+    -> Acc (Array DIM2 Int32)
 mandelbrot screenX screenY depth view
-  = P.foldr ($) zs0                             -- apply in sequence the\ldots  \label{lst:mandelbrot_foldr}
-  $ P.take depth (repeat step)                  -- \ldots\emph{depth} copies of the function \emph{step}
+  = P.snd . A.unzip
+  $ P.foldr ($) zs0                                                                    -- (1)
+  $ P.take depth (repeat step)
   where
-    cs  = genPlane screenX screenY view         -- the static complex plane $c$
-    zs0 = mkinit cs                             -- initial array of $(c, 0)$
+    -- The view plane
+    (xmin,ymin,xmax,ymax)     = unlift (the view)
+    sizex                     = xmax - xmin
+    sizey                     = ymax - ymin
+    viewx                     = constant (P.fromIntegral screenX)
+    viewy                     = constant (P.fromIntegral screenY)
 
-    step :: Acc (Array DIM2 (Complex, Int))     % \label{lst:mandelbrot_step} %
-         -> Acc (Array DIM2 (Complex, Int))
-    step = A.zipWith iter cs                    -- compute one iteration to progress to $z_{n+1}$
+    step :: Acc (Array DIM2 (Complex a, Int32))
+         -> Acc (Array DIM2 (Complex a, Int32))
+    step = A.zipWith iter cs
 
-iter :: Exp Complex -> Exp (Complex, Int) -> Exp (Complex, Int)
-iter c zi = f (A.fst zi) (A.snd zi)
- where
-  f :: Exp Complex -> Exp Int -> Exp (Complex, Int)
-  f z i =
-    let z' = next c z
-    in (dot z' >* 4) ? ( zi , lift (z', i+1) )
+    iter :: Exp (Complex a) -> Exp (Complex a, Int32) -> Exp (Complex a, Int32)        -- (2)
+    iter c zi = next (A.fst zi) (A.snd zi)
+     where
+      next :: Exp (Complex a) -> Exp Int32 -> Exp (Complex a, Int32)
+      next z i =
+        let z' = c + z*z
+        in (dot z' >* 4) ? ( zi , lift (z', i+1) )                                     -- (3)
 
-next :: Exp Complex -> Exp Complex -> Exp Complex
-next c z = c `plus` (z `times` z)
+    dot :: Exp (Complex a) -> Exp a
+    dot c = let r :+ i = unlift c
+            in  r*r + i*i
 
-dot :: Exp Complex -> Exp Float
-dot = lift1 f
-  where f :: (Exp Float, Exp Float) -> Exp Float
-        f (x,y) = x*x + y*y
+    -- initial conditions for a given pixel in the window, translated to the
+    -- corresponding point in the complex plane
+    cs  = A.generate (constant $ Z :. screenY :. screenX) initial
+    zs0 = A.map (\c -> lift (c, constant 0)) cs
+
+    initial :: Exp DIM2 -> Exp (Complex a)
+    initial ix = lift ( (xmin + (x * sizex) / viewx) :+ (ymin + (y * sizey) / viewy) )
+      where
+        pr = unindex2 ix
+        x  = A.fromIntegral (A.snd pr :: Exp Int)
+        y  = A.fromIntegral (A.fst pr :: Exp Int)
 \end{lstlisting}
 
-The core of the Mandelbrot routine is shown in Listing~\ref{lst:mandelbrot}. The
-function @step@ (Line~\ref{lst:mandelbrot_step}) advances the entire
-complex plane by one iteration of the recurrence relation. This function is
-replicated @depth@ times and then the sequence combined by folding with the
-function application operator @(\$)@ (Line~\ref{lst:mandelbrot_foldr}). This
-results in a single fused kernel whole performance is greatly improved, but
-still several times slower than the CUDA version.
+\begin{enumerate}
+\item The function @step@ advances the entire complex plane by one iteration of
+    the recurrence relation. This function is repeated @depth@ number of times,
+    and the sequence combined by folding together with function application
+    @($)@. This effectively unrolls the loop to @depth@ iterations.
 
-The slowdown is because the fused code generates a completely unrolled loop,
-with @depth = 255@ copies of the code for @step@. Unrolling loops not
-only increases instruction count but can often increase register lifetimes
-because of the scheduling of loads and stores. In particular, stores are pushed
-down and loads are moved up in the instruction stream, which results in
-temporary scalar lifetimes being longer. The unrolled code requires 63 registers
-per thread (compute capability 3.0), resulting in a multiprocessor occupancy of
-only 50\%. Since the Mandelbrot program is limited by computation, halving the
-maximum number of resident threads halves the maximum performance.
+\item The function @iter@ computes the next value in the sequence for a single
+    point on the complex plane. If the point has diverged, we return the
+    iteration count at which divergence occurred, otherwise the new value @z'@
+    is returned and the iteration count @i@ is increased.
+
+\item The conditional test is performed by the @(?)@ operator. Recall that GPUs are
+    designed to do the same thing to lots of different data at the same time,
+    whereas we want to do something different depending on whether or not a
+    particular point has diverged. While we can not avoid having some kind of
+    conditional in the code, we ensure there is only a bounded amount of
+    divergence by having just one conditional per iteration, and a fixed number
+    of iterations.
+
+\end{enumerate}
+
+Array fusion applied to the program in Listing~\ref{lst:mandelbrot} results in
+the @depth@ copies of the function @step@ being combined into a single kernel.
+As seen in Table~\ref{tab:mandelbrot}, while fusion improves the performance of
+this program, it is still slower than the hand written version.
+
+This slowdown is because the fused code generates a completely unrolled loop,
+with @depth@ copies of the function body. Unrolling loops not only increases
+instruction counts, but can often increase register lifetimes because of the
+scheduling of loads and stores. In particular, stores are pushed down and loads
+moved up in the instruction stream, which results in temporary scalar lifetimes
+being longer. The unrolled code requires TK registers, resulting in a
+multiprocessor occupancy of TK\%. Since the Mandelbrot program is limited by
+computation, reducing the number of resident threads has a corresponding
+reduction on maximum performance.
 
 % \begin{lstlisting}[style=cuda
 %     ,firstnumber=24]
@@ -866,15 +902,26 @@ maximum number of resident threads halves the maximum performance.
 
 \subsection{Loop recovery}
 
-Sometimes unrolling loops can be beneficial. A CUDA programmer can control how
-aggressively the compiler unrolls loops using the @#pragma unroll@
-directive with an explicit unroll factor, where zero means to not unroll the
-loop at all.
+Loop unrolling or loop unwinding is a loop transformation technique that
+attempts to optimise a program's execution speed by reducing or eliminating
+instructions that control the loop, such as branching and the end-of-loop test.
+Loop unrolling does not always improve performance, however, because it may lead
+to, for example, increased register usage.
 
-The problem is that the way we have fused the collective operations does not
-preserve the iteration structure of the recurrence relation, so the loop is
-completely unrolled in the single fused operation. We can re-introduce scalar
-loops by analysing the fused expression to look for the following pattern:
+Applying the fusion transformation to the Mandelbrot program shown in
+Listing~\ref{lst:mandelbrot} resulted in a single kernel with @depth@ copies of
+the function @iter@. In essence, the loop computing the Mandelbrot recurrence
+relation has been completely unrolled. Unfortunately, the fused program does not
+match the performance of the hand written version, because (a)
+The program has a increased register usage; and (b) the conditional test is
+still performed at the end of each copy of the loop body, so there is no
+reduction in the overall number of instructions and branches executed.
+
+We attempted to reduce these overheads by re-introducing explicit scalar loops
+into the generated code. Recovering scalar loops then enables a backend to
+generate explicit @for@ loops in the target language, and the compiler then
+makes the decision of whether or not to unroll the loop. The following pair of
+rewrite rules are used.
 %
 \begin{lstlisting}[style=Haskell,numbers=none,mathescape]
 %\bf$\langle$ loop introduction $\rangle$%
@@ -884,60 +931,128 @@ loops by analysing the fused expression to look for the following pattern:
     in e3
     $\mapsto$
     iterate[2] (\y -> e2) e1            %\rm if \texttt{e2} $\equiv$ \texttt{e3}%
-\end{lstlisting}
-%
-The nested bindings are replaced with an explicit scalar value iteration
-structure, where the expression @e2@ is repeated twice with the initial
-value @e1@. Similarly, loops can be joined:
-%
-\begin{lstlisting}[style=Haskell,numbers=none,mathescape]
+
 %\bf$\langle$ loop joining $\rangle$%
     let x = iterate[n] (\y -> e2) e1
     in e3
     $\mapsto$
     iterate[n+1] (\y -> e2) e1          %\rm if \texttt{e2} $\equiv$ \texttt{e3}%
 \end{lstlisting}
+
+As seen in Table~\ref{tab:mandelbrot}, loop recovery shows a good increase in
+performance compared to the fused and unrolled result, but is slower than the
+hand written CUDA program because every thread always executes until the
+iteration limit, even if it diverges immediately, and must maintain this extra
+information of whether or not the thread has diverged yet.
+
+
+\subsection{Explicit iteration}
+
+Following our most recent published results~\cite{McDonell:2013wi}, we added
+explicit value recursion constructs to the source and target languages. Robert
+Clifton-Everest implemented the necessary changes to the sharing recovery
+algorithm, while I implemented the backend changes for code generation and
+execution. The new function @while@ applies the given function, starting with
+the initial value, as long as the test function continues to evaluate to @True@.
 %
-Recovering scalar loops in this way enables a backend to generate explicit loops
-in the target language, and the compiler makes the decision of whether or not to
-unroll the loop. In future, it would be beneficial to augment it with related
-loop optimisations such as loop invariant code motion in the frontend and
-lower-level code generation optimisations in a backend.
+\begin{lstlisting}[style=haskell]
+while :: Elt e
+      => (Exp e -> Exp Bool)            -- conditional test
+      -> (Exp e -> Exp e)               -- function to iterate
+      -> Exp e                          -- initial value
+      -> Exp e
+\end{lstlisting}
+%
+The Mandelbrot program using explicit iteration is shown in
+Listing~\ref{lst:mandelbrot_loop}, where the common parts to the @where@ clause
+in Listing~\ref{lst:mandelbrot} have been elided. Note that in contrast to the
+implementation based on fixed unrolling, the function will stop executing as
+soon as the relation diverges, rather than always continuing to the iteration
+limit even if the point has already diverged.
+
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:mandelbrot_loop
+    ,caption={Mandelbrot set generator in Accelerate, using explict iteration}]
+mandelbrot
+    :: forall a. (Elt a, IsFloating a)
+    => Int
+    -> Int
+    -> Int
+    -> Acc (Scalar (View a))
+    -> Acc (Array DIM2 Int32)
+mandelbrot screenX screenY depth view =
+  generate (constant (Z :. screenY :. screenX))
+           (\ix -> let c = initial ix
+                   in  A.snd $ A.while (\zi -> A.snd zi <* lIMIT &&* dot (A.fst zi) <* 4)
+                                       (\zi -> lift1 (next c) zi)
+                                       (lift (c, constant 0)))
+  where
+    lIMIT = P.fromIntegral depth
+
+    next :: Exp (Complex a) -> (Exp (Complex a), Exp Int32) -> (Exp (Complex a), Exp Int32)
+    next c (z, i) = (c + (z * z), i+1)
+\end{lstlisting}
+
+With respect to implementation on SIMD architectures such as CUDA, while both
+the fixed unrolling and explicit iteration methods have a conditional test that
+introduces thread divergence, it is important to note that the behaviour of the
+divergence is different for each method. In the fixed unrolling case, both
+branches of the conditional must be executed to keep track of whether the
+element has already diverged. This results in threads following separate
+execution paths, where threads that follow the @True@ branch execute while all
+other threads sit idle, then execution switches to the @False@ branch and the
+first set of threads sit idle. In contrast, in the explicit iteration case,
+threads exit the loop as soon as their point on the complex plane diverges, and
+then simply wait for all other threads in their SIMD group to complete their
+calculation and catch up.
+
+While the introduction of explicit value recursion required changes to the
+source language program, as seen in Table~\ref{tab:mandelbrot}, performance
+improves significantly. Additionally, if all threads in the SIMD group diverge
+quickly, this can save a significant amount of redundant computation.
+Table~\ref{tab:mandelbrot} also shows the difference in execution time between
+computing the entire fractal shown in Figure~\ref{fig:mandelbrot}, where all
+points diverge at different depths in the sequence (avg), compared to a region
+where all threads continue to the iteration limit (limit).
 
 
 \subsection{Unbalanced workload}
 
-The final problem with the Mandelbrot program is due to the initial formulation
-of the program using a fixed unrolling, as we must handle application of the
-function to elements which have already diverged. As explained, this is to
-ensure that all threads [in a warp] continue doing the same thing, which avoids
-excessive SIMD divergence, but means that the computation always proceeds to the
-iteration limit.
+In order to manage the unbalanced workload, the hand-written CUDA version
+includes a custom thread-block scheduler. Avoiding thread divergence in CUDA
+programs is an active area of research~\cite{Zhang:2010jc}. TK.
 
-For the Mandelbrot program threads only diverge in the sense that they are
-either still computing the recurrence relation, or the point is not in the set
-and the computation has completed; threads do not diverge to follow separate
-execution paths. The latter type of SIMD divergence is what we really need to
-avoid, because this results in predicated execution: threads taking the
-@true@ path of a branch execute while all other threads sit idle, then
-execution switches to the @false@ branch while the first set of threads
-idle.
-
-The CUDA version is faster because threads exit the loop as soon as their point
-in the complex plane diverges. Although once a thread completes it sits idle
-until all threads in the group complete their calculation, if all the points
-within a group of threads diverge quickly this can save a significant amount of
-work. Table~\ref{tab:mandelbrot} shows the difference in execution time when
-displaying the entire fractal (avg), where points diverge at varying iteration
-depths in the sequence, compared to a region where all thread continue to the
-iteration limit (limit). In order to manage this unbalanced workload, the CUDA
-version additionally includes a custom thread block scheduler.
-
-This test demonstrates that while loop recovery offered a significant
-performance benefit for free, it would be beneficial to expose looping
-constructs in the source language as well, rather than relying on potentially
-fragile post-hoc transformations. Avoiding thread divergence in CUDA programs is
-an active area of research~\cite{Zhang:2010jc}.
+% The final problem with the Mandelbrot program is due to the initial formulation
+% of the program using a fixed unrolling, as we must handle application of the
+% function to elements which have already diverged. As explained, this is to
+% ensure that all threads [in a warp] continue doing the same thing, which avoids
+% excessive SIMD divergence, but means that the computation always proceeds to the
+% iteration limit.
+%
+% For the Mandelbrot program threads only diverge in the sense that they are
+% either still computing the recurrence relation, or the point is not in the set
+% and the computation has completed; threads do not diverge to follow separate
+% execution paths. The latter type of SIMD divergence is what we really need to
+% avoid, because this results in predicated execution: threads taking the
+% @true@ path of a branch execute while all other threads sit idle, then
+% execution switches to the @false@ branch while the first set of threads
+% idle.
+%
+% The CUDA version is faster because threads exit the loop as soon as their point
+% in the complex plane diverges. Although once a thread completes it sits idle
+% until all threads in the group complete their calculation, if all the points
+% within a group of threads diverge quickly this can save a significant amount of
+% work. Table~\ref{tab:mandelbrot} shows the difference in execution time when
+% displaying the entire fractal (avg), where points diverge at varying iteration
+% depths in the sequence, compared to a region where all thread continue to the
+% iteration limit (limit). In order to manage this unbalanced workload, the CUDA
+% version additionally includes a custom thread block scheduler.
+%
+% This test demonstrates that while loop recovery offered a significant
+% performance benefit for free, it would be beneficial to expose looping
+% constructs in the source language as well, rather than relying on potentially
+% fragile post-hoc transformations. Avoiding thread divergence in CUDA programs is
+% an active area of research~\cite{Zhang:2010jc}.
 
 
 \endinput

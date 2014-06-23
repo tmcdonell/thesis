@@ -1054,8 +1054,6 @@ programs is an active area of research~\cite{Zhang:2010jc}. TK.
 % fragile post-hoc transformations. Avoiding thread divergence in CUDA programs is
 % an active area of research~\cite{Zhang:2010jc}.
 
-
-\endinput
 \section{N-body gravitational simulation}
 \label{sec:nbody}
 
@@ -1084,10 +1082,9 @@ simulation is shown in Listing~\ref{lst:nbody}, where @accel@ calculates
 the acceleration between two particles, and @(.+.)@ component-wise sums the
 acceleration of a particle along each $x$, $y$ and $z$ axis.
 
-\begin{lstlisting}[style=haskell
-    ,float
+\begin{lstlisting}[style=haskell_float
     ,label=lst:nbody
-    ,caption={$N$-body gravitational simulation in Accelerate}]
+    ,caption={$N$-body gravitational simulation in Accelerate, using parallel reduction}]
 calcAccels :: Exp Float -> Acc (Vector Body) -> Acc (Vector Accel)
 calcAccels epsilon bodies
   = let n       = A.size bodies
@@ -1097,29 +1094,67 @@ calcAccels epsilon bodies
     A.fold (.+.) (vec 0) $ A.zipWith (accel epsilon) rows cols
 \end{lstlisting}
 
+
+\subsection{Sequential iteration}
+
+Even with fusion, the reference CUDA version is over $10\times$ faster. Although
+the fused program requires only $\mathcal{O}\left( n \right)$ space, it still
+requires all $\mathcal{O}\left( n^2 \right)$ memory accesses, and $n^{2}$
+threads to cooperatively compute the interactions.
+
+With the addition of sequential iteration following our most recent
+publication~\cite{McDonell:2013wi}, we can emit an alternative implementation.
+Rather than computing all interactions between each pair of bodies and reducing
+this array in parallel, we express the program as a parallel map of sequential
+reductions, as shown in Listing~\ref{lst:nbody_seq}. Although the program still
+performs all $n^{2}$ memory accesses, since all threads access the @bodies@
+array in sequence, these values can be cached efficiently by the GPU, and the
+actual bandwidth requirements to main memory are reduced.
+
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:nbody_seq
+    ,caption={$N$-body gravitational simulation in Accelerate, using sequential reduction}]
+calcAccels :: Exp R -> Acc (Vector PointMass) -> Acc (Vector Accel)
+calcAccels epsilon bodies
+  = let move body = A.sfoldl (\acc next -> acc .+. accel epsilon body next)
+                             (vec 0)
+                             (constant Z)
+                             bodies
+    in
+    A.map move bodies
+\end{lstlisting}
+
+
 \subsection{Use of Shared Memory}
 
-Even with fusion the reference CUDA version is over 10x faster. In CUDA, the
-memory hierarchy of the device is made explicit to the programmer, including a
-small on-chip shared memory region threads can use to communicate results, that
-is essentially a software managed cache (\S tk). The CUDA version uses this
-memory region to share the particle mass and position data between a group of
-threads, whereas Accelerate uses this region to share computation.
+In CUDA, the memory hierarchy of the device is made explicit to the programmer,
+including a small on-chip shared memory region threads can use to share data,
+that is essentially a software managed cache~\cite{NVIDIA:2012wf}.
 
-The CUDA version uses this low-latency memory region to reduce the bandwidth
-requirements of the program by sharing the particle mass and position data
-between the group of threads. This reduces the bandwidth requirement of the
-program by a factor of the number of threads in a block (256) but requires each
-thread to sum its particle interactions sequentially in $\mathcal{O}\left( n
-\right)$ time. The Accelerate version uses shared memory to perform a
-tree-reduction in $\mathcal{O}\left( \log n \right)$ time
-(\S\ref{sec:parallel_reduction}) but requires all $n^{2}$ memory transfers. For
-this bandwidth bound application, making the trade-off of parallelism for
-bandwidth clearly wins. Automatic use of shared memory is a separate
-consideration to the optimisations discussed in this work, and remains an open
-research problem~\cite{Ma:2010ft}.
+The program shown in Listing~\ref{lst:nbody} uses the shared memory region to
+share computations while computing the parallel reduction. The second
+implementation shown in Listing~\ref{lst:nbody_seq} does not use shared memory
+at all, but rather relies on hardware caching. Similar to our latter
+implementation, the CUDA program is also implemented as a parallel map of
+sequential reductions, but explicitly uses the shared memory region to share the
+particle mass and position data between threads, rather than rely on hardware
+caching. Since the shared memory region is very low latency, the CUDA program
+remains faster. Automatic use of shared memory is a separate consideration to
+the optimisations discussed in this work, and remains an open research
+problem~\cite{Ma:2010ft}.
+
+% This reduces the bandwidth requirement of the program by a factor of the number
+% of threads in a block (256) but requires each thread to sum its particle
+% interactions sequentially in $\mathcal{O}\left( n \right)$ time. The Accelerate
+% version uses shared memory to perform a tree-reduction in $\mathcal{O}\left(
+% \log n \right)$ time (\S\ref{sec:parallel_reduction}) but requires all $n^{2}$
+% memory transfers. For this bandwidth bound application, making the trade-off of
+% parallelism for bandwidth clearly wins. Automatic use of shared memory is a
+% separate consideration to the optimisations discussed in this work, and remains
+% an open research problem~\cite{Ma:2010ft}.
 
 
+\endinput
 \section{Fluid Flow}
 \label{sec:fluid}
 

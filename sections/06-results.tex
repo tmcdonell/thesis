@@ -54,8 +54,8 @@ $O\left(n^3\right)$.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:floyd_warshall
-    ,caption={[Floyd-Warshall shortest-paths algorithm in Accelerate]
-        Floyd-Warshall shortest-paths algorithm in Accelerate~\cite{Marlow:2013wn}}]
+    ,caption={[Floyd-Warshall shortest-paths algorithm]
+        Floyd-Warshall shortest-paths algorithm~\cite{Marlow:2013wn}}]
 type Weight = Int32
 type Graph  = Array DIM2 Weight                                                        -- (1)
 
@@ -279,7 +279,7 @@ Listing~\ref{lst:dotp}, and seen previously.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:dotp
-    ,caption={Vector dot-product in Accelerate}]
+    ,caption={Vector dot-product}]
 dotp :: Acc (Vector Float) -> Acc (Vector Float) -> Acc (Scalar Float)
 dotp xs ys = A.fold (+) 0                       -- sum result of\ldots
            $ A.zipWith (*) xs ys                -- \ldots element-wise multiplying inputs
@@ -614,7 +614,7 @@ that all individual applications of the formula are executed in parallel.
 \begin{lstlisting}[style=haskell_float
     ,float
     ,label=lst:blackscholes
-    ,caption={Black-Scholes option pricing in Accelerate}]
+    ,caption={Black-Scholes option pricing}]
 horner :: Num a => [a] -> a -> a
 horner coeff x =
   let madd a b  = a + x*b
@@ -801,7 +801,7 @@ in Listing~\ref{lst:mandelbrot}.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:mandelbrot
-    ,caption={Mandelbrot set generator in Accelerate, using fixed unrolling}]
+    ,caption={Mandelbrot set generator, using fixed unrolling}]
 mandelbrot
     :: forall a. (Elt a, IsFloating a)
     => Int
@@ -972,7 +972,7 @@ limit even if the point has already diverged.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:mandelbrot_loop
-    ,caption={Mandelbrot set generator in Accelerate, using explict iteration}]
+    ,caption={Mandelbrot set generator, using explict iteration}]
 mandelbrot
     :: forall a. (Elt a, IsFloating a)
     => Int
@@ -1084,7 +1084,7 @@ acceleration of a particle along each $x$, $y$ and $z$ axis.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:nbody
-    ,caption={$N$-body gravitational simulation in Accelerate, using parallel reduction}]
+    ,caption={$N$-body gravitational simulation, using parallel reduction}]
 calcAccels :: Exp Float -> Acc (Vector Body) -> Acc (Vector Accel)
 calcAccels epsilon bodies
   = let n       = A.size bodies
@@ -1113,7 +1113,7 @@ actual bandwidth requirements to main memory are reduced.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:nbody_seq
-    ,caption={$N$-body gravitational simulation in Accelerate, using sequential reduction}]
+    ,caption={$N$-body gravitational simulation, using sequential reduction}]
 calcAccels :: Exp R -> Acc (Vector PointMass) -> Acc (Vector Accel)
 calcAccels epsilon bodies
   = let move body = A.sfoldl (\acc next -> acc .+. accel epsilon body next)
@@ -1316,10 +1316,9 @@ whereas Nikola requires a dataset of about 32kB before the additional
 parallelism of the GPU outperforms the sequential
 version~\cite{Mainland:2010vj}.
 
-\begin{lstlisting}[style=haskell
-    ,float
+\begin{lstlisting}[style=haskell_float
     ,label=lst:radixsort
-    ,caption={Radix sort algorithm in Accelerate}]
+    ,caption={Radix sort algorithm}]
 class Elt e => Radix e where
   passes :: e -> Int                            -- number of passes (bits) required to sort this key type
   radix  :: Exp Int -> Exp e -> Exp Int         -- extract the $n^{th}$ bit of the key
@@ -1517,7 +1516,7 @@ compressed row format matrices.
 \begin{lstlisting}[style=haskell
     ,float
     ,label=lst:smvm
-    ,caption={Sparse-matrix vector multiplication in Accelerate}]
+    ,caption={Sparse-matrix vector multiplication}]
 type SparseVector e = Vector (Int, e)                   -- column index and value
 type SparseMatrix e = (Segments Int, SparseVector e)    -- length of each row
 

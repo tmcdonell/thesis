@@ -322,7 +322,7 @@ satisfy the predicate, by not mapping those indices to an index in the codomain.
 %
 \begin{lstlisting}[style=haskell_float
     ,label=lst:filter
-    ,caption={[Filter in Accelerate] Filtering returns only those elements of a
+    ,caption={[Filter] Filtering returns only those elements of a
     vector which satisfy a predicate. This operation is included as part of
     Accelerate's standard prelude.}]
 filter :: Elt a => (Exp a -> Exp Bool) -> Acc (Vector a) -> Acc (Vector a)
@@ -352,7 +352,7 @@ combined (accumulated) correctly.
 %
 \begin{lstlisting}[style=haskell_float
     ,label=lst:histogram
-    ,caption={[Simple histogram in Accelerate] A simple histogram written in
+    ,caption={[Simple histogram] A simple histogram written in
     Accelerate. We assume the input vector contains elements in the range
     $\left[0,100\right)$ and accumulate into ten equally sized bins.}]
 histogram :: Acc (Vector Float) -> Acc (Vector Int)

@@ -38,7 +38,7 @@ not at the expense of making it incorrect.
 \begin{lstlisting}[style=haskell_float
     ,float=t
     ,label=lst:black_scholes
-    ,caption={Black-Scholes option pricing in Accelerate}]
+    ,caption={Black-Scholes option pricing}]
 riskfree, volatility :: Float
 riskfree   = 0.02
 volatility = 0.30
@@ -400,7 +400,7 @@ operations into two categories:
     numbers=none,
     float=t,
     label={lst:producer_consumer_operations},
-    caption={[Producer and consumer operations in Accelerate] Summary of Accelerate's core
+    caption={[Producer and consumer operations] Summary of Accelerate's core
         collective array operations, classified as either producer of consumer
         operations. We omit the \code{Shape} and \code{Elt} class constraints
         for brevity. In addition, there are other flavours of folds and scans as
@@ -646,7 +646,7 @@ data structure used for representing producer terms in Accelerate.
 %
 \begin{lstlisting}[style=haskell_float
     ,label=lst:Embed
-    ,caption={Representation of fused producer arrays in Accelerate}]
+    ,caption={Representation of fused producer arrays}]
 data Embed acc aenv a where
     Embed :: Extend     acc aenv aenv'      -- additional bindings to bring into scope, to evaluate the\ldots
           -> Cunctation acc      aenv' a    -- \ldots representation of (fused) producer terms
@@ -1001,7 +1001,7 @@ array needs to be created.
 \begin{lstlisting}[style=haskell_float
     ,name=DelayedOpenAcc
     ,label=lst:DelayedOpenAcc
-    ,caption={The type of delayed arrays in Accelerate}]
+    ,caption={Representation of delayed arrays}]
 data DelayedOpenAcc aenv a where
   Manifest              :: PreOpenAcc DelayedOpenAcc aenv a
                         -> DelayedOpenAcc aenv a

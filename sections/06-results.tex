@@ -1154,7 +1154,6 @@ problem~\cite{Ma:2010ft}.
 % an open research problem~\cite{Ma:2010ft}.
 
 
-\endinput
 \section{Fluid Flow}
 \label{sec:fluid}
 
@@ -1198,9 +1197,7 @@ parameters.
         fluid flow simulation, in Accelerate with and without optimisations,
         compared to sequential and parallel CPU implementations. Running the
         Repa program with seven threads on the eight cores was found to be
-        faster. Note the log-log scale.
-        \note{TK: Check the fluid demo that is part of the CUDA SDK, it looks
-        like it might implement something similar.}}
+        faster. Note the log-log scale.}
     \label{fig:fluid}
 \end{figure}
 
@@ -1216,24 +1213,37 @@ implementation of stencils always shares some parts of the computation: namely
 access to the grid elements $u_{xy}$, precisely because these operations are so
 expensive.
 
-\note{tk: example showing performance of \code{map (+1)} versus the equivalent
-of using a stencil: extra addressing arithmetic should be significant. For fluid
-flow, the actual computation time (probably) greatly outweighs the extra
-arithmetic.}
+The CUDA SDK sample programs includes a version of Jos Stam's fluid flow
+algorithm, but that is computed using Fourier transforms and is intermingled
+with OpenGL code for the visualisation, so we can not directly compare to that
+implementation.
+
+% \note{tk: example showing performance of \code{map (+1)} versus the equivalent
+% of using a stencil: extra addressing arithmetic should be significant. For fluid
+% flow, the actual computation time (probably) greatly outweighs the extra
+% arithmetic.}
+%
+% \note{TK: Check the fluid demo that is part of the CUDA SDK, it looks like it
+% might implement something similar.}
 
 
 \section{Canny edge detection}
 \label{sec:canny}
 
 The edge detection example applies the Canny algorithm~\cite{Canny:1986et} to
-rectangular images of various sizes. The overall algorithm consists of seven
-distinct phases, the first six of which are naturally data parallel and are
-performed on the GPU. The last phase uses a recursive algorithm to ``connect''
-the pixels that make up the output lines. In our implementation this phase is
-performed on the CPU, which requires the image data to be transferred from the
-GPU back to the CPU for processing. In the figure, this final phase accounts for
-the non-linear slowdown visible with smaller image sizes. Also shown are the run
-times for just the first six data parallel phases, which exhibit linear speedup.
+rectangular images of various sizes. Figure~\ref{fig:canny} compares Accelerate
+to parallel implementations on the CPU and GPU\@. The overall algorithm consists
+of seven distinct phases, the first six of which are naturally data parallel and
+are performed on the GPU\@. The last phase uses a recursive algorithm to
+``connect'' the pixels that make up the output lines. In our implementation this
+phase is performed on the CPU, which requires the image data to be transferred
+from the GPU back to the CPU for processing, and accounts for the non-linear
+slowdown visible with smaller image sizes. In contrast, OpenCV is able to
+perform the final step on the GPU\@. The benchmark ``Accelerate (whole
+program)'' includes the time to transfer the image data back to the host for the
+final processing step. Also shown are the run times for just the first six data
+parallel phases, which exhibit linear speedup and do not include data transfer
+to the host.
 
 \begin{figure}
     \begin{center}
@@ -1289,11 +1299,16 @@ horizontal and vertical image gradients.
 \end{equation*}
 
 There is a significant amount of sharing between these two kernels, in terms of
-the coefficients required to compute the derivative at each point, so it could
-be beneficial to merge these two stencils. As with all shortcut fusion methods,
-the system presented here does not combine multiple passes over the same array
-into a single traversal that computes multiple results. We leave this to future
-work, for example, in the style of data flow fusion~\cite{Lippmeier:2013vz}.
+the coefficients required to compute the derivative at each point. Thus, it
+could be beneficial to merge these two stencils into a single kernel, rather
+than computing them separately. As with all shortcut fusion methods, the system
+presented here does not combine multiple passes over the same array into a
+single traversal that computes multiple results. We leave this, as well as other
+significant stencil
+optimisations~\cite{Henretty:2013wb,Kamil:2006un,Lesniak:2010}, to future work.
+
+% We leave this to future work,
+% for example, in the style of data flow fusion~\cite{Lippmeier:2013vz}.
 
 
 \section{Radix sort}

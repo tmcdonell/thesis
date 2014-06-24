@@ -1383,8 +1383,11 @@ implementations are, essentially, different algorithms than Blelloch's radix
 sort algorithm that we have implemented here, but serve to illustrate the
 absolute performance of the device. To address this we have implemented a
 foreign function interface for Accelerate to take advantage of existing
-high-performance libraries. The foreign function interface is orthogonal to the
-work presented here of optimising programs written in the Accelerate language.
+high-performance libraries (\S\ref{sec:ffi}). The foreign function interface is
+orthogonal to the work presented here of optimising programs written in the
+Accelerate language. Useful future work would be to combine a fast-yet-fixed
+foreign implementation with a more generic interface, using a method such
+as~\cite{Henglein:2013dd}.
 
 
 \section{Sparse-matrix vector multiplication}

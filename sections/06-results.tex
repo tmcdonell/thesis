@@ -43,86 +43,20 @@ the program optimisations on kernel runtimes of the benchmark programs.
 %   - tick counters for the final version and old one with extend/cunctation
 %     separation
 
-The Floyd-Warshall algorithm finds the lengths of the shortest paths between all
-pairs of points in a weighted directed graph. The implementation in Accelerate
-is shown in Listing~\ref{lst:floyd_warshall}, and appeared in the book
-\emph{Parallel and Concurrent Programming in Haskell}~\cite{Marlow:2013wn}. The
-algorithm runs over an adjacency matrix, building the solution bottom-up so that
-earlier results are used when computing later ones. Each step of the algorithm
-is $O\left(n^2\right)$ in the number of vertices, so the whole algorithm is
-$O\left(n^3\right)$.
 
-\begin{lstlisting}[style=haskell_float
-    ,label=lst:floyd_warshall
-    ,caption={[Floyd-Warshall shortest-paths algorithm]
-        Floyd-Warshall shortest-paths algorithm~\cite{Marlow:2013wn}}]
-type Weight = Int32
-type Graph  = Array DIM2 Weight                                                        -- (1)
+The Floyd-Warshall algorithm for finding the shortest paths in a directed graph,
+discussed in Section~\ref{sec:floyd_warshall}, was found to cause serious
+problems with the original implementation of the optimisations discussed in this
+thesis. Thus, changes were made to ensure that the complexity of the
+optimisations are not exponential in the number of terms in the program. In
+particular, the Floyd-Warshall program consists of a sequence of let bindings to
+producer operations, so the handling of let bindings
+(\S\ref{sec:binder_elimination}) and the representation of producers that
+separates the delayed array representation from the captured environment terms
+(\S\ref{sec:representing_producers}) was found to be crucial.
+Table~\ref{tab:floyd_warshal_opt} shows the time to optimise the Floyd-Warshall
+program with and without these changes of the optimisation pipeline.
 
-shortestPaths :: Graph -> Graph
-shortestPaths g0 = run (shortestPathsAcc n (use g0))
-  where
-    Z :. _ :. n = arrayShape g0
-
-shortestPathsAcc :: Int -> Acc Graph -> Acc Graph
-shortestPathsAcc n g0 = foldl1 (.) steps g0                                            -- (6)
-  where
-    steps :: [ Acc Graph -> Acc Graph ]
-    steps =  [ step (unit (constant k)) | k <- [0 .. n-1] ]                            -- (5)
-
-step :: Acc (Scalar Int) -> Acc Graph -> Acc Graph
-step k g = generate (shape g) sp                                                       -- (2)
-  where
-    k' = the k                                                                         -- (3)
-
-    sp :: Exp DIM2 -> Exp Weight
-    sp ix = let Z :. i :. j = unlift ix
-            in  min (g ! (index2 i j))                                                 -- (4)
-                    (g ! (index2 i k') + g ! (index2 k' j))
-\end{lstlisting}
-
-\begin{enumerate}
-\item The dense adjacency matrix is a two-dimensional array indexed by pairs of
-    vertices, where each element is the length of the path between two vertices.
-
-\item The @step@ function computes the lengths of the shortest paths between two
-    elements, using only vertices up to @k@, where the previous graph @g@
-    contains the lengths of the shortest paths using vertices up to @k - 1@.
-
-\item The iteration number @k@ is a scalar array. Why don't we pass this as a
-    plain @Int@? When the program runs, Accelerate converts the program into a
-    series of CUDA kernels, each of which must be compiled and loaded onto the
-    GPU~(\S\ref{sec:code_generation}). Since compilation can take a while,
-    Accelerate remembers the kernels it has seen before and reuses
-    them~(\S\ref{sec:dynamic_compilation}). Our goal with @step@ is to make a
-    kernel that will be reused, otherwise the overhead of compiling a new kernel
-    for each iteration will ruin performance.
-
-    By defining @k@ as a scalar array, we ensure that it is defined
-    \emph{outside} the call to @generate@. If we don't do this, a different
-    value of @k@ will be embedded directly into each call to the @generate@
-    function, which will defeat Accelerate's caching of CUDA kernels.
-
-\item To determine the length of the shortest path between @i@ and @j@, we take
-    the minimum of the previous shortest paths from @i@ to @j@, and the path
-    that goes from @i@ to @k@ and then from @k@ to @j@.
-
-\item The list of steps, where each step takes a @Graph@ and delivers a new
-    @Graph@, is constructed by applying @step@ to each value of @k@ in the
-    sequence @0 .. n-1@.
-
-\item Finally, the @shortestPathsAcc@ function connects the sequence of @step@
-    calls by left-folding with function composition @(.)@, and passing the
-    original graph @g0@ as input to the pipeline.
-
-\end{enumerate}
-
-% This is the best program ebaaaaaa~<3!
-% Buy ALLLLLLLLLL~ the things~<3 !
-% And give meh ALLLLLLLLLLLLLL~ the monieeeeeees~<3 !
-% ;D
-%
-% - pookie 2014/06/16
 
 \begin{table}
     \centering
@@ -158,15 +92,6 @@ step k g = generate (shape g) sp                                                
     \caption{Optimisation time for the Floyd-Warshall algorithm}
     \label{tab:floyd_warshal_opt}
 \end{table}
-
-The program shown in Listing~\ref{lst:floyd_warshall} demonstrates the
-importance of the producer representation that is split the delayed
-representation @Cunctation@ and the environment term @Embed@
-(\S\ref{sec:representing_producers}), and why the handling of let bindings must
-be careful to ensure that each term is only examined
-once~(\S\ref{sec:binder_elimination}). Table~\ref{tab:floyd_warshal_opt} shows
-the time to optimise the Floyd-Warshall program with and without these features
-of the fusion pipeline.
 
 
 \subsection{Memory management \& data transfer}
@@ -1665,6 +1590,94 @@ performance, but is left to future work.
 %
 % The regression relative to
 % our previous result will be investigated. Nevertheless,
+
+\subsection{Shortest Paths in a Graph}
+\label{sec:floyd_warshall}
+
+The Floyd-Warshall algorithm finds the lengths of the shortest paths between all
+pairs of points in a weighted directed graph. The implementation in Accelerate
+is shown in Listing~\ref{lst:floyd_warshall}, and appeared in the book
+\emph{Parallel and Concurrent Programming in Haskell}~\cite{Marlow:2013wn}. The
+algorithm runs over an adjacency matrix, building the solution bottom-up so that
+earlier results are used when computing later ones. Each step of the algorithm
+is $O\left(n^2\right)$ in the number of vertices, so the whole algorithm is
+$O\left(n^3\right)$.
+
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:floyd_warshall
+    ,caption={[Floyd-Warshall shortest-paths algorithm]
+        Floyd-Warshall shortest-paths algorithm~\cite{Marlow:2013wn}}]
+type Weight = Int32
+type Graph  = Array DIM2 Weight                                                        -- (1)
+
+shortestPaths :: Graph -> Graph
+shortestPaths g0 = run (shortestPathsAcc n (use g0))
+  where
+    Z :. _ :. n = arrayShape g0
+
+shortestPathsAcc :: Int -> Acc Graph -> Acc Graph
+shortestPathsAcc n g0 = foldl1 (.) steps g0                                            -- (6)
+  where
+    steps :: [ Acc Graph -> Acc Graph ]
+    steps =  [ step (unit (constant k)) | k <- [0 .. n-1] ]                            -- (5)
+
+step :: Acc (Scalar Int) -> Acc Graph -> Acc Graph
+step k g = generate (shape g) sp                                                       -- (2)
+  where
+    k' = the k                                                                         -- (3)
+
+    sp :: Exp DIM2 -> Exp Weight
+    sp ix = let Z :. i :. j = unlift ix
+            in  min (g ! (index2 i j))                                                 -- (4)
+                    (g ! (index2 i k') + g ! (index2 k' j))
+\end{lstlisting}
+
+\begin{enumerate}
+\item The dense adjacency matrix is a two-dimensional array indexed by pairs of
+    vertices, where each element is the length of the path between two vertices.
+
+\item The @step@ function computes the lengths of the shortest paths between two
+    elements, using only vertices up to @k@, where the previous graph @g@
+    contains the lengths of the shortest paths using vertices up to @k - 1@.
+
+\item The iteration number @k@ is a scalar array. Why don't we pass this as a
+    plain @Int@? When the program runs, Accelerate converts the program into a
+    series of CUDA kernels, each of which must be compiled and loaded onto the
+    GPU~(\S\ref{sec:code_generation}). Since compilation can take a while,
+    Accelerate remembers the kernels it has seen before and reuses
+    them~(\S\ref{sec:dynamic_compilation}). Our goal with @step@ is to make a
+    kernel that will be reused, otherwise the overhead of compiling a new kernel
+    for each iteration will ruin performance.
+
+    By defining @k@ as a scalar array, we ensure that it is defined
+    \emph{outside} the call to @generate@. If we don't do this, a different
+    value of @k@ will be embedded directly into each call to the @generate@
+    function, which will defeat Accelerate's caching of CUDA kernels.
+
+\item To determine the length of the shortest path between @i@ and @j@, we take
+    the minimum of the previous shortest paths from @i@ to @j@, and the path
+    that goes from @i@ to @k@ and then from @k@ to @j@.
+
+\item The list of steps, where each step takes a @Graph@ and delivers a new
+    @Graph@, is constructed by applying @step@ to each value of @k@ in the
+    sequence @0 .. n-1@.
+
+\item Finally, the @shortestPathsAcc@ function connects the sequence of @step@
+    calls by left-folding with function composition @(.)@, and passing the
+    original graph @g0@ as input to the pipeline.
+
+\end{enumerate}
+
+% This is the best program ebaaaaaa~<3!
+% Buy ALLLLLLLLLL~ the things~<3 !
+% And give meh ALLLLLLLLLLLLLL~ the monieeeeeees~<3 !
+% ;D
+%
+% - pookie 2014/06/16
+
+Figure~\ref{fig:floyd_warshall} compares the performance of the algorithm in
+Accelerate to several parallel CPU implementations.
+
 
 \section{Discussion}
 % \subsection{Related Work}

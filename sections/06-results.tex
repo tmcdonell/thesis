@@ -25,7 +25,7 @@ backed by two quad core Xeon E5405 CPUs (64-bit, 2GHz, 8GB RAM) running
 GNU/Linux (Ubuntu 12.04 LTS, CUDA 5.0).
 
 
-\section{Runtime Overheads}
+\section{Runtime overheads}
 
 Runtime program optimisation, code generation, kernel loading, data transfer,
 and so on can contribute significant overhead to short lived GPU computations.
@@ -36,7 +36,7 @@ overheads, so that they can be factored out later when we discuss the effects of
 the program optimisations on kernel runtimes of the benchmark programs.
 
 
-\subsection{Program Optimisation}
+\subsection{Program optimisation}
 
 % tk: performance and benchmarks for the fusion pass
 %   - actual runtime
@@ -107,7 +107,7 @@ significant portion of the overall execution time for some benchmarks.
 %     box of evaluating the AST --> hashcat.
 % tk: importance of the nursery for reducing calls to malloc/free
 
-\subsection{Code Generation \& Compilation}
+\subsection{Code generation \& compilation}
 
 Table~\ref{tab:compilation_times} lists the code generation and compilation
 times for each of the benchmark programs considered in this chapter. Compilation
@@ -1591,7 +1591,7 @@ performance, but is left to future work.
 % The regression relative to
 % our previous result will be investigated. Nevertheless,
 
-\subsection{Shortest Paths in a Graph}
+\section{Shortest Paths in a Graph}
 \label{sec:floyd_warshall}
 
 The Floyd-Warshall algorithm finds the lengths of the shortest paths between all

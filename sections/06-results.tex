@@ -1679,6 +1679,106 @@ Figure~\ref{fig:floyd_warshall} compares the performance of the algorithm in
 Accelerate to several parallel CPU implementations.
 
 
+\section{K-Means clustering}
+
+In the $K$-means problem, the goal is to partition a set of observations into
+$k$ clusters, in which each observation belongs to the cluster with the nearest
+mean. Finding an optimal solution to the problem is NP-hard, however there exist
+efficient heuristic algorithms that converge quickly to a local optimum, and in
+practice give good results. The most well known heuristic technique is Lloyd's
+algorithm, which finds a solution by iteratively improving on an initial guess.
+The algorithm takes as a parameter the number of clusters, makes an initial
+guess at the centre of each cluster, and proceeds as follows:
+%
+\begin{enumerate}
+    \item Assign each point to the cluster to which it is closest. This yields
+        the new set of clusters.
+
+    \item Compute the centroid of each cluster.
+
+    \item Repeat steps (1) and (2) until the cluster locations stabilise.
+        Processing is also stopped after some chosen maximum number of
+        iterations, as sometimes the algorithm does not converge.
+\end{enumerate}
+%
+The initial guess can be constructed by randomly assigning each point in the
+data set to a cluster and then finding the centroids of those clusters. The core
+of the algorithm is shown in Listing~\ref{lst:kmeans}, which computes the new
+cluster locations. To complete the algorithm, the function @makeNewClusters@ is
+applied repeatedly until convergence, or some maximum iteration limit is
+reached. While the algorithm works for any number of dimensions, the
+implementation shown here is for two dimensional points only.
+
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:kmeans
+    ,caption={$K$-means clustering for 2D points}]
+type Point a    = (a, a)
+type Id         = Word32
+type Cluster a  = (Id, (a, a))
+type PointSum a = (Word32, (a, a))
+
+distance :: (Elt a, IsNum a) => Exp (Point a) -> Exp (Point a) -> Exp a
+distance u v = ...
+
+findClosestCluster
+    :: forall a. (Elt a, IsFloating a, RealFloat a)
+    => Acc (Vector (Cluster a))
+    -> Acc (Vector (Point a))
+    -> Acc (Vector Id)
+findClosestCluster clusters points =
+  A.map (\p -> A.fst $ A.sfoldl (nearest p) z (constant Z) clusters) points
+  where
+    z = constant (-1, inf)
+
+    nearest :: Exp (Point a) -> Exp (Id, a) -> Exp (Cluster a) -> Exp (Id, a)
+    nearest p st c =
+      let d  = A.snd st
+          d' = distance p (centroidOfCluster c)
+      in
+      d' <* d ? ( lift (idOfCluster c, d') , st )
+
+makeNewClusters
+    :: forall a. (Elt a, IsFloating a, RealFloat a)
+    => Acc (Vector (Point a))
+    -> Acc (Vector (Cluster a))
+    -> Acc (Vector (Cluster a))
+makeNewClusters points clusters
+  = pointSumToCluster
+  . makePointSum
+  . findClosestCluster clusters
+  $ points
+  where
+    npts        = size points
+    nclusters   = size clusters
+
+    pointSumToCluster :: Acc (Vector (PointSum a)) -> Acc (Vector (Cluster a))
+    pointSumToCluster ps =
+      A.generate (A.shape ps)
+                 (\ix -> lift (A.fromIntegral (unindex1 ix), average (ps ! ix)))
+
+    makePointSum :: Acc (Vector Id) -> Acc (Vector (PointSum a))
+    makePointSum = A.fold1 addPointSum . pointSum
+
+    pointSum :: Acc (Vector Id) -> Acc (Array DIM2 (PointSum a))
+    pointSum nearest =
+      A.generate (lift (Z :. nclusters :. npts))
+                 (\ix -> let Z:.i:.j = unlift ix    :: Z :. Exp Int :. Exp Int
+                             near    = nearest ! index1 j
+                             yes     = lift (constant 1, points ! index1 j)
+                             no      = constant (0, (0,0))
+                         in
+                         near ==* A.fromIntegral i ? ( yes, no ))
+
+    average :: Exp (PointSum a) -> Exp (Point a)
+    average ps = ...            -- average of the $x$- and $y$-coordinates
+
+    addPointSum :: Exp (PointSum a) -> Exp (PointSum a) -> Exp (PointSum a)
+    addPointSum x y = ...       -- component-wise addition
+\end{lstlisting}
+
+Figure~\ref{fig:kmeans} compares the performance of the implementation shown
+here to several other CPU implementations.
+
 \section{Discussion}
 % \subsection{Related Work}
 % \subsection{Future Work}

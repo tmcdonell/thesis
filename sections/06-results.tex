@@ -985,6 +985,33 @@ programs is an active area of research~\cite{Zhang:2010jc}. TK.
 % fragile post-hoc transformations. Avoiding thread divergence in CUDA programs is
 % an active area of research~\cite{Zhang:2010jc}.
 
+\subsection{Passing inputs as arrays}
+
+Note that in the definition of @mandelbrot@, the current view bounds are passed
+as a scalar array. Why don't we pass these values as plain @Float@s? When the
+program runs, Accelerate converts the program into a series of CUDA kernels,
+each of which must be compiled and loaded onto the
+GPU~(\S\ref{sec:code_generation}). Since compilation can take a while,
+Accelerate remembers the kernels it has seen before and reuses
+them~(\S\ref{sec:dynamic_compilation}). Our goal with @mandelbrot@ is to make a
+kernel that will be reused, otherwise the overhead of compiling a new kernel
+each time the view is changed will ruin performance.
+
+By defining the @view@ as a scalar array, we ensure that it is defined
+\emph{outside} the call to @generate@. If we don't do this, a different value
+for the view parameter will be embedded directly into each call to the
+@generate@ function, which will defeat Accelerate's caching of CUDA kernels.
+
+Any scalar values that we wish to be treated as function parameters must be
+lifted to array variables. This is because Accelerate currently does not support
+nested data parallelism, so our internal representation of array terms is closed
+with respect to scalar variables.
+% to ensure that array computations can not depend on scalar values.
+Adding support for nested data parallelism in Accelerate is an active area of
+research. With it, it may be possible to avoid lifting free scalar variables to
+the array level in order to correctly cache kernels.
+
+
 \section{N-body gravitational simulation}
 \label{sec:nbody}
 
@@ -1690,32 +1717,6 @@ and then from @k@ to @j@. The final adjacency graph is constructed by applying
 @step@ to each value of @k@ in the sequence @0 .. n-1@.
 Figure~\ref{fig:floyd_warshall} compares the performance of the algorithm in
 Accelerate to several parallel CPU implementations.
-
-
-\subsection{Passing inputs as arrays}
-
-Note that in the definition of @step@, the iteration number @k@ is a scalar
-array. Why don't we pass this as a plain @Int@? When the program runs,
-Accelerate converts the program into a series of CUDA kernels, each of which
-must be compiled and loaded onto the GPU~(\S\ref{sec:code_generation}). Since
-compilation can take a while, Accelerate remembers the kernels it has seen
-before and reuses them~(\S\ref{sec:dynamic_compilation}). Our goal with @step@
-is to make a kernel that will be reused, otherwise the overhead of compiling a
-new kernel for each iteration will ruin performance.
-
-By defining @k@ as a scalar array, we ensure that it is defined \emph{outside}
-the call to @generate@. If we don't do this, a different value of @k@ will be
-embedded directly into each call to the @generate@ function, which will defeat
-Accelerate's caching of CUDA kernels.
-
-Any scalar values that we wish to be treated as function parameters must be
-lifted to array variables. This is because Accelerate currently does not support
-nested data parallelism, so our internal representation of array terms is closed
-with respect to scalar variables.
-% to ensure that array computations can not depend on scalar values.
-Adding support for nested data parallelism in Accelerate is an active area of
-research. With it, it may be possible to avoid lifting free scalar variables to
-the array level in order to correctly cache kernels.
 
 
 \section{MD5 password recovery}

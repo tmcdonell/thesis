@@ -60,13 +60,15 @@ program with and without these changes of the optimisation pipeline.
 
 \begin{table}
     \centering
-    \begin{tabular}{rrrr}
+    \begin{tabu}{rrrr}
+\toprule
 \textbf{k}
     & \multicolumn{1}{c}{Final (ms)}
     & \multicolumn{1}{c}{no split opt (ms)}
     & \multicolumn{1}{c}{no binder opt (ms)}
     \\
-    \hline
+
+\midrule
 
 1   &
     &
@@ -87,8 +89,9 @@ program with and without these changes of the optimisation pipeline.
     &
     &
     \\
+\bottomrule
 
-    \end{tabular}
+    \end{tabu}
     \caption{Optimisation time for the Floyd-Warshall algorithm}
     \label{tab:floyd_warshal_opt}
 \end{table}
@@ -117,12 +120,13 @@ tk evaluations.
 
 \begin{table}
     \centering
-    \begin{tabular}{lrr}
+    \begin{tabu}{lrr}
+\toprule
 \textbf{Benchmark}
     & \multicolumn{1}{c}{Code generation (ms)}
     & \multicolumn{1}{c}{Compilation (ms)}
     \\
-    \hline
+    \midrule
 
 Dot Product
     &
@@ -184,7 +188,9 @@ K-Means
     &
     \\
 
-    \end{tabular}
+\bottomrule
+
+    \end{tabu}
     \caption{Code generation and compilation times for the benchmark programs}
     \label{tab:compilation_times}
 \end{table}

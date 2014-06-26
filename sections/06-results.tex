@@ -1679,6 +1679,129 @@ Figure~\ref{fig:floyd_warshall} compares the performance of the algorithm in
 Accelerate to several parallel CPU implementations.
 
 
+\section{MD5 password ``recovery''}
+
+The MD5 message-digest algorithm~\cite{Rivest:1992va} is a cryptographic hash
+function producing a 128-bit hash value from a variable length message. MD5 has
+been used in a wide variety of cryptographic and data integrity applications,
+although cryptographers have since found flaws in the algorithm and now
+recommend the use of other hash functions for cryptographic
+applications.\footnote{\url{http://www.kb.cert.org/vuls/id/836068}}
+
+Figure~\ref{fig:md5_round} illustrates the main MD5 algorithm, whose
+implementation in Accelerate is shown in Listing~\ref{lst:md5}. This
+implementation only processes a single MD5 round (512-bits of input as
+16$\times$32-bit words), and the input message is padded appropriately on the
+CPU before being passed to the @md5round@ function. The algorithm operates on a
+128-bit state, divided into 4$\times$32-bit words, denoted $A$, $B$, $C$, and
+$D$, which are initialised to fixed constants. The algorithm uses the 512-bit
+message block to modify the state in four rounds of 16 operations each, where
+each round is based on a nonlinear function $F$, modulo addition, and left
+rotation. The nonlinear mixing operation used by each round are respectively:
+%
+\begin{align*}
+    F(B,C,D) &= (B \wedge C) \vee (\neg B \wedge D) \\
+    G(B,C,D) &= (B \wedge D) \vee (C \wedge \neg D) \\
+    H(B,C,D) &= B \oplus C \oplus D \\
+    I(B,C,D) &= C \oplus (B \vee \neg D)
+\end{align*}
+%
+Where $\oplus$, $\wedge$, $\vee$, and $\neg$ are the bitwise XOR, AND, OR and
+NOT operations respectively.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.6\textwidth]{images/sec-6/MD5}
+    \caption[A single round of the MD5 hash algorithm]{A single round of the MD5
+        hash algorithm. It consists of 64 iterations of this operation, split
+        into 4 rounds of 16 iterations each. $F$ is a nonlinear function that is
+        different for each round, $M_i$ denotes a 32-bit block of the input
+        message, and $K_i$ a 32-bit constant. $\lll_s$ is left rotation by $s$
+        bits, and $\boxplus$ addition modulo $2^{32}$. Image from
+        \url{http://en.wikipedia.org/wiki/MD5}.}
+    \label{fig:md5_round}
+\end{figure}
+
+
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:md5
+    ,caption={A single round of the MD5 hash algorithm}]
+type MD5        = (Word32, Word32, Word32, Word32)      -- output 128-bit digest
+type Dictionary = Array DIM2 Word32                     -- input 16$\times$32-bit words per block
+
+md5Round :: Acc Dictionary -> Exp DIM1 -> Exp MD5
+md5Round dict (unindex1 -> word)
+  = lift
+  $ foldl step (a0,b0,c0,d0) [0..64]
+  where
+    step (a,b,c,d) i
+      | i < 16    = shfl ((b .&. c) .|. ((complement b) .&. d))         -- F
+      | i < 32    = shfl ((b .&. d) .|. (c .&. (complement d)))         -- G
+      | i < 48    = shfl (b `xor` c `xor` d)                            -- H
+      | i < 64    = shfl (c `xor` (b .|. (complement d)))               -- I
+      | otherwise = (a+a0,b+b0,c+c0,d+d0)
+      where
+        shfl f = (d, b + ((a + f + k i + get i) `rotateL` r i), b, c)
+
+    get :: Int -> Exp Word32
+    get i
+      | i < 16    = getWord32le i
+      | i < 32    = getWord32le ((5*i + 1) `rem` 16)
+      | i < 48    = getWord32le ((3*i + 5) `rem` 16)
+      | otherwise = getWord32le ((7*i)     `rem` 16)
+
+    getWord32le :: Int -> Exp Word32
+    getWord32le (constant -> i) = dict ! index2 word i
+
+    a0, b0, c0, d0 :: Exp Word32        -- initial values (constants)
+
+    k :: Int -> Exp Word32              -- binary integer part of sines \& cosines (in radians)
+    k i = constant (ks P.!! i)          -- (constants)
+      where ks = [ ... ]
+
+    r :: Int -> Exp Int                 -- per-round shift amounts
+    r i = constant (rs P.!! i)          -- (constants)
+      where rs = [ ... ]
+\end{lstlisting}
+
+The input to the @md5round@ function consists of a @(Z :. 16 :. n)@ input array
+containing @n@ 512-bit input chunks to hash, which are processed by @n@ threads
+in parallel. Note that the input array is stored in column major order, so that
+accesses to the input @dict@ are coalesced. See \cite{NVIDIA:2012wf} for details
+on CUDA memory access rules. In contrast, a CPU prefers the data to be laid out
+in row-major order, so that the input chunk is read on a single cache line.
+Exploring the differences in memory architectures between CPUs and GPUs, which
+focus on task versus data parallelism respectively, is left for future work.
+
+In the MD5 benchmark, each thread computes the hash of a 512-bit input column
+and compares it to a supplied hash. If the values match, the input corresponds
+to the plain text of the unknown hash. Table~\ref{tab:md5} compares Accelerate
+to several other implementations. Note that the Hashcat program is not open
+source and provides many additional options not supported by the Accelerate
+implementation, so they are not strictly comparable. However, Hashcat is
+regarded as the fastest password recovery tool available, so provides a useful
+baseline.
+
+\begin{table}
+\centering
+\small
+\begin{tabu}{lr}
+\toprule
+\textbf{Benchmark} & \multicolumn{1}{c}{\textbf{Rate (GHash/sec)}} \\
+
+\midrule
+Accelerate      & \\
+Repa (-N8)      & \\
+Hashcat (CPU)   & \\
+Hashcat (GPU)   & \\
+
+\bottomrule
+\end{tabu}
+\caption{MD5 password recovery benchmarks}
+\label{tab:md5}
+\end{table}
+
+
 \section{K-Means clustering}
 
 In the $K$-means problem, the goal is to partition a set of observations into

@@ -2059,6 +2059,105 @@ makeNewClusters points clusters
 Figure~\ref{fig:kmeans} compares the performance of the implementation shown
 here to several other CPU implementations.
 
+\section{Ray tracer}
+\label{sec:ray}
+
+Ray tracing is a technique for generating an image by tracing the path of light
+through pixels in an image plane and simulating the effects of its encounters
+with virtual objects. The technique is capable of producing a very high degree
+of realism compared to typical scanline rendering methods, as ray tracing
+algorithms are able to simulate optical effects such as reflection and
+refraction, scattering, and dispersion phenomena. This increased accuracy has a
+larger computational cost, which is why ray tracing is not typically used for
+real time rendering applications such as computer games.
+
+Figure~\ref{fig:ray_sample} shows the result of rendering a scene using the ray
+casting algorithm shown in Listing~\ref{lst:ray}. The algorithm computes the
+colour of a pixel by casting a ray from that point in a specified direction, and
+tracing its interaction with the objects in the scene.
+
+Figure~\ref{fig:ray} compares the performance of Accelerate to an equivalent
+program written in Repa. The Repa program is written in continuation passing
+style, and produces very efficient code for the @traceRay@ function. Since
+Accelerate has no support for general recursion, the structure of the program is
+unrolled on the Haskell level, resulting in a large amount of generated code as
+well as additional branching. Additionally, Accelerate does not have any support
+for sum algebraic data types (tagged unions), so the code must test intersection
+with each different type of object in the scene separately. Adding support for
+general recursion and sum data types in a manner that remains efficient on
+massively parallel SIMD architectures such as GPUs is left for future work.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/sec-6/ray/ray}
+    \caption[Ray tracer]{Image of a ray traced scene rendered on the GPU with
+    Accelerate, featuring multiple reflections. The scene is animated and
+    renders in real time on modest hardware.}
+    \label{fig:ray_sample}
+\end{figure}
+
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:ray
+    ,caption={The core ray casting implementation}]
+traceRay
+    :: Int                  -- Maximum reflection count
+    -> Acc Objects          -- Objects in the scene
+    -> Acc Lights           -- Direct lighting sources in the scene
+    -> Exp Color            -- Ambient light in the scene
+    -> Exp Position         -- Origin of the ray (pixel location)
+    -> Exp Direction        -- Direction of the ray
+    -> Exp Color
+traceRay limit objects lights ambient = go limit
+  where
+    (spheres, planes)   = unlift objects
+
+    dummySphere         = constant (Sphere (XYZ 0 0 0) 0           (RGB 0 0 0) 0)
+    dummyPlane          = constant (Plane  (XYZ 0 0 0) (XYZ 0 0 1) (RGB 0 0 0) 0)
+
+    go 0 _ _                -- Stop once there are too many reflections, in case
+      = black               -- we've found two parallel mirrors
+
+    go bounces orig dir     -- See which objects the ray intersects
+      = let
+            (hit_s, dist_s, s)  = castRay distanceToSphere dummySphere spheres orig dir
+            (hit_p, dist_p, p)  = castRay distanceToPlane  dummyPlane  planes  orig dir
+        in
+        A.not (hit_s ||* hit_p) ?
+        ( black             -- ray didn't intersect any objects
+
+        , let               -- ray hit an object
+              -- determine the intersection point, and surface properties that
+              -- will contribute to the colour
+              next_s      = hitSphere     s dist_s orig dir
+              next_p      = hitPlaneCheck p dist_p orig dir
+              (point, normal, color, shine)
+                          = unlift (dist_s <* dist_p ? ( next_s, next_p ))
+
+              -- result angle of ray after reflection
+              newdir      = dir - (2.0 * (normal `dot` dir)) .* normal
+
+              -- determine the direct lighting at this point
+              direct      = applyLights objects lights point normal
+
+              -- see if the ray hits anything else
+              refl        = go (bounces - 1) point newdir
+
+              -- total lighting is the direct lighting plus ambient
+              lighting    = direct + ambient
+
+              -- total incoming light is direct lighting plus reflections
+              light_in    = scaleColour shine         refl
+                          + scaleColour (1.0 - shine) lighting
+
+              -- outgoing light is incoming light modified by surface color, clipped in case
+              -- the sum of all incoming lights is too bright to display
+              light_out   = clampColor (light_in * color)
+          in
+          light_out
+        )
+\end{lstlisting}
+
+
 \section{Discussion}
 % \subsection{Related Work}
 % \subsection{Future Work}

@@ -1,0 +1,32 @@
+name:                   n-body
+version:                0.1.0.0
+-- synopsis:
+-- description:
+-- license:
+-- license-file:           LICENSE
+author:                 Trevor L. McDonell
+maintainer:             tmcdonell@cse.unsw.edu.au
+-- copyright:
+-- category:
+build-type:             Simple
+-- extra-source-files:
+cabal-version:          >=1.10
+
+executable n-body
+  main-is:              Main.hs
+  hs-source-dirs:       src
+  -- other-modules:
+  build-depends:
+          base                  >= 4.7 && <4.8
+        , accelerate            >= 0.15 && <0.16
+        , accelerate-cuda       >= 0.15 && <0.16
+        , criterion             >= 0.8 && <0.9
+        , cuda                  >= 0.6 && <0.7
+        , fclabels              >= 2.0 && <2.1
+        , mwc-random            >= 0.13 && <0.14
+
+  ghc-options:
+        -Wall -threaded -rtsopts -fllvm -optlo-O3 -Odph -fno-liberate-case
+        -funfolding-use-threshold100 -funfolding-keeness-factor100
+
+  default-language:     Haskell2010

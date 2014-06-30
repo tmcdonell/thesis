@@ -39,21 +39,64 @@ void read_matrix_market_file
     // Reserve memory for the matrices
     *row_indices        = (int*)   malloc(*num_entries * sizeof(int));
     *col_indices        = (int*)   malloc(*num_entries * sizeof(int));
-    *vals               = (float*) malloc(*num_entries * sizeof(int));
 
     // Read in the values
-    for (int i = 0; i < *num_entries; ++i) {
-        int r = fscanf(fp, "%d %d %g\n",
-                           &((*row_indices)[i]),
-                           &((*col_indices)[i]),
-                           &((*vals)[i]));
+    int i;
+    if (mm_is_complex(matcode)) {
+        *vals           = (float*) malloc(*num_entries * 2 * sizeof(float));
 
-        if (r != 3) {
-            printf("Failed reading matrix market row %d\n", i);
-            exit(1);
+        for (i = 0; i < *num_entries; ++i) {
+            int r = fscanf(fp, "%d %d %g %g\n",
+                               &((*row_indices)[i]),
+                               &((*col_indices)[i]),
+                               &((*vals)[i]),
+                               &((*vals)[i+*num_entries]));
+
+            if (r != 4) {
+                printf("Failed reading complex market at row %d\n", i);
+                exit(1);
+            }
+            (*col_indices)[i]--;
+            (*row_indices)[i]--;
         }
-        (*col_indices)[i]--;
-        (*row_indices)[i]--;
+    }
+    else if (mm_is_real(matcode)) {
+        *vals           = (float*) malloc(*num_entries * sizeof(float));
+
+        for (i = 0; i < *num_entries; ++i) {
+            int r = fscanf(fp, "%d %d %g\n",
+                               &((*row_indices)[i]),
+                               &((*col_indices)[i]),
+                               &((*vals)[i]));
+
+            if (r != 3) {
+                printf("Failed reading real market at row %d\n", i);
+                exit(1);
+            }
+            (*col_indices)[i]--;
+            (*row_indices)[i]--;
+        }
+    }
+    else if (mm_is_pattern(matcode)) {
+        *vals           = (float*) malloc(*num_entries * sizeof(float));
+
+        for (i = 0; i < *num_entries; ++i) {
+            int r = fscanf(fp, "%d %d\n",
+                               &((*row_indices)[i]),
+                               &((*col_indices)[i]));
+
+            if (r != 2) {
+                printf("Failed reading pattern market at row %d\n", i);
+                exit(1);
+            }
+            (*col_indices)[i]--;
+            (*row_indices)[i]--;
+            (*vals)[i] = 1.0;
+        }
+    }
+    else {
+        printf("Unsupported matrix type\n");
+        exit(1);
     }
 }
 

@@ -39,7 +39,7 @@ int main(int argc, char **argv)
     }
 
     // Read in matrix market file
-    printf("Reading matrix...");
+    printf("Reading matrix...\n");
     read_matrix_market_file(argv[1], &num_rows, &num_cols, &num_entries, &row_indices, &col_indices, &vals);
 
     printf("Matrix %s: <%d, %d> with %d entries\n", argv[1], num_rows, num_cols, num_entries);

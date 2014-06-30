@@ -1122,13 +1122,14 @@ problem~\cite{Ma:2010ft}.
 \begin{table}
 \centering
 \small
-\begin{tabu}{X[-1cm]X[2lm]cX[-1cb]rrr} \toprule
+\begin{tabu}{X[-1cm]X[2lm]cX[-1cb]rrrr} \toprule
 
 \textbf{spyplot}
 & \textbf{Description}
 & \textbf{Dimensions}
 & \textbf{Nonzeros (nnz/row)}
 & \multicolumn{1}{c}{\rotatebox{90}{\textbf{CUSP}}}
+& \multicolumn{1}{c}{\rotatebox{90}{\textbf{CUSPARSE}}}
 & \multicolumn{1}{c}{\rotatebox{90}{\textbf{Accelerate}}}
 & \multicolumn{1}{c}{\begin{sideways}%
     \parbox{\widthof{\bf Accelerate}}%
@@ -1140,98 +1141,112 @@ problem~\cite{Ma:2010ft}.
 & Dense matrix in sparse format
 & 2K $\times$ 2K
 & 4.0M (2K)
-& 14.48 & 14.62 & 3.41
+& 11.8 & 0.06 & 15.55 & 5.82
+% & 14.48 & 14.62 & 3.41
 \\
 
 \spyplot{pdb1HYS} % Protein
 & Protein data bank 1HYS
 & 36K $\times$ 36K
-& 4.3M (119)
-& 13.55 & 13.65 & 0.26
+& 2.19M (60)
+& 4.16 & 0.03 & 7.59 & 3.89
+% & 13.55 & 13.65 & 0.26
 \\
 
 \spyplot{consph} % FEM / Spheres
-& FEM concentric spheres
+& FEM/Concentric spheres
 & 83K $\times$ 83K
-& 6M (72)
-& 12.63 & 9.03 & 4.70
+& 3.05M (37)
+& 3.67 & 0.04 & 4.93 & 1.92
+% & 12.63 & 9.03 & 4.70
 \\
 
 \spyplot{cant} % FEM / Cantilever
-& FEM cantilever
+& FEM/Cantilever
 & 62K $\times$ 62K
-& 4M (65)
-& 11.98 & 7.96 & 4.41
+& 2.03M (33)
+& 3.37 & 0.94 & 4.46 & 2.37
+% & 11.98 & 7.96 & 4.41
 \\
 
 \spyplot{pwtk} % Wind Tunnel
 & Pressurised wind tunnel
 & 128K $\times$ 128K
-& 11.6M (53)
-& 11.98 & 7.33 & 4.62
+& 5.93M (27)
+& 3.80 & 0.02 & 3.99 & 1.40
+% & 11.98 & 7.33 & 4.62
 \\
 
 \spyplot{rma10} % FEM/Harbour
-& 3D CFD of Charleston harbour
+& FEM/Charleston harbour
 & 47K $\times$ 47K
 & 2.37M (50)
-& 9.42 & 6.14 & 0.13
+& 7.03 & 0.02 & 6.70 & 3.60
+% & 9.42 & 6.14 & 0.13
 \\
 
 \spyplot{qcd5_4} % QCD
 & Quark propagators (QCD/LGT)
 & 49K $\times$ 49K
-& 1.9M (39)
-& 7.79 & 4.66 & 0.13
+& 1.92M (39)
+& 5.45 & 0.02 & 5.07 & 3.03
+% & 7.79 & 4.66 & 0.13
 \\
 
 \spyplot{shipsec1} % FEM/Ship
-& FEM ship section/detail
+& FEM/Ship section detail
 & 141K $\times$ 141K
-& 3.98 (28)
-& 12.28 & 6.60 & 4.47
+& 3.98M (28)
+& 3.61 & 0.08 & 4.03 & 1.82
+% & 12.28 & 6.60 & 4.47
 \\
 
 \spyplot{mac_econ_fwd500} % Economics
 & Macroeconomics model
 & 207K $\times$ 207K
 & 1.27M (6)
-& 4.59 & 0.90 & 1.06
+& 2.91 & 0.04 & 0.97 & 0.61
+% & 4.59 & 0.90 & 1.06
 \\
 
 \spyplot{mc2dephi} % Epidemiology
-& 2D Markov model of epidemic
+& 2D Markov epidemiology model
 & 526K $\times$ 526K
-& 1.27M (4)
-& 6.42 & 0.59 & 0.91
+& 2.10M (4)
+& 5.62 & 0.74 & 0.64 & 0.29
+% & 6.42 & 0.59 & 0.91
 \\
 
 \spyplot{cop20k_A} % FEM/Accelerator
-& Accelerator cavity design
+& FEM/Accelerator cavity design
 & 121K $\times$ 121K
-& 2.62M (22)
-& 5.41 & 3.08 & 2.92
+& 1.36M (11)
+& 2.12 & 0.04 & 1.72 & 1.20
+% & 5.41 & 3.08 & 2.92
 \\
 
 \spyplot{scircuit} % Circuit
-& Motorola circuit simulation
+& Circuit simulation
 & 171K $\times$ 171K
 & 959k (6)
-& 3.56 & 0.82 & 1.08
+& 3.24 & 0.01 & 0.87 & 0.60
+% & 3.56 & 0.82 & 1.08
 \\
 
 \spyplot{webbase-1M} % Webbase
 & Web connectivity matrix
 & 1M $\times$ 1M
-& 3.1M (3)
-& 2.11 & 0.47 & 0.74
+& 3.11M (3)
+& 2.01 & 0.01 & 0.50 & 0.20
+% & 2.11 & 0.47 & 0.74
 \\
 
 \spyplot{rail4284} % LP
 & Railways set cover constraint matrix
 & 4K $\times$ 1.1M
-& 11.3M (2825)
-& 5.22 & 5.04 & 2.41
+& 11.3M (2633)
+& 5.16 & 0.07 & 5.08 & 3.64
+% & 5.22 & 5.04 & 2.41
 \\
 
 \bottomrule
@@ -1250,9 +1265,11 @@ together with a segment descriptor recording the number of non-zeros in each
 row. The corresponding Accelerate code is shown in Listing~\ref{lst:smvm}.
 Table~\ref{tab:smvm_summary} compares Accelerate to the CUSP
 library~\cite{Bell:2008wc,Bell:2009bl}, a special purpose library for sparse
-matrix operations. Using a 14 matrix corpus derived from a variety of
-application domains~\cite{Williams:2009cy}, we compare against CUSP for
-compressed row format matrices.
+matrix operations (version 0.4), and the CUSPARSE library which is part of the
+NVIDIA CUDA distribution. Using a 14 matrix corpus derived from a variety of
+application domains~\cite{Williams:2009cy}, we compare against using compressed
+row format matrices. The measured times include only the core sparse matrix
+multiply operation.
 
 \begin{lstlisting}[style=haskell
     ,float
@@ -1279,7 +1296,10 @@ machine SMVM should be limited by memory throughput, so a dense matrix in
 sparse format should provide an upper bound on performance because loops are
 long running and accesses to the source vector are contiguous and have high
 re-use. We see that Accelerate with array fusion achieves this expected
-performance limit. %, but is also slightly faster than the CUSP implementation.
+performance limit. For some benchmarks Accelerate is significantly faster than
+CUSP, while in others it lags behind. It is unknown why the NVIDIA
+CUSPARSE library is significantly slower on all test matrices.
+%, but is also slightly faster than the CUSP implementation.
 
 \subsection{Segment startup}
 
@@ -1362,16 +1382,16 @@ each thread at the beginning of the reduction.
 % for the second cooperative tree-reduction phase of the algorithm, as it combines
 % values for indices $\left[0,n\right)$ into index zero.
 
-Matrices such as FEM/Spheres, with few non-zero elements per row ($\lesssim 2
-\times \text{warp size} = 64$) exhibit a drop in performance relative to CUSP,
+Matrices such as the FEM/Spheres, which contain only a few non-zero elements per
+row ($\lesssim 2 \times \text{warp size} = 64$) exhibit a drop in performance,
 because this extra startup cost necessary to align global memory reads to the
 warp boundary can not be amortised over the row length.
 %
-Matrices such as Epidemiology, with large vectors and few non-zeros per row,
-exhibit low flop:byte ratio and are poorly suited to the CSR format, with all
-implementations performing well below peak. This highlights the nature of sparse
-computations and the reason the CUSP library supports several algorithms and
-matrix formats.
+Matrices such as Epidemiology, with large vectors and few non-zero elements per
+row, exhibit low flop:byte ratio and are poorly suited to the CSR format, with
+all implementations performing well below peak. This highlights the nature of
+sparse computations and the reason the CUSP library supports several algorithms
+and matrix formats.
 
 As was found with the dot product benchmark (\S\ref{sec:dotp}), implementing
 specialised kernels that can avoid this additional startup cost when the

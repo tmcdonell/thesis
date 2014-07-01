@@ -22,7 +22,7 @@ executable smvm
         , accelerate            >= 0.15 && <0.16
         , accelerate-cuda       >= 0.15 && <0.16
         , accelerate-io         >= 0.15 && <0.16
-        , attoparsec            >= 0.11 && <0.12
+        , attoparsec            >= 0.11 && <0.13
         , bytestring            >= 0.10 && <0.11
         , bytestring-lexing     >= 0.4 && <0.5
         , criterion             >= 0.8 && <0.9

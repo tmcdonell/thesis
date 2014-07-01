@@ -20,13 +20,13 @@ set yrange [0.05:100]
 
 plot    'dotp.dat' using ($1):($6)                                              \
                 title "Data.Vector"        ls 6  lw 4 with linespoints,         \
-        'dotp.dat' using ($1):($7)                                              \
-                title "Repa -N8"           ls 3  lw 4 with linespoints,         \
         'dotp.dat' using ($1):($5)                                              \
+                title "Repa -N8"           ls 3  lw 4 with linespoints,         \
+        'dotp.dat' using ($1):($7)                                              \
                 title "NDP2GPU"            ls 4  lw 4 with linespoints,         \
-        'dotp.dat' using ($1):($3)                                              \
-                title "Accelerate -fusion" ls 2  lw 4 with linespoints,         \
         'dotp.dat' using ($1):($2)                                              \
+                title "Accelerate -fusion" ls 2  lw 4 with linespoints,         \
+        'dotp.dat' using ($1):($3)                                              \
                 title "... +fusion"        ls 10  lw 4 with linespoints,        \
         'dotp.dat' using ($1):($4)                                              \
                 title "CUBLAS"             ls 1  lw 4 with linespoints

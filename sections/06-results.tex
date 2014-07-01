@@ -26,11 +26,17 @@ GNU/Linux (Ubuntu 12.04 LTS). Measurements are the average of 100 runs. Programs
 are compiled with ghc-7.8.2,\footnote{Including the patch for a stable name bug
 which affects us. See \url{https://ghc.haskell.org/trac/ghc/ticket/9078}} CUDA
 6.0, gcc-4.6.3 and llvm-3.4. Haskell programs are compiled with the following
-options, which is the recommend set to use when compiling Repa programs.
+options, which is the recommend set to use when compiling Repa programs:
 %
 \begin{lstlisting}
 -Wall -threaded -rtsopts -fllvm -optlo-O3 -Odph -fno-liberate-case
 -funfolding-use-threshold100 -funfolding-keeness-factor100
+\end{lstlisting}
+%
+CUDA programs are compiled with the following option set:
+%
+\begin{lstlisting}
+-O3 -arch=sm_13
 \end{lstlisting}
 
 

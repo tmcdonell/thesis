@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Solver.AccelerateUnrolled (
+module Solver.Accelerate1 (
 
   mandelbrot
 
@@ -10,7 +10,7 @@ import Prelude                                  as P
 import Data.Array.Accelerate                    as A
 import Data.Array.Accelerate.Math.Complex
 
-import Solver.Accelerate                        hiding ( mandelbrot )
+import Solver.Accelerate.Common
 
 
 -- Mandelbrot Set --------------------------------------------------------------
@@ -19,15 +19,13 @@ import Solver.Accelerate                        hiding ( mandelbrot )
 --
 --   Z_{n+1} = c + Z_n^2
 --
--- This returns the iteration depth 'i' at divergence.
---
 mandelbrot
     :: forall a. (Elt a, IsFloating a)
     => Int
     -> Int
     -> Int
     -> Acc (Scalar (View a))
-    -> Acc (Array DIM2 RGBA32)
+    -> Acc Bitmap
 mandelbrot screenX screenY depth view
   = A.map (prettyRGBA (P.fromIntegral depth))
   $ P.snd . A.unzip

@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Solver.AccelerateFixed (
+module Solver.AccelerateUnrolled (
 
   mandelbrot
 

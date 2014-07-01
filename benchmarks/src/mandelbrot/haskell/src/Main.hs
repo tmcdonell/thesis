@@ -5,7 +5,7 @@
 
 import qualified Solver.Repa                            as R
 import qualified Solver.Accelerate                      as A
-import qualified Solver.AccelerateFixed                 as F
+import qualified Solver.AccelerateUnrolled              as U
 
 import Criterion.Config
 import Criterion.Main
@@ -36,7 +36,7 @@ main = do
       depth     = 255
 
       runCUDA   = CUDA.run1 (A.mandelbrot width height depth)
-      runCUDA'  = CUDA.run1 (F.mandelbrot width height depth)
+      runCUDA'  = CUDA.run1 (U.mandelbrot width height depth)
 
   putStrLn "initialising Accelerate"
   _             <- evaluate (runCUDA  view')

@@ -230,12 +230,12 @@ other sequential and parallel implementations. The \texttt{Data.Vector} baseline
 is sequential code produced by \index{fusion!stream}stream
 fusion~\cite{Coutts:2007kp}, running on the host CPU. The \texttt{Repa} version
 runs in parallel on all eight cores of the host CPU, using the fusion method of
-\index{fusion!delayed arrays}delayed arrays~\cite{Keller:2010er}. The
-\texttt{NDP2GPU}~\cite{Bergstrom:2012bi} version compiles NESL
-code~\cite{Blelloch:1995ut} down to CUDA. The performance of NDP2GPU suffers
-because it uses the legacy NESL compiler for the front-end, which introduces
-redundant administrative operations that are not strictly needed when evaluating
-a dot product.
+\index{fusion!delayed arrays}delayed arrays~\cite{Keller:2010er}.
+% The \texttt{NDP2GPU}~\cite{Bergstrom:2012bi} version compiles NESL
+% code~\cite{Blelloch:1995ut} down to CUDA. The performance of NDP2GPU suffers
+% because it uses the legacy NESL compiler for the front-end, which introduces
+% redundant administrative operations that are not strictly needed when evaluating
+% a dot product.
 
 \begin{figure}
     \begin{center}

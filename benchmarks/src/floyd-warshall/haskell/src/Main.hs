@@ -10,7 +10,6 @@ import qualified Solver.MonadPar                as P
 
 import qualified Data.IntSet                    as Set
 
-import Control.Exception
 import Criterion.Main
 import Criterion.Config
 import System.Environment
@@ -38,10 +37,7 @@ main = do
       !graphR    = R.fromAdjMatrix adjMatrix
       !graphA    = A.fromAdjMatrix adjMatrix
 
-  putStrLn "initialising Accelerate"
-  _             <- evaluate $ A.shortestPaths graphA    -- not sure this will work...
-
-  withArgs (tail args) $
+  withArgs (drop 2 args) $
     defaultMainWith cfg (return ())
       [ bench (test "acc-cuda")         $ whnf A.shortestPaths graphA
       , bench (test "repa")             $ whnf R.shortestPaths graphR

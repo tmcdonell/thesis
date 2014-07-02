@@ -1893,6 +1893,19 @@ and then from @k@ to @j@. The final adjacency graph is constructed by applying
 Figure~\ref{fig:floyd_warshall} compares the performance of the algorithm in
 Accelerate to several parallel CPU implementations.
 
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/sec-6/floyd-warshall/floyd-warshall}
+    \caption[Floyd-Warshall shortest path benchmark]{Kernel runtimes for
+    Floyd-Warshall shortest path algorithm, compared to other parallel
+    implementations. The test data is randomly generated graph of $n$ nodes and
+    (up to) $2n$ edges. The Monad-Par program uses a sparse representation which
+    is sensitive to the total number of edges, whereas the Accelerate and Repa
+    versions use a dense adjacency matrix representation which is not. Note the
+    log-log scale.}
+    \label{fig:floyd_warshall}
+\end{figure}
+
 
 \section{MD5 password recovery}
 

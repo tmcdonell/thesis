@@ -18,16 +18,19 @@ set ylabel "Run Time (ms)"
 set logscale y
 set yrange [0.05:6000]
 
-plot    'nbody-nofusionsharing.dat' using ($1):($2)                     \
-                title "Accelerate -fusion -sharing"                     \
+plot    'nbody-nofusion.dat' using ($1):($2)                            \
+                title "Accelerate"                                      \
                 ls 7  lw 4 with linespoints,                            \
-        'nbody-nofusion.dat' using ($1):($2)                            \
-                title "... -fusion +sharing"                            \
-                ls 2  lw 4 with linespoints,                            \
+        'nbody-nofusion.dat' using ($1):($3)                            \
+                title "... +sharing"                                    \
+                ls 3  lw 4 with linespoints,                            \
         'nbody.dat' using ($1):($2)                                     \
-                title "... +fusion +sharing"                            \
-                ls 10  lw 4 with linespoints,                           \
+                title "... +fusion"                                     \
+                ls 2  lw 4 with linespoints,                            \
         'nbody.dat' using ($1):($3)                                     \
+                title "... +iteration"                                  \
+                ls 10  lw 4 with linespoints,                           \
+        'nbody.dat' using ($1):($4)                                     \
                 title "CUDA"                                            \
                 ls 1  lw 4 with linespoints
 

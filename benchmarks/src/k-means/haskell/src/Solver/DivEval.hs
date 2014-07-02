@@ -1,0 +1,40 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
+module Solver.DivEval (kmeans)
+  where
+
+import Type
+import Solver.Common
+
+import Control.Parallel.Strategies
+import Data.Vector.Unboxed                              ( Vector, Unbox )
+
+
+kmeans :: forall a. (Eq a, Ord a, Floating a, Unbox a)
+       => Int -> Int -> Int -> [Point a] -> [Cluster a] -> [Cluster a]
+kmeans threshold nclusters npoints points = loop 0
+  where
+    tooMany     = 80
+    tree        = mkPointTree threshold points npoints
+
+    loop :: Int -> [Cluster a] -> [Cluster a]
+    loop n clusters
+      | n > tooMany = clusters
+
+    loop n clusters =
+      let
+          divconq :: Tree [Point a] -> Vector (PointSum a)
+          divconq (Leaf pt) = assign nclusters clusters pt
+          divconq (Node left right) = runEval $ do
+            c1 <- rpar $ divconq left
+            c2 <- rpar $ divconq right
+            _  <- rdeepseq c1
+            _  <- rdeepseq c2
+            return $! combine c1 c2
+
+          clusters' = makeNewClusters $ divconq tree
+      in
+      if clusters' == clusters
+         then clusters
+         else loop (n+1) clusters'
+

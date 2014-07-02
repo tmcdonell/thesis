@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP             #-}
 {-# LANGUAGE PatternGuards   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -28,17 +27,13 @@ import qualified Criterion.Config                       as Criterion
 
 import Data.Array.Accelerate                            ( Arrays, Acc )
 import qualified Data.Array.Accelerate.Interpreter      as Interp
-#ifdef ACCELERATE_CUDA_BACKEND
 import qualified Data.Array.Accelerate.CUDA             as CUDA
-#endif
 
 
 -- | Program configuration
 --
 data Backend = Interpreter
-#ifdef ACCELERATE_CUDA_BACKEND
              | CUDA
-#endif
   deriving (Bounded, Show)
 
 
@@ -113,18 +108,14 @@ run :: Arrays a => Config -> Acc a -> a
 run config =
   case _configBackend config of
     Interpreter -> Interp.run
-#ifdef ACCELERATE_CUDA_BACKEND
     CUDA        -> CUDA.run
-#endif
 
 
 run1 :: (Arrays a, Arrays b) => Config -> (Acc a -> Acc b) -> a -> b
 run1 config f =
   case _configBackend config of
     Interpreter -> head . Interp.stream f . return
-#ifdef ACCELERATE_CUDA_BACKEND
     CUDA        -> CUDA.run1 f
-#endif
 
 
 -- | The set of backends available to execute the program
@@ -135,11 +126,9 @@ backends =
             (NoArg (set configBackend Interpreter))
             "reference implementation (sequential)"
 
-#ifdef ACCELERATE_CUDA_BACKEND
   , Option  [] ["cuda"]
             (NoArg (set configBackend CUDA))
             "implementation for NVIDIA GPUs (parallel)"
-#endif
   ]
 
 

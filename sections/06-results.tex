@@ -2127,8 +2127,21 @@ makeNewClusters points clusters
     addPointSum x y = ...       -- component-wise addition
 \end{lstlisting}
 
-Figure~\ref{fig:kmeans} compares the performance of the implementation shown
-here to several other CPU implementations.
+Figure~\ref{fig:kmeans} compares the performance of the implementation shown in
+Listing~\ref{lst:kmeans} to several other parallel CPU implementations, which
+are adapted from~\cite{Marlow:2013wn}.
+
+
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{images/sec-6/k-means/k-means}
+    \end{center}
+    \caption[K-means clustering kernel benchmarks]{Kernel runtimes for the
+    $k$-means clustering algorithm, in Accelerate (with optimisations) compared
+    to several parallel CPU implementations. Note the log-log scale.}
+\label{fig:kmeans}
+\end{figure}
+
 
 \section{Ray tracer}
 \label{sec:ray}

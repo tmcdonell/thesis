@@ -17,14 +17,14 @@ set ylabel "Run Time (ms)"
 set logscale y
 
 
-plot    'canny.dat' using ($1*$1):($2)                          \
+plot    'canny.dat' using ($1*$1):($4)                          \
                 title "Accelerate (whole program)"              \
                 ls 2  lw 4 with linespoints,                    \
         'canny.dat' using ($1*$1):($3)                          \
                 title "Accelerate (just GPU kernels)"           \
                 ls 10  lw 4 with linespoints,                   \
-        'canny.dat' using ($1*$1):($4)                          \
-                title "Repa -N8"                                \
+        'canny.dat' using ($1*$1):($2)                          \
+                title "Repa"                                    \
                 ls 4  lw 4 with linespoints,                    \
         'canny.dat' using ($1*$1):($5)                          \
                 title "OpenCV (CPU)"                            \

@@ -1460,11 +1460,12 @@ phase uses a recursive algorithm to ``connect'' the pixels that make up the
 output lines. In our implementation this phase is performed on the CPU, which
 requires the image data to be transferred from the GPU back to the CPU for
 processing, and accounts for the non-linear slowdown visible with smaller image
-sizes. In contrast, OpenCV is able to perform the final step on the GPU\@. The
-benchmark ``Accelerate (whole program)'' includes the time to transfer the image
-data back to the host for the final processing step. Also shown are the run
-times for just the first six data parallel phases, which exhibit linear speedup
-and do not include data transfer to the host.
+sizes. In contrast, OpenCV\footnote{Release version 2.4.9} is able to perform
+the final step on the GPU\@. The benchmark ``Accelerate (whole program)''
+includes the time to transfer the image data back to the host for the final
+processing step. Also shown are the run times for just the first six data
+parallel phases, which exhibit linear speedup and do not include data transfer
+to the host.
 
 \begin{figure}
     \begin{center}

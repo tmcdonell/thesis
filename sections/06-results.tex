@@ -833,11 +833,11 @@ instruction counts, but can often increase register lifetimes because of the
 scheduling of loads and stores. In particular, stores are pushed down and loads
 moved up in the instruction stream, which results in temporary scalar lifetimes
 being longer.%
-\footnote{\label{ft:fixed_unrolling}The actual number of registers used depends
-on which architecture the code is being compiled for. For the compute 1.3 series
-processor, each thread requires 29 registers, whereas on a newer 3.0 processor
-59 registers per thread were required. I conjecture that this is because older
-devices use a different underlying compiler architecture (Open64 vs. LLVM).}
+\footnote{\label{ft:fixed_unrolling}Register usage depends on which architecture
+the code is being compiled for. For the compute 1.3 series processor, each
+thread required 29 registers, whereas on a newer 3.0 processor the same code
+required 59 per thread. I conjecture that this is because older devices use a
+different underlying compiler architecture (Open64 vs\. LLVM).}
 % The unrolled code requires 63 registers, resulting in a multiprocessor occupancy
 % of 50\% on a compute 3.0 device.
 Since the Mandelbrot program is limited by computation, reducing the number of
@@ -1925,7 +1925,9 @@ CPU before being passed to the @md5round@ function. The algorithm operates on a
 $D$, which are initialised to fixed constants. The algorithm uses the 512-bit
 message block to modify the state in four rounds of 16 operations each, where
 each round is based on a nonlinear function $F$, modulo addition, and left
-rotation. The nonlinear mixing operation used by each round are respectively:
+rotation. The nonlinear mixing operation used by each round, where $\oplus$,
+$\wedge$, $\vee$, and $\neg$ are the bitwise XOR, AND, OR and NOT operations,
+are respectively:
 %
 \begin{align*}
     F(B,C,D) &= (B \wedge C) \vee (\neg B \wedge D) \\
@@ -1933,9 +1935,7 @@ rotation. The nonlinear mixing operation used by each round are respectively:
     H(B,C,D) &= B \oplus C \oplus D \\
     I(B,C,D) &= C \oplus (B \vee \neg D)
 \end{align*}
-%
-Where $\oplus$, $\wedge$, $\vee$, and $\neg$ are the bitwise XOR, AND, OR and
-NOT operations respectively.
+
 
 \begin{figure}
     \centering

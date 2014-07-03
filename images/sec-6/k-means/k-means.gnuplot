@@ -24,14 +24,14 @@ plot    'k-means.dat' using ($1):($4)                           \
                 title "Accelerate (just GPU kernels)"           \
                 ls 10  lw 4 with linespoints,                   \
         'k-means.dat' using ($1):($5)                           \
-                title "Eval -N8"                                \
+                title "Eval"                                    \
                 ls 4  lw 4 with linespoints,                    \
         'k-means.dat' using ($1):($6)                           \
-                title "MonadPar -N8"                            \
+                title "MonadPar"                                \
                 ls 3  lw 4 with linespoints,                    \
         'k-means.dat' using ($1):($8)                           \
-                title "Eval -N8 (divide & conquer)"             \
+                title "Eval (divide & conquer)"                 \
                 ls 1  lw 4 with linespoints,                    \
         'k-means.dat' using ($1):($7)                           \
-                title "MonadPar -N8 (divide & conquer)"         \
+                title "MonadPar (divide & conquer)"             \
                 ls 7  lw 4 with linespoints

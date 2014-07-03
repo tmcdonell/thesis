@@ -20,15 +20,15 @@ set ylabel "Run Time (ms)"
 set logscale y
 set yrange [0.5:10000]
 
-plot    'fluid.dat' using ($1):($5)                             \
+plot    'fluid.dat' using ($1*$1):($5)                          \
                 title "C sequential"                            \
                 ls 6  lw 4 with linespoints,                    \
-        'fluid.dat' using ($1):($4)                             \
-                title "Repa -N7"                                \
+        'fluid.dat' using ($1*$1):($4)                          \
+                title "Repa"                                    \
                 ls 3  lw 4 with linespoints,                    \
-        'fluid.dat' using ($1):($3)                             \
-                title "Accelerate -sharing"                     \
+        'fluid.dat' using ($1*$1):($2)                          \
+                title "Accelerate"                              \
                 ls 7  lw 4 with linespoints,                    \
-        'fluid.dat' using ($1):($2)                             \
+        'fluid.dat' using ($1*$1):($3)                          \
                 title "... +sharing"                            \
                 ls 10  lw 4 with linespoints

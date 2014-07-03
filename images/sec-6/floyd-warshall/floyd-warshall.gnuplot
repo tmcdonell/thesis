@@ -19,9 +19,9 @@ set logscale y
 # set yrange [0.05:100]
 
 plot    'floyd-warshall.dat' using ($1):($4)                                    \
-                title "MonadPar -N8"       ls 6  lw 4 with linespoints,         \
+                title "MonadPar"           ls 6  lw 4 with linespoints,         \
         'floyd-warshall.dat' using ($1):($3)                                    \
-                title "Repa -N8"           ls 3  lw 4 with linespoints,         \
+                title "Repa"               ls 3  lw 4 with linespoints,         \
         'floyd-warshall.dat' using ($1):($2)                                    \
                 title "Accelerate"         ls 2  lw 4 with linespoints,         \
 

@@ -21,9 +21,9 @@ set yrange [0.05:100]
 plot    'dotp.dat' using ($1):($6)                                              \
                 title "Data.Vector"        ls 6  lw 4 with linespoints,         \
         'dotp.dat' using ($1):($5)                                              \
-                title "Repa -N8"           ls 3  lw 4 with linespoints,         \
+                title "Repa"               ls 3  lw 4 with linespoints,         \
         'dotp.dat' using ($1):($2)                                              \
-                title "Accelerate -fusion" ls 2  lw 4 with linespoints,         \
+                title "Accelerate"         ls 2  lw 4 with linespoints,         \
         'dotp.dat' using ($1):($3)                                              \
                 title "... +fusion"        ls 10  lw 4 with linespoints,        \
         'dotp.dat' using ($1):($4)                                              \

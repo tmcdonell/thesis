@@ -28,6 +28,9 @@ import qualified Data.Vector.Unboxed		as V
 import Prelude					as P
 import Prelude                                  hiding (compare)
 
+import Criterion.Main
+import Criterion.Config
+
 
 type Image a	= Array U DIM2 a
 
@@ -45,6 +48,24 @@ edge Strong	= 255	:: Word8
 
 
 -- Main routine ---------------------------------------------------------------
+main :: IO ()
+main = do
+  (cfg,args)    <- parseArgs defaultConfig defaultOptions =<< getArgs
+
+  let fileIn    = case args of
+                    f:_ -> f
+                    _   -> error "usage: canny file.bmp"
+
+  arrInput      <- liftM (either (error . show) id) $ readImageFromBMP fileIn
+
+  -- writeImageToBMP "edges-repa.bmp" 
+
+  withArgs (tail args) $
+    defaultMainWith cfg (return ())
+      [ bench "repa"    $ whnfIO (process 0 50 100 arrInput)
+      ]
+
+{--
 main
  = do	args	<- getArgs
 	case args of
@@ -57,6 +78,7 @@ main
 	 _ -> putStrLn
            $ concat [ "repa-canny [<loops::Int> <threshLow::Int> <threshHigh::Int>]"
                     , " <fileIn.bmp> <fileOut.bmp>" ]
+--}
 
 
 run loops threshLow threshHigh fileIn fileOut

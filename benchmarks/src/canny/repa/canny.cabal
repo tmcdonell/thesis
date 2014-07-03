@@ -17,6 +17,7 @@ executable canny
   -- other-modules:
   build-depends:
           base                  >=4.7 && <4.8
+        , criterion             >=0.8 && <0.9
         , repa                  >=3.2 && <3.3
         , repa-algorithms       >=3.2 && <3.3
         , repa-io               >=3.2 && <3.3

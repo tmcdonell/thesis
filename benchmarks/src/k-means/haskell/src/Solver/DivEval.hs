@@ -11,15 +11,15 @@ import Data.Vector.Unboxed                              ( Vector, Unbox )
 
 
 kmeans :: forall a. (Eq a, Ord a, Floating a, Unbox a)
-       => Int -> Int -> Int -> [Point a] -> [Cluster a] -> [Cluster a]
-kmeans threshold nclusters npoints points = loop 0
+       => Int -> Int -> Int -> [Point a] -> [Cluster a] -> ([Cluster a], Int)
+kmeans threshold nclusters npoints points = loop 1
   where
-    tooMany     = 80
+    tooMany     = 120
     tree        = mkPointTree threshold points npoints
 
-    loop :: Int -> [Cluster a] -> [Cluster a]
+    loop :: Int -> [Cluster a] -> ([Cluster a], Int)
     loop n clusters
-      | n > tooMany = clusters
+      | n > tooMany = (clusters, n)
 
     loop n clusters =
       let
@@ -34,7 +34,7 @@ kmeans threshold nclusters npoints points = loop 0
 
           clusters' = makeNewClusters $ divconq tree
       in
-      if clusters' == clusters
-         then clusters
+      if converged clusters' clusters
+         then (clusters, n)
          else loop (n+1) clusters'
 

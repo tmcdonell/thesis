@@ -15,21 +15,21 @@ import Solver.Common
 
 
 kmeans :: forall a. (Eq a, Ord a, Floating a, Unbox a)
-       => Int -> Int -> [Point a] -> [Cluster a] -> [Cluster a]
-kmeans numChunks nclusters points = loop 0
+       => Int -> Int -> [Point a] -> [Cluster a] -> ([Cluster a], Int)
+kmeans numChunks nclusters points = loop 1
   where
-    tooMany     = 80
+    tooMany     = 120
     chunks      = split numChunks points
 
-    loop :: Int -> [Cluster a] -> [Cluster a]
+    loop :: Int -> [Cluster a] -> ([Cluster a], Int)
     loop n clusters
       | n > tooMany
-      = clusters
+      = (clusters, n)
 
     loop n clusters
       | clusters' <- step nclusters clusters chunks
-      = if clusters' == clusters
-           then clusters
+      = if converged clusters' clusters
+           then (clusters, n)
            else loop (n+1) clusters'
 
 step :: (Ord a, Floating a, Unbox a) => Int -> [Cluster a] -> [[Point a]] -> [Cluster a]

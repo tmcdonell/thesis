@@ -46,7 +46,14 @@ mkPointTree threshold = go 0
             (xs,ys)     = splitAt half points
 
 
--- Points ----------------------------------------------------------------------
+-- Points & Clusters -----------------------------------------------------------
+
+converged :: (Floating a, Ord a) => [Cluster a] -> [Cluster a] -> Bool
+converged []     []     = True
+converged (u:us) (v:vs) = eq u v && converged us vs
+  where
+    eq (_, (x1,y1)) (_, (x2,y2)) = abs (x1-x2) <= 0.001 && abs (y1-y2) <= 0.001
+converged _      _      = False
 
 sqDistance :: Floating a => Point a -> Point a -> a
 sqDistance (x1,y1) (x2,y2) = ((x1-x2) ^ (2::Int)) + ((y1-y2) ^ (2::Int))

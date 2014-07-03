@@ -12,20 +12,20 @@ import Control.Monad.Par
 
 
 kmeans :: forall a. (Eq a, Ord a, Floating a, Unbox a)
-       => Int -> Int -> [Point a] -> [Cluster a] -> [Cluster a]
-kmeans mappers nclusters points = loop 0
+       => Int -> Int -> [Point a] -> [Cluster a] -> ([Cluster a], Int)
+kmeans mappers nclusters points = loop 1
   where
-    tooMany     = 80
+    tooMany     = 120
     chunks      = split mappers points
 
-    loop :: Int -> [Cluster a] -> [Cluster a]
+    loop :: Int -> [Cluster a] -> ([Cluster a], Int)
     loop n clusters
-      | n > tooMany = clusters
+      | n > tooMany = (clusters, n)
 
     loop n clusters
       | clusters' <- step nclusters clusters chunks
-      = if clusters' == clusters
-           then clusters
+      = if converged clusters' clusters
+           then (clusters, n)
            else loop (n+1) clusters'
 
 

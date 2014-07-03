@@ -181,11 +181,11 @@ kmeans :: forall a. (Elt a, IsFloating a, RealFloat a)
 kmeans points clusters
   = A.asnd
   $ A.awhile (A.uncurry keepGoing)
-            (\cs -> let (_, old) = unlift cs    :: (Acc (Vector (Cluster a)), Acc (Vector (Cluster a)))
-                        new      = makeNewClusters points old
-                    in
-                    lift (old,new))
-            (lift (clusters, makeNewClusters points clusters))
+             (\cs -> let (_, old) = unlift cs    :: (Acc (Vector (Cluster a)), Acc (Vector (Cluster a)))
+                         new      = makeNewClusters points old
+                     in
+                     lift (old,new))
+             (lift (clusters, makeNewClusters points clusters))
   where
     keepGoing :: Acc (Vector (Cluster a)) -> Acc (Vector (Cluster a)) -> Acc (Scalar Bool)
     keepGoing xs ys
@@ -193,7 +193,7 @@ kmeans points clusters
       $ A.zipWith (\c1 c2 -> let (x1,y1) = unlift (centroidOfCluster c1)
                                  (x2,y2) = unlift (centroidOfCluster c2)
                              in
-                             abs (x1-x2) >* 0.01 ||* abs (y1-y2) >* 0.01) xs ys
+                             abs (x1-x2) >* 0.001 ||* abs (y1-y2) >* 0.001) xs ys
 
 
 -- The largest non-infinite floating point number

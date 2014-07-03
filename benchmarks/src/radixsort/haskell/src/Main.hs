@@ -13,52 +13,33 @@ import Data.Array.Accelerate.CUDA               as A
 
 -- standard library
 import Prelude                                  as P
-import Data.List
-import Control.Monad
+import Text.Printf
 import System.Environment
 import System.Random.MWC
 import qualified Data.Vector.Unboxed            as V
 
-import Criterion
 import Criterion.Main
-import Criterion.Monad
 import Criterion.Config
-import Criterion.Environment
-
-
-doTest :: Config -> (String -> Bool) -> Environment -> Int -> IO ()
-doTest cfg shouldRun env x =
-  let n         = x * 1000000   -- x million
-      name grp  = grp P.++ "/" P.++ shows x "M"
-
-  in when (P.any shouldRun (P.map name ["vector", "accelerate"])) $ do
-
-    -- Generate random data
-    xs_arr      <- randomArrayIO (const uniform) (Z :. n)       :: IO (Vector Int32)
-    let xs_vec  =  V.convert $ P.snd (toVectors xs_arr)
-
-    -- Run the benchmark. A hacked up version of criterion's 'defaultMain' so
-    -- that we don't continually call 'measureEnvironment'. All non-benchmarking
-    -- paths are elided.
-    --
-    withConfig cfg $
-      runAndAnalyse shouldRun env
-      $ bgroup ""
-        [ bench (name "vector")     $ nf V.sort xs_vec
-        , bench (name "accelerate") $ whnf (A.run1 A.sort) xs_arr
-        ]
 
 
 main :: IO ()
 main = do
-  -- Initialise the criterion environment
   (cfg, args)   <- parseArgs defaultConfig defaultOptions =<< getArgs
-  env           <- withConfig cfg measureEnvironment
 
-  let shouldRun b = P.null args || P.any (`isPrefixOf` b) args
+  let n         = case args of
+                    x:_ | [(x',[])] <- reads x
+                      -> x'
+                    _ -> error "usage: radixsort elements [criterion options]"
 
-  -- Setup and run the benchmark suite. This reinitialises the environment every
-  -- time, but means we don't keep so much live memory around.
-  --
-  mapM_ (doTest cfg shouldRun env) [2,4..20]
+      test s    = printf "%s/%d" s n
+
+  printf "generating data\n"
+  xs_arr        <- randomArrayIO (const uniform) (Z :. n)       :: IO (Vector Int32)
+  let xs_vec    =  V.convert $ P.snd (toVectors xs_arr)
+
+  withArgs (P.tail args) $
+    defaultMainWith cfg (return ())
+      [ bench (test "vector")     $ nf V.sort xs_vec
+      , bench (test "accelerate") $ whnf (A.run1 A.sort) xs_arr
+      ]
 

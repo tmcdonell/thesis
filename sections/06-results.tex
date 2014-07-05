@@ -58,12 +58,6 @@ the program optimisations on kernel runtimes of the benchmark programs.
 
 \subsection{Program optimisation}
 
-% tk: performance and benchmarks for the fusion pass
-%   - actual runtime
-%   - tick counters for the final version and old one with extend/cunctation
-%     separation
-
-
 The Floyd-Warshall algorithm for finding the shortest paths in a directed graph,
 discussed in Section~\ref{sec:floyd_warshall}, was found to cause serious
 problems with the original implementation of the optimisations discussed in this
@@ -96,7 +90,6 @@ portion of the overall execution time for some benchmarks.
 % The measured times allow the Accelerate runtime system to avoid allocating data
 % on every transfer to the device.
 
-% tk: some graphs of memory transfer times or bandwith vs. array size
 % tk: importance of using weak pointers, so data transfers ``escape'' the black
 %     box of evaluating the AST --> hashcat.
 % tk: importance of the nursery for reducing calls to malloc/free
@@ -1137,7 +1130,6 @@ problem~\cite{Ma:2010ft}.
 \section{Sparse-matrix vector multiplication}
 \label{sec:smvm}
 
-% \marginnote{tk: redo bechmarks}
 \newcommand\spyplot[1]{\parbox[c][1.1cm][c]{1.1cm}{\includegraphics[width=1cm]{images/sec-6/smvm/#1}}}
 
 \begin{table}
@@ -1696,13 +1688,14 @@ expensive.
 % with OpenGL code for the visualisation, so we can not directly compare to that
 % implementation.
 
-% \note{tk: example showing performance of \code{map (+1)} versus the equivalent
+% tk: example showing performance of \code{map (+1)} versus the equivalent
 % of using a stencil: extra addressing arithmetic should be significant. For fluid
 % flow, the actual computation time (probably) greatly outweighs the extra
-% arithmetic.}
+% arithmetic.
 %
-% \note{TK: Check the fluid demo that is part of the CUDA SDK, it looks like it
-% might implement something similar.}
+% TK: Check the fluid demo that is part of the CUDA SDK, it looks like it
+% might implement something similar.
+%    -> the SDK example is based on FFT not stencils
 
 
 \section{Radix sort}

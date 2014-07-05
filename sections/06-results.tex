@@ -18,14 +18,17 @@
 
 
 The previous chapters discussed the design, implementation and optimisation of
-the Accelerate language and CUDA backend. This chapter analyses the performance
-of the implementation. Benchmarks were conducted on a single Tesla T10 processor
-(compute capability 1.3, 30 multiprocessors = 240 cores at 1.3GHz, 4GB RAM)
-backed by two quad core Xeon E5405 CPUs (64-bit, 2GHz, 8GB RAM) running
-GNU/Linux (Ubuntu 12.04 LTS). Measurements are the average of 100 runs. Programs
-are compiled with ghc-7.8.2,\footnote{Including the patch for a stable name bug
-which affects us. See \url{https://ghc.haskell.org/trac/ghc/ticket/9078}} CUDA
-6.0, gcc-4.6.3 and llvm-3.4. Parallel CPU programs are run on all eight cores.
+the Accelerate language and CUDA backend.%
+\footnote{Development version 0.15: \texttt{de156af5f6d839bc6e0597d33a7a151f0e492a66}}
+This chapter analyses the performance of the implementation. Benchmarks were
+conducted on a single Tesla T10 processor (compute capability 1.3, 30
+multiprocessors = 240 cores at 1.3GHz, 4GB RAM) backed by two quad core Xeon
+E5405 CPUs (64-bit, 2GHz, 8GB RAM) running GNU/Linux (Ubuntu 12.04 LTS).
+Measurements are the average of 100 runs. Programs are compiled with
+ghc-7.8.2,%
+\footnote{Including fix for stable name bug \#9078: \url{https://ghc.haskell.org/trac/ghc/ticket/9078}}
+CUDA 6.0, gcc-4.6.3 and llvm-3.4. Parallel CPU programs are run on all eight
+cores.
 
 Haskell programs are compiled with the following options, which is the recommend
 set to use when compiling Repa programs:
@@ -71,54 +74,25 @@ producer operations, so the handling of let bindings
 (\S\ref{sec:binder_elimination}) and the representation of producers that
 separates the delayed array representation from the captured environment terms
 (\S\ref{sec:representing_producers}) was found to be crucial.
-Table~\ref{tab:floyd_warshal_opt} shows the time to optimise the Floyd-Warshall
+Figure~\ref{fig:convertAcc} shows the time to optimise the Floyd-Warshall
 program with and without these changes of the optimisation pipeline.
 
-
-\begin{table}
-    \centering
-    \begin{tabu}{rrrr}
-\toprule
-\textbf{k}
-    & \multicolumn{1}{c}{Final (ms)}
-    & \multicolumn{1}{c}{no split opt (ms)}
-    & \multicolumn{1}{c}{no binder opt (ms)}
-    \\
-
-\midrule
-
-1   &
-    &
-    &
-    \\
-
-2   &
-    &
-    &
-    \\
-
-4   &
-    &
-    &
-    \\
-
-8   &
-    &
-    &
-    \\
-\bottomrule
-
-    \end{tabu}
-    \caption{Optimisation time for the Floyd-Warshall algorithm}
-    \label{tab:floyd_warshal_opt}
-\end{table}
-
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=0.8\textwidth]{images/sec-6/convertAcc/convertAcc}
+    \end{center}
+    \caption[Program optimisation runtimes]{Time to optimise the Floyd-Warshall
+        program, comparing the final version of the fusion algorithm to earlier
+        implementations which exhibit exponential scaling in the number of AST
+        terms. Note the log-log scale.}
+    \label{fig:convertAcc}
+\end{figure}
 
 \subsection{Memory management \& data transfer}
 
-Figure~\ref{fig:data_transfer} shows the time to transfer Accelerate arrays to
-and from the device. Observe that the data transfer time can account for a
-significant portion of the overall execution time for some benchmarks.
+Figure~\ref{fig:data_transfer} shows the time to transfer data to and from the
+device. Observe that the data transfer time can account for a significant
+portion of the overall execution time for some benchmarks.
 % The measured times allow the Accelerate runtime system to avoid allocating data
 % on every transfer to the device.
 

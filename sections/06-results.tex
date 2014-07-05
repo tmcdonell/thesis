@@ -108,82 +108,100 @@ Table~\ref{tab:compilation_times} lists the code generation and compilation
 times for each of the benchmark programs considered in this chapter. Compilation
 times are measured by saving the Accelerated generated code to file and
 compiling separately with the @nvcc@ command line tool. Times are the average of
-tk evaluations.
+10 evaluations.
 
 \begin{table}
     \centering
-    \begin{tabu}{lrr}
+    \begin{tabu}{lrrrr}
 \toprule
+\small
+
 \textbf{Benchmark}
-    & \multicolumn{1}{c}{Code generation (ms)}
-    & \multicolumn{1}{c}{Compilation (ms)}
+    & \multicolumn{1}{c}{No. kernels}
+    & \multicolumn{1}{c}{Generation (ms)}
+    & \multicolumn{1}{c}{Compilation (s)}
     \\
     \midrule
 
 Dot Product
-    &
-    &
+    & 2
+    & 1.03      % 1.029109 ms
+    & 1.97 (3.87)
     \\
 
 Black-Scholes
-    &
-    &
+    & 1
+    & 0.59      % 590.6926 µs
+    & 1.95 (1.95)
     \\
 
 Mandelbrot
-    &
-    &
+    & 1
+    & 0.65      % 653.9279 µs
+    & 1.94 (1.94)
     \\
 
 N-Body
-    &
-    &
-    \\
-
-Fluid Flow
-    &
-    &
-    \\
-
-Canny
-    &
-    &
-    \\
-
-Radix sort
-    &
-    &
+    & 2
+    & 1.47      % 474.0642 µs + 994.1904 µs
+    & 1.99 (3.88)
     \\
 
 SMVM
-    &
-    &
+    & 4
+    & 4.84      % 2.014550 ms + 822.1717µs
+    & 2.01 (7.82)
     \\
 
-Hashcat
-    &
-    &
+Canny
+    & 11
+    & 5.91      % 220.2916µs + 618.6954µs + 682.8163µs + 1.223156ms + 573.1638µs + 126.0751µs + 2.065717ms + 77.02148µs + 320.2738µs
+    & 4.91 (21.4)
     \\
 
-Ray
-    &
-    &
+Fluid Flow
+    & 11
+    & 10.47     % 171.6616µs + 175.5634µs + 410.1354µs + 939.1292µs + 2.523173ms + 3.000089ms + 1.566233ms + 347.7783µs + 1.139579ms
+    & 5.07 (21.6)
+    \\
+
+Radix sort
+    & 8
+    & 5.21      % 220.7054 µs + 2.324179 ms + 2.314650 ms + 349.0219 µs
+    & 2.49 (15.6)
     \\
 
 Floyd-Warshall
-    &
-    &
+    & 2
+    & 0.51      % 254.0066 µs + 254.5462 µs
+    & 1.96 (3.85)
+    \\
+
+Hashcat
+    & 1
+    & 11.60     % 11.59957
+    & 2.31 (2.31)
     \\
 
 K-Means
-    &
-    &
+    & 5
+    & 7.33      % 1.619417 ms + 2.749049 ms + 208.3831 µs + 2.749397 ms
+    & 2.18 (10.0)
+    \\
+
+Ray
+    & 1
+    & 40.11     % 40.10992
+    & 3.73 (3.73)
     \\
 
 \bottomrule
 
     \end{tabu}
-    \caption{Code generation and compilation times for the benchmark programs}
+    \caption{Code generation and compilation times for the benchmark programs.
+        Kernels are compiled concurrently, one per core, as is done by the
+        Accelerate runtime system. The equivalent sequential compilation time is
+        shown in parenthesis.}
     \label{tab:compilation_times}
 \end{table}
 

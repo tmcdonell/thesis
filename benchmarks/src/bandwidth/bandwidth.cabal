@@ -1,0 +1,23 @@
+name:                   bandwidth
+version:                0.1.0.0
+-- synopsis:               
+-- description:            
+-- license:                
+-- license-file:           LICENSE
+author:                 Trevor L. McDonell
+maintainer:             tmcdonell@cse.unsw.edu.au
+-- copyright:           
+-- category:            
+build-type:             Simple
+-- extra-source-files:  
+cabal-version:          >=1.10
+
+executable bandwidth
+  main-is:              Main.hs
+  build-depends:
+          base                  >= 4.7 && <4.8
+        , criterion             >= 0.8 && <0.9
+        , cuda                  >= 0.6 && <0.7
+
+  default-language:     Haskell98
+

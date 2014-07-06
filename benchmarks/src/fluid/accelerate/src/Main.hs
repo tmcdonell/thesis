@@ -53,7 +53,7 @@ main = do
       --
       maxSteps = 100
       simulate world
-        | simulationStep world > maxSteps
+        | simulationStep world >= maxSteps
         = world
 
         | otherwise

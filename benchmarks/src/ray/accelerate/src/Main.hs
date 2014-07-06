@@ -54,8 +54,8 @@ main = do
 
       runCUDA   = CUDA.run1 render
 
-  putStrLn "initialising Accelerate"
-  _     <- evaluate (runCUDA scene)
+--  putStrLn "initialising Accelerate"
+--  _     <- evaluate (runCUDA scene)
 
 --  writeImageToBMP "ray-cuda.bmp" (runCUDA scene)
 

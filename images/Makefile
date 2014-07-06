@@ -1,3 +1,3 @@
-SUBDIRS		= misc $(wildcard sec-*)
+SUBDIRS		= $(shell ls -d */)
 include $(MAINROOT)/images/Makefile.common
 

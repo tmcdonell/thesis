@@ -158,10 +158,10 @@ Hence, both operations go hand in hand.
 
 \begin{figure}
 \centering
-\includegraphics[scale=0.5]{images/sec-5/sharing-original}
-\includegraphics[scale=0.5]{images/sec-5/sharing-pruned}
-\includegraphics[scale=0.5]{images/sec-5/sharing-floated}
-\includegraphics[scale=0.5]{images/sec-5/sharing-lets}
+\includegraphics[scale=0.5]{images/opt/sharing-original}
+\includegraphics[scale=0.5]{images/opt/sharing-pruned}
+\includegraphics[scale=0.5]{images/opt/sharing-floated}
+\includegraphics[scale=0.5]{images/opt/sharing-lets}
 \caption{Recovering sharing in an example term}
 \label{fig:sharing_recovery}
 \end{figure}
@@ -467,11 +467,11 @@ into two distinct phases:
 
 \begin{figure}[htb]
     \flushright \small(Before fusion)\qquad\\
-    \centering  \includegraphics[scale=0.245]{images/sec-5/fusion1.pdf}
+    \centering  \includegraphics[scale=0.245]{images/opt/fusion1.pdf}
     \flushright \small(After producer/producer fusion)\qquad\\
-    \centering  \includegraphics[scale=0.245]{images/sec-5/fusion2.pdf}
+    \centering  \includegraphics[scale=0.245]{images/opt/fusion2.pdf}
     \flushright \small(After producer/consumer fusion)\qquad\\
-    \centering  \includegraphics[scale=0.245]{images/sec-5/fusion3.pdf}
+    \centering  \includegraphics[scale=0.245]{images/opt/fusion3.pdf}
     \caption[Fusion in Accelerate]{Producer/producer and Producer/consumer fusion in Accelerate.}
     \label{fig:fusion}
 \end{figure}
@@ -1683,7 +1683,7 @@ f x = let a = lift (constant 30, x)
 %
 % \begin{figure}[htbp]
 %     \begin{center}
-%         \includegraphics[width=0.8\textwidth]{images/sec-5/mandelbrot}
+%         \includegraphics[width=0.8\textwidth]{images/opt/mandelbrot}
 %     \end{center}
 %     \caption[The Mandelbrot fractal]{Image of a Mandelbrot set with a
 %         continuously coloured environment. Each pixel corresponds to a point $c$

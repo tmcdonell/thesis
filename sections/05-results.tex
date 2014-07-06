@@ -73,7 +73,7 @@ program with and without these changes of the optimisation pipeline.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/convertAcc/convertAcc}
+        \includegraphics[width=0.8\textwidth]{images/results/convertAcc/convertAcc}
     \end{center}
     \caption[Program optimisation runtimes]{Time to optimise the Floyd-Warshall
         program, comparing the final version of the fusion algorithm to earlier
@@ -96,8 +96,8 @@ portion of the overall execution time for some benchmarks.
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{images/sec-6/bandwidth/time} \\
-    \includegraphics[width=0.8\textwidth]{images/sec-6/bandwidth/bandwidth}
+    \includegraphics[width=0.8\textwidth]{images/results/bandwidth/time} \\
+    \includegraphics[width=0.8\textwidth]{images/results/bandwidth/bandwidth}
     \caption{Data transfer time and bandwidth measurements}
     \label{fig:data_transfer}
 \end{figure}
@@ -240,7 +240,7 @@ runs in parallel on all eight cores of the host CPU, using the fusion method of
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/dotp/dotp}
+        \includegraphics[width=0.8\textwidth]{images/results/dotp/dotp}
     \end{center}
     \caption[Vector dot product kernel benchmarks]{Kernel runtimes for vector
         dot product, in Accelerate with and without optimisations, compared to
@@ -597,7 +597,7 @@ operation, the problem can not be a lack of fusion.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/black-scholes/black-scholes}
+        \includegraphics[width=0.8\textwidth]{images/results/black-scholes/black-scholes}
     \end{center}
     \caption[Black-Scholes kernel benchmarks]{Kernel runtimes for Black-Scholes
         options pricing, in Accelerate with and without optimisations, compared
@@ -643,7 +643,7 @@ and easily recognisable fractal shape shown in Figure~\ref{fig:mandelbrot}.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/mandelbrot/mandelbrot}
+        \includegraphics[width=0.8\textwidth]{images/results/mandelbrot/mandelbrot}
     \end{center}
     \caption[The Mandelbrot fractal]{Image of a Mandelbrot set with a
         continuously coloured environment. Each pixel corresponds to a point $c$
@@ -1050,7 +1050,7 @@ the array level in order to correctly cache kernels.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/nbody/nbody}
+        \includegraphics[width=0.8\textwidth]{images/results/nbody/nbody}
     \end{center}
     \caption[N-body gravitational simulation kernel benchmarks]{Kernel runtimes
         for the $n$-body gravitational simulation, in Accelerate with and
@@ -1148,7 +1148,7 @@ problem~\cite{Ma:2010ft}.
 \section{Sparse-matrix vector multiplication}
 \label{sec:smvm}
 
-\newcommand\spyplot[1]{\parbox[c][1.1cm][c]{1.1cm}{\includegraphics[width=1cm]{images/sec-6/smvm/#1}}}
+\newcommand\spyplot[1]{\parbox[c][1.1cm][c]{1.1cm}{\includegraphics[width=1cm]{images/results/smvm/#1}}}
 
 \begin{table}
 \centering
@@ -1461,8 +1461,8 @@ to the host.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.45\textwidth]{images/sec-6/canny/lena}
-        \includegraphics[width=0.45\textwidth]{images/sec-6/canny/lena-edges}
+        \includegraphics[width=0.45\textwidth]{images/results/canny/lena}
+        \includegraphics[width=0.45\textwidth]{images/results/canny/lena-edges}
     \end{center}
     \caption[Example of the Canny edge detection algorithm]{An example of the
         Canny algorithm applied to the Lena standard test image (left) which
@@ -1479,7 +1479,7 @@ the array are far from the boundary.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/canny/canny}
+        \includegraphics[width=0.8\textwidth]{images/results/canny/canny}
     \end{center}
     \caption[Canny edge detection benchmarks]{Runtimes for the Canny edge
         detection algorithm, comparing the Accelerate kernels and whole program
@@ -1600,9 +1600,9 @@ sequence is shown in Figure~\ref{fig:fluid_steps}.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.3\textwidth]{images/sec-6/fluid/fluid-10}
-        \includegraphics[width=0.3\textwidth]{images/sec-6/fluid/fluid-50}
-        \includegraphics[width=0.3\textwidth]{images/sec-6/fluid/fluid-75}
+        \includegraphics[width=0.3\textwidth]{images/results/fluid/fluid-10}
+        \includegraphics[width=0.3\textwidth]{images/results/fluid/fluid-50}
+        \includegraphics[width=0.3\textwidth]{images/results/fluid/fluid-75}
     \end{center}
     \caption[Example of the fluid flow simulation]{An example showing the
         progression of the fluid flow simulation for a set of initial conditions
@@ -1679,7 +1679,7 @@ project steps vf = A.stencil2 poisson (A.Constant zero) vf (A.Constant zero) p
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/fluid/fluid}
+        \includegraphics[width=0.8\textwidth]{images/results/fluid/fluid}
     \end{center}
     \caption[Fluid flow simulation kernel benchmarks]{Kernel runtimes for the
         fluid flow simulation, in Accelerate with and without optimisations,
@@ -1770,7 +1770,7 @@ each pass requires multiple traversals of the array.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/radixsort/radixsort}
+        \includegraphics[width=0.8\textwidth]{images/results/radixsort/radixsort}
     \end{center}
     \caption[Radix sort kernel benchmarks]{Kernel runtimes for the radix sort benchmark
         of signed 32-bit integers, comparing the Accelerate version to other
@@ -1891,7 +1891,7 @@ Accelerate to several parallel CPU implementations.
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{images/sec-6/floyd-warshall/floyd-warshall}
+    \includegraphics[width=0.8\textwidth]{images/results/floyd-warshall/floyd-warshall}
     \caption[Floyd-Warshall shortest path benchmark]{Kernel runtimes for
     Floyd-Warshall shortest path algorithm, compared to other parallel
     implementations. The test data is randomly generated graph of $n$ nodes and
@@ -1935,7 +1935,7 @@ are respectively:
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.6\textwidth]{images/sec-6/MD5/MD5}
+    \includegraphics[width=0.6\textwidth]{images/results/MD5/MD5}
     \caption[A single round of the MD5 hash algorithm]{A single round of the MD5
         hash algorithm. It consists of 64 iterations of this operation, split
         into 4 rounds of 16 iterations each. $F$ is a nonlinear function that is
@@ -2130,7 +2130,7 @@ are adapted from~\cite{Marlow:2013wn}.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/k-means/k-means}
+        \includegraphics[width=0.8\textwidth]{images/results/k-means/k-means}
     \end{center}
     \caption[K-means clustering kernel benchmarks]{Kernel runtimes for the
     $k$-means clustering algorithm, in Accelerate (with optimisations) compared
@@ -2144,7 +2144,7 @@ are adapted from~\cite{Marlow:2013wn}.
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{images/sec-6/ray/ray_sample}
+    \includegraphics[width=0.8\textwidth]{images/results/ray/ray_sample}
     \caption[Ray tracer]{Image of a ray traced scene rendered on the GPU with
     Accelerate, featuring multiple reflections. The scene is animated and
     renders in real time on modest hardware.}
@@ -2244,7 +2244,7 @@ for future work.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/sec-6/ray/ray}
+        \includegraphics[width=0.8\textwidth]{images/results/ray/ray}
     \end{center}
     \caption[Ray tracing kernel benchmarks]{Kernel runtimes for the ray tracer
         program, in Accelerate (with optimisations) compared to a parallel

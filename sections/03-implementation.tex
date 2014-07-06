@@ -75,7 +75,7 @@ until the final reduction value is computed.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=\textwidth]{images/sec-4/tree-reduction}
+        \includegraphics[width=\textwidth]{images/impl/tree-reduction}
     \end{center}
     \caption[A parallel tree reduction]{Illustration of a tree reduction,
         performed in two steps. In the first step 8 thread blocks in parallel
@@ -197,7 +197,7 @@ attention~\cite{Sengupta:2007tc,Sengupta:2008ut,Dotsenko:2008fo,Harris:2012fy}.
 
 \begin{figure}
     \begin{center}
-        \includegraphics[width=\textwidth]{images/sec-4/scan}
+        \includegraphics[width=\textwidth]{images/impl/scan}
     \end{center}
     \caption[A parallel inclusive scan]{Illustration of a parallel inclusive
         left-to-right scan, which is performed in three steps. In the first
@@ -476,7 +476,7 @@ array boundary.
 
 \begin{figure}[tbp]
     \begin{center}
-        \includegraphics[width=0.5\textwidth]{images/sec-4/stencil3x3}
+        \includegraphics[width=0.5\textwidth]{images/impl/stencil3x3}
     \end{center}
     \caption[Application of a $3\times3$ stencil in the border region]
         {Application of a $3\times3$ stencil in the border region. Elements in
@@ -508,7 +508,7 @@ for the result.
 
 \begin{figure}[tbp]
     \begin{center}
-        \includegraphics[width=0.6\textwidth]{images/sec-4/stencil-sharing}
+        \includegraphics[width=0.6\textwidth]{images/impl/stencil-sharing}
     \end{center}
     \caption[Overlapping elements in a $3\times3$ stencil]{
         Overlapping elements in a dense $3\times3$ stencil. Computation of each
@@ -2977,7 +2977,7 @@ the different hardware generations.
 
 \begin{figure}[htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/sec-4/occupancy/occupancy}
+    \includegraphics[width=0.8\textwidth]{images/impl/occupancy/occupancy}
     \caption[Impact of varying thread block size on multiprocessor occupancy]{
         Illustration of the impact of varying the thread block size on the
         overall multiprocessor occupancy. The example kernel requires 22
@@ -3164,7 +3164,7 @@ concurrentTest
 
 \begin{figure}[tbp]
     \centering
-    \includegraphics[width=\textwidth]{images/sec-4/concurrent_kernels}
+    \includegraphics[width=\textwidth]{images/impl/concurrent_kernels}
     \caption[Profiling trace of a program which executes kernels
     concurrently]{Trace from the NVIDIA Visual Profiler application for the
     program shown in Listing~\ref{lst:concurrent_kernels}, where the nine

@@ -1,0 +1,15 @@
+OTT		= ott -show_sort true -show_defns true -tex_wrap false
+OTT_FILES  	= $(wildcard *.ott)
+
+SEMANTICS	+= $(OTT_FILES:%.ott=%.tex)
+
+all: $(SEMANTICS)
+	@for x in $(SUBDIRS); do $(MAKE) -C $$x; done
+
+%.tex: %.ott
+	$(OTT) -tex_name_prefix $* -i $< -o $@
+
+.PHONY: clean
+clean:
+	@for x in $(SUBDIRS); do $(MAKE) clean -C $$x; done
+	$(RM) $(SEMANTICS)

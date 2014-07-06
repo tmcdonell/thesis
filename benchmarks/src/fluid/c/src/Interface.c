@@ -3,7 +3,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+
+#if defined(__APPLE__) && defined(__MACH__)
 #include <GLUT/glut.h>
+#else
+#include <GL/glut.h>
+#endif
 
 #include "Interface.h"
 #include "Model.h"

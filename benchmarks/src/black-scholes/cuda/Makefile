@@ -69,7 +69,7 @@ else
   endif
 endif
 
-CUDA_COMMON_PATH ?= /Developer/NVIDIA/CUDA-6.0/samples/common
+CUDA_COMMON_PATH ?= $(CUDA_PATH)/samples/common
 
 # Common binaries
 NVCC            ?= $(CUDA_BIN_PATH)/nvcc

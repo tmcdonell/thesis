@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP             #-}
 {-# LANGUAGE PatternGuards   #-}
 {-# LANGUAGE TemplateHaskell #-}
 --
@@ -32,15 +31,11 @@ import qualified Criterion.Config                       as Criterion
 import Data.Array.Accelerate                            as A
 import Data.Array.Accelerate.IO                         as A
 import qualified Data.Array.Accelerate.Interpreter      as I
-#ifdef ACCELERATE_CUDA_BACKEND
 import qualified Data.Array.Accelerate.CUDA             as CUDA
-#endif
 
 data Backend
   = Interpreter
-#ifdef ACCELERATE_CUDA_BACKEND
   | CUDA
-#endif
   deriving (Show, Bounded)
 
 
@@ -98,16 +93,12 @@ defaultOptions = Options
 run :: Arrays a => Options -> Acc a -> a
 run opts = case _optBackend opts of
   Interpreter   -> I.run
-#ifdef ACCELERATE_CUDA_BACKEND
   CUDA          -> CUDA.run
-#endif
 
 run1 :: (Arrays a, Arrays b) => Options -> (Acc a -> Acc b) -> a -> b
 run1 opts f = case _optBackend opts of
   Interpreter   -> head . I.stream f . return
-#ifdef ACCELERATE_CUDA_BACKEND
   CUDA          -> CUDA.run1 f
-#endif
 
 
 parseArgs :: [String] -> IO (Options, Criterion.Config, [String])
@@ -129,9 +120,7 @@ parseArgs argv = do
   let backends :: [OptDescr (Options -> IO Options)]
       backends =
         [ Option [] ["interpreter"]     (NoArg (return . set optBackend Interpreter)) "reference implementation (sequential)"
-#ifdef ACCELERATE_CUDA_BACKEND
         , Option [] ["cuda"]            (NoArg (return . set optBackend CUDA))        "implementation for NVIDIA GPUs (parallel)"
-#endif
         ]
 
       options :: [OptDescr (Options -> IO Options)]

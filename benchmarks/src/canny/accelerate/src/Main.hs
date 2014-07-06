@@ -73,11 +73,6 @@ canny threshLow threshHigh fileIn fileOut = do
       magdir'           = run $ gradientMagDir low (use blurred')
       suppress'         = run $ nonMaximumSuppression low high (use magdir')
 
-      -- The complete pipeline, including post-processing with Repa
-      --
-      complete          = let (i, s) = run1 (A.lift . stage1) img
-                          in  wildfire (A.toRepa i) (A.toRepa s)
-
   -- Now use Repa to trace out weak edges connected to strong edges. This forces
   -- the pipeline so that all kernels are compiled before benchmarking begins
   --
@@ -98,9 +93,8 @@ canny threshLow threshHigh fileIn fileOut = do
 
     , bgroup "canny"
       [ bench "run"         $ whnf (run . (P.snd . stage1)) (use img)
-      , bench "run1"        $ whnf (run1 (P.snd . stage1)) img
+      , bench "run1"        $ whnf (run1  (P.snd . stage1)) img
+      , bench "wildfire"    $ whnfIO (wildfire (A.toRepa image) (A.toRepa strong))
       ]
-
-    , bench "canny+wildfire"$ whnfIO complete
     ]
 

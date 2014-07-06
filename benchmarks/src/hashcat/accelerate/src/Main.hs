@@ -52,13 +52,13 @@ main = do
 
   -- Read the list of unknown hashes to crack
   --
---  unknowns <- L.lines `fmap` L.readFile hashlist
+  unknowns <- L.lines `fmap` L.readFile hashlist
 
---  withArgs args' $
---    defaultMainWith cfg (return ())
---      [ bench "acc-cuda"        $ whnf (CUDA.run1 (hashcat C (A.use dictC))) (A.fromList A.Z [password])
+  withArgs args' $
+    defaultMainWith cfg (return ())
+      [ bench "acc-cuda"        $ whnf (CUDA.run1 (hashcat C (A.use dictC))) (A.fromList A.Z [password])
 --      , bench "acc-llvm-cpu"    $ whnf (CPU.run1  (hashcat R (A.use dictR))) (A.fromList A.Z [password])
---      ]
+      ]
 
 {--
   let runCUDA   = MD5.recover C CUDA.run1 dictC
@@ -67,15 +67,16 @@ main = do
 
   withArgs args' $
     defaultMainWith cfg (return ())
-      [ bench "acc-cuda"        $ whnf runCUDA unknowns
-      , bench "acc-llvm-ptx"    $ whnf runPTX  unknowns
-      , bench "acc-llvm-cpu"    $ whnf runCPU  unknowns
+      [ bench "acc-cuda"        $ nfIO (runCUDA unknowns)
+      , bench "acc-llvm-ptx"    $ nfIO (runPTX  unknowns)
+      , bench "acc-llvm-cpu"    $ nfIO (runCPU  unknowns)
       ]
 --}
---
+{--
   let runCUDA   = CUDA.run1 (MD5.md5 C)
 
   withArgs args' $
     defaultMainWith cfg (return ())
       [ bench "acc-cuda"        $ whnf runCUDA dictC
       ]
+--}

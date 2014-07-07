@@ -10,9 +10,9 @@ set key bottom
 
 set xlabel "Nodes"
 set logscale x
-set xrange [0.8:230]
+set xrange [0.8:310]
 
-set xtics (1,2,4,8,16,32,64,92,128,192)
+set xtics (1,2,4,8,16,32,64,128,256)
 
 set ylabel "Run Time (s)"
 set logscale y

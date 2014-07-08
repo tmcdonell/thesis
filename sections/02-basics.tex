@@ -173,6 +173,565 @@ execute $N$ individual instances of the kernel function @VecAdd@, and each
 thread operates on a single element of each input array to create a single value
 in the result. See the CUDA C programming guide for details~\cite{NVIDIA:2012wf}.
 
+\section{Parallel algorithms in CUDA}
+\label{sec:parallel_algorithms_in_cuda}
+
+The CUDA architecture is a parallel computing platform and programming model
+created by NVIDIA and implemented by the graphics processing units
+(GPUs)\index{GPU|see {graphics processing unit}}\index{graphics processing unit}
+that they produce. Using CUDA, the GPU becomes accessible not just for
+graphics applications, but for computational tasks much like a CPU\@. Unlike
+CPUs, however, GPUs have a parallel throughput architecture that emphasises
+executing many concurrent threads slowly, rather than executing a single thread
+very quickly.
+% Unlike CPU cores, instructions are issued in order and there is no
+% branch prediction and no speculative execution.
+See section~\ref{sec:cuda} for more information.
+
+% The CUDA hardware architecture is built around a scalable array of
+% multithreaded \emph{streaming multiprocessors} (SMs).\index{SM|see {streaming
+% multiprocessor}}\index{streaming multiprocessor} When a CUDA program on the
+% host CPU invokes a \indexe{kernel} --- a function which executes on the GPU
+% --- a \emph{grid} of threads grouped into equally sized \emph{blocks} is
+% % \index{thread!grid} \index{thread!block}
+% enumerated and distributed to the multiprocessors for execution, using a
+% \emph{single-instruction, multiple thread} (SIMT) model.\index{SIMT|see {single
+% instruction multiple thread}}\index{single instruction multiple thread} The
+% multiprocessor creates, manages, schedules, and executes threads in groups of 32
+% parallel threads call a \indexe{warp}. All threads in a warp share a single
+% program address counter, so divergent threads within a warp are handled via
+% predicated execution; for example the positive and negative cases of a branch
+% are executed in sequence, with threads not on the current execution path made
+% inactive (disabled). In essence, streaming multiprocessors replace the complex
+% instruction scheduling logic of a CPU which increases single threaded
+% performance --- namely out-of-order execution, branch prediction and speculative
+% execution --- with many additional ALUs (arithmetic logic units, often referred
+% to as CUDA cores) all executing the same instruction sequence in parallel in
+% order to increase total instruction throughput. Details of the CUDA
+% architecture can be found in the CUDA C programming
+% guide~\cite{NVIDIA:2012wf}; we present only those features required for the
+% discussion.
+
+Some collective operations such as @map@ have an obvious mapping to the
+highly parallel CUDA architecture, so we elide discussion of their
+implementation. Other collective operations such as @scan@, where the value
+of each element depends on the value of the last, may at first seem to not admit
+a parallel interpretation at all. This section outlines the implementation of
+this second kind of collective operation, where efficient parallel
+implementation in CUDA may not be obvious.
+
+
+\subsection{Reduction}
+\label{sec:parallel_reduction}
+
+Reductions are a common and important data-parallel primitive~\cite{Chatterjee:2009vh}.
+Figure~\ref{fig:tree_reduction} illustrates the basic strategy of a tree
+reduction: within each thread block a tree-based approach is used to reduce
+elements to a single value, and multiple thread blocks each process a portion of
+the array in parallel. There is no global synchronisation primitive in CUDA,
+because (a) it would be expensive to build in hardware for large numbers of
+multiprocessors, and (b) would be difficult for programmers to use without
+introducing sources of deadlock. Instead, kernel launches serve as a global
+synchronisation point, so thread blocks instead communicate their partial
+results by committing them to memory, and the kernel is launched recursively
+until the final reduction value is computed.
+
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=\textwidth]{images/basics/tree-reduction}
+    \end{center}
+    \caption[A parallel tree reduction]{Illustration of a tree reduction,
+        performed in two steps. In the first step 8 thread blocks in parallel
+        reduce eight segments of the array to a single element each. The thread
+        blocks synchronise by writing their result to memory, and the kernel is
+        called recursively until the final scalar result is computed.}
+    \label{fig:tree_reduction}
+\end{figure}
+
+Note that if we wish to fuse other operations into the fold kernel, only the
+first line of reductions at level zero perform the fused operation. All
+subsequent reductions in that kernel, as well as the recursive steps at level
+one and beyond, are pure reductions. We discuss fusion further in
+section~\ref{sec:array_fusion}.
+% Thus, the fused operation requires compilation of two separate kernels.
+% We focus on the level zero kernel, which is more interesting.
+
+\subsubsection{Parallel Reduction Complexity}
+\label{sec:parallel_reduction_complexity}
+
+% \marginnote{tk: for non power-of-2 n, add upper/lower bounds symbols}
+If each thread combines two elements at a time, then a vector of length $N$ will
+be reduced in $\mathcal{O}\left( \log N \right)$ parallel steps. Each step $S$
+does $\sfrac{N}{S^2}$ independent operations, so the \emph{step
+complexity}\index{complexity!step} of the algorithm is:
+\[
+\mathcal{O}\left( \log N \right)
+\]
+For $N=2^{D}$, the algorithm thus performs $\sum_{S=1}^{D}2^{D-S} = N - 1$
+operations. This means that the \emph{work complexity}\index{complexity!work} of
+the algorithm is:
+\[
+\mathcal{O}\left( N \right)
+\]
+and so does not perform more work than a sequential algorithm. For $P$ threads
+running physically in parallel on $P$ processors, the \emph{time
+complexity}\index{complexity!time} is $\mathcal{O}\left( \sfrac{N}{P} + \log N
+\right)$. In a thread block $N = P$, so the time complexity is:
+\[
+\mathcal{O}\left( \log N \right)
+\]
+Compare this to a sequential reduction, which has a time complexity of
+$\mathcal{O}\left( N \right)$.
+
+\subsubsection{Algorithm Cascading}
+\label{sec:algorithm_cascading}
+
+The \emph{cost} of a parallel algorithm is the number of processors $\times$
+time complexity. This implies that the cost of the algorithm is
+$\mathcal{O}\left( N \log N \right)$, which is \emph{not} cost efficient.
+
+Brent's theorem~\cite{Chatterjee:2009vh} suggests that instead of each thread
+summing two elements, \emph{algorithm cascading} can be used to combine a
+sequential and parallel reduction. Each thread does $\mathcal{O}\left( \log N
+\right)$ sequential work, which reduces the cost of the algorithm to
+$\mathcal{O}\left( \sfrac{N}{\log N} \log N \right)$, or rather:
+\[
+\mathcal{O}\left( N \right)
+\]
+while keeping the work complexity $\mathcal{O}\left( N \right)$ and step
+complexity $\mathcal{O}\left( \log N \right)$.
+
+At an example, this result implies that a block of 256 threads should sum a
+total of 2048 elements. In practice it is beneficial to do even more sequential
+work per thread, since this reduces the number of levels in the recursive tree
+reduction and provides better latency hiding.
+
+
+\subsubsection{Mapping to CUDA Threads}
+
+Reduction of a one dimensional array uses multiple thread blocks to
+cooperatively reduce the array, as described above. The number of thread blocks
+is limited to the maximum number of blocks that can be simultaneously resident
+on the current device, which requires that blocks each do a larger amount of
+sequential work before beginning the cooperative reduction phase. This limits
+the total kernel startup cost associated with launching thread blocks. Since the
+maximum number of resident blocks is typically much less than the number of
+threads in a block, the reduction will typically require at most two kernel
+invocations.\footnote{Accelerate selects the thread block size in order to
+maximise thread occupancy. As this depends on both the specific GPU being used
+as well as the user function the array is reduced with, an upper bound of two
+parallel steps can not be guaranteed.}
+
+Higher-dimensional reductions reduce the array along the innermost dimension
+only. This is similar to a segmented fold, except that the segment descriptor is
+not necessary since the length of every segment is the same and can be
+determined from the array shape. Instead of thread blocks cooperatively reducing
+each segment sequentially, each segment is reduced by a single thread block
+which operates independently of all other thread blocks. A consequence of this
+is that proper device utilisation depends on the shape of the array and not
+simply the total number of elements in the array. For example, reduction of an
+array with shape @(Z :. 1 :. n)@ will use a single thread block, no matter
+how large @n@ is. This simplifies the implementation but is clearly not
+always ideal.\footnote{The number of multiprocessors on a device various between
+architecture generation and performance of a given card. For example, a Tesla
+T10 processor (compute capability 1.3) has 240 cores split over 30
+multiprocessors, while a Kepler K20X processor (compute capability 3.5) has 2688
+cores split over only 14 multiprocessors. A given architecture generation will
+have the same number of cores per multiprocessor, and lower performance
+processors in a generation are produced by incorporating (or activating) fewer
+multiprocessors, thereby reducing the total core count.}
+
+A segmented reduction uses a single warp to reduce each segment. Investigation
+of whether it is more efficient to implement the multidimensional reduction
+using this warp-per-segment strategy, rather than mapping one thread block per
+segment as is done currently, is left for future work.
+
+
+\subsection{Scan}
+\label{sec:parallel_scan}
+
+Parallel scan and segmented scan algorithms are a crucial building block for a
+great many data-parallel algorithms~\cite{Blelloch:1990ts,Chatterjee:1990vj}.
+They also form the basis for efficiently mapping nested data-parallel languages
+such as NESL~\cite{Blelloch:1995ut,Blelloch:1996jx} on to flat data-parallel
+machines. Because of their fundamental importance to many algorithms,
+implementing efficient scan operations in CUDA has received much
+attention~\cite{Sengupta:2007tc,Sengupta:2008ut,Dotsenko:2008fo,Harris:2012fy}.
+
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=\textwidth]{images/basics/scan}
+    \end{center}
+    \caption[A parallel inclusive scan]{Illustration of a parallel inclusive
+        left-to-right scan, which is performed in three steps. In the first
+        step, 8 thread blocks compute the partial scan result for each eight
+        element section of the array. The partial results are then scanned by a
+        single thread block in the second step. In the final phase, the 8 thread
+        blocks use the partial results as the initial element when computing the
+        final scan result for this section of the array.}
+    \label{fig:fast_scan}
+\end{figure}
+
+The basic binary-tree based scan algorithm proceeds in $\log N$ stages.
+% As shown in Figure~\ref{fig:fast_scan}, the binary operator is applied to two
+% distinct elements of the input array and the output is stored into a new array.
+In order to compute scans efficiently on the GPU, the input array is decomposed
+into a number of blocks of size $B$, such that the scan of $B$ elements can be
+computed by a thread block locally in shared memory. This inclusive scan
+algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
+%
+\begin{enumerate}
+\item All blocks are scanned in parallel, and the partial result (final scan
+    value) from each block @i@ is stored into an intermediate array
+    @block_results[i]@. Note that even though we require only the final value,
+    because scans are directional --- either to the left or right --- we still
+    compute the entire scan and return only the final value, to ensure that
+    elements are processed in the correct left-to-right or right-to-left order.
+
+\item A single thread block performs a scan of the helper array @block_results@.
+    Accelerate is set up such that the number of blocks in the first step is
+    less than the maximum thread block size (\S\ref{sec:executing_programs}), so
+    this step does not need to repeatedly apply the global scan algorithm.
+
+\item All blocks scan the array in parallel again, where thread block @i@ uses
+    element @i@ of the result of step 2 as the initial element.
+
+\end{enumerate}
+
+For an exclusive scan, it is only necessary to ensure that the computation of
+the partial block sums includes the seed element.
+
+
+\subsubsection{Segmented scan}
+
+Segmented scans are not implemented as primitive operations in Accelerate.
+Instead, segmented scans are implemented in terms of unsegmented scans by
+operator transformation~\cite{Schwartz:1980cy,Blelloch:1990ts}. Given the
+operator $\oplus$ we can construct a new operator $\oplus^s$ that operators on a
+flag-value pairs $\left( f_x, x \right)$ as follows:
+%
+\begin{equation*}
+    \left( f_x, x \right) \oplus^s \left( f_y, y \right)
+        = \left( f_x | f_y,\:\mathrm{if}\;f_y\;\mathrm{then}\;y\;\mathrm{else}\;x\oplus y \right)
+\end{equation*}
+
+Segmented operations often arise when dealing with nested parallelism and the
+flattening transformation~\cite{Blelloch:1995ut}. In future it may be beneficial
+to implement segmented scans directly rather than by operator
+transformation~\cite{Sengupta:2008ut,Dotsenko:2008fo}.
+
+
+\subsubsection{Interaction with array fusion}
+
+In the scan algorithm described above, the input array to be scanned is read
+twice: once when computing the partial block results, and a second time when
+computing the final scanned array. If the input does not refer to manifest array
+data, but instead an array in a symbolic form resulting from array fusion
+(\S\ref{sec:array_fusion}), then the elements of the delayed array --- which
+might contain arbitrarily expensive computations --- will be computed twice
+also.
+
+In order to avoid this, in some circumstances it might be beneficial for either
+(a) the first phase of the scan to store the entire partial scan result, rather
+than just the final element; or (b) to always read in manifest data, effectively
+disallowing producer/consumer fusion (\S\ref{sec:array_fusion}) for
+scans in the CUDA backend. The latter option is undesirable, and the former may
+not work for non-commutative operators, such as the one we used in the
+operator-transformation-based definition of segmented scan. It is left to future
+work to fully investigate this interaction between array fusion and operations
+such as scan, where the underlying implementation requires multiple passes over
+the input data.
+
+% In order to avoid this, it might seem that one approach could be for each thread
+% block in the first phase to write its entire partial scan result to memory,
+% which would include any computations that were part of the fused array, rather
+% than just the final element. In the third phase, each block would then combine
+% the partial result from the second stage to each element of the partial scan
+% result from the first phase (in effect a @map@ operation). However, this would
+% not correctly handle non-commutative operators, something we took advantage of
+% in the definition of segmented scans.
+
+
+\subsection{Permute}
+\label{sec:parallel_permute}
+
+The @permute@ collective operation defines a forward permutation $f$ as an
+index mapping from one array $X$ onto the result array $Y$, which we can write
+as  $f : X \rightarrow Y$. Implementation of the permute function in Accelerate
+is complicated because we have not placed any particular restrictions on $f$,
+namely:
+%
+\begin{enumerate}
+    \item $f$ is not surjective: the range of $f$ may not cover the codomain
+        $Y$. For every $x$ in $X$, $f\left( x \right)$ need not yield every
+        index $y$ in $Y$. This means that the result array must first be
+        initialised with a set of default values.
+
+    \item $f$ is not injective: distinct elements of the domain may
+        map to the same element in the codomain. For all $x$ and $x'$ in $X$, if
+        $f\left( x \right) = f\left( x' \right)$, we may have that $x \ne x'$.
+        This means we require an associative combination function to combine
+        elements from the domain that map to the same index in the codomain.
+
+    \item $f$ is partial: elements of the domain may be ignored, and thus do
+        not map to elements in the codomain.
+\end{enumerate}
+
+That the permutation function admits partial functions in the index mapping is
+not particularly challenging for the implementation, and indeed is useful for
+implementing the @filter@ operation, shown in Listing~\ref{lst:filter}. The
+special value @ignore@ is used to drop elements of the input vector that do not
+satisfy the predicate, by not mapping those indices to an index in the codomain.
+%
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:filter
+    ,caption={[Filter] Filtering returns only those elements of a
+    vector which satisfy a predicate. This operation is included as part of
+    Accelerate's standard prelude.}]
+filter :: Elt a => (Exp a -> Exp Bool) -> Acc (Vector a) -> Acc (Vector a)
+filter p vec
+  = let flags            = map (boolToInt . p) vec
+        (targetIdx, len) = scanl' (+) 0 flags
+        defaults         = backpermute (index1 $ the len) id vec
+    in
+    permute const defaults (\ix -> flags!ix ==* 0 ? (ignore, index1 $ targetIdx!ix)) vec
+\end{lstlisting}
+
+On the other hand, because we can not prove that @filter@ is surjective, we
+require the result vector to be first initialised with default values. Since we
+do not know anything about the element type @a@, the only recourse is to
+copy elements from the input array @vec@. This is doubly wasteful, because
+we must first execute the @backpermute@ kernel to compute the
+@defaults@ array, and then copy those values into the results vector before
+executing the @permute@ kernel, even though we know the initialised values
+will be completely overwritten.
+
+At a second example, Listing~\ref{lst:histogram} demonstrates the computation of
+a simple ten bin histogram from a vector of floating point elements in the range
+$\left[ 0, 100 \right)$. In this case the permutation function is neither
+surjective nor injective, as some bins may contain no elements and thus take the
+default value, while other bins may contain multiple elements which need to be
+combined (accumulated) correctly.
+%
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:histogram
+    ,caption={[Simple histogram] A simple histogram written in
+    Accelerate. We assume the input vector contains elements in the range
+    $\left[0,100\right)$ and accumulate into ten equally sized bins.}]
+histogram :: Acc (Vector Float) -> Acc (Vector Int)
+histogram vec
+  = let bins      = 10
+        zeros     = fill (constant (Z :. bins)) 0
+        ones      = fill (shape vec)            1
+    in
+    permute (+) zeros (\ix -> index1 (A.floor ((vec ! ix) / P.fromIntegral bins))) ones
+\end{lstlisting}
+
+The semantics of the operation is that every permutation from source to result
+array is applied at the same time in a single parallel step. If multiple CUDA
+threads attempt a non-atomic write to the same memory location at the same time,
+the writes will be serialised but the thread which performs the final write is
+undefined, and so the final value at that memory slot is also
+undefined~\cite{NVIDIA:2012wf}. To support non-injective permutation functions,
+which are required to evaluate the histogram program correctly, the atomic
+compare-and-swap operation is used to implement write combining.\footnote{The
+atomic compare-and-swap operation on 32-bit values into global memory is only
+available for devices of compute capability 1.1 and higher, and for 64-bit
+values on devices of compute capability 1.2 and higher.} For a combination
+function @f@ on elements of type @T@, the following atomically combines a value
+from the source array @x@ with the value of the result array @y@:
+
+\begin{lstlisting}[style=cuda]
+  T x        = source[i];
+  T y, old_y = result[j];
+  do {
+      y     = old_y;
+      old_y = atomicCAS(&result[j], y, f x y);
+  } while (y != old_y);
+\end{lstlisting}
+%
+Any atomic operation on simple types can be implemented in terms of
+compare-and-swap in this manner. Utilising more specific atomic operations such
+as @atomicAdd@ when available is left to future work.
+
+
+\subsubsection{Implementation using explicit locking}
+
+The implementation for combining elements of the permutation function works well
+for simple atomic types, but as Accelerate uses a struct-of-arrays
+representation (\S\ref{sec:representing_tuples}, combining tuple types must
+apply the procedure to each component of the tuple separately, which can lead to
+inconsistencies.\footnote{\url{https://github.com/AccelerateHS/accelerate/issues/137}}
+
+One alternative would be to explicitly lock each element of the output array
+before threads can access it, and then for each thread to commit all components
+of the array as a single atomic operation. A straightforward to implement this
+is via a \emph{spin lock}, where threads trying to acquire the lock simply wait
+in a loop (``spin''), repeatedly checking whether the lock is available. Since
+the thread remains active but is not performing any useful work, the use of this
+kind of busy waiting is inefficient if threads are blocked for an extended
+period of time (because the lock is contended by many threads, or the atomic
+section executed while the lock is held is lengthy).
+
+Implementing a spin-lock can be done similarly to the following:
+%
+\begin{lstlisting}[style=cuda]
+  do {
+      old = atomicExch(&lock[i], 1);                                               // (1)
+  while (old == 1);                                                                // (2)
+    /* atomic section */                                                           // (3)
+  atomicExch(&lock[i], 0);                                                         // (4)
+\end{lstlisting}
+%
+\begin{enumerate}
+    \item The spin lock procedure requires a temporary array to represent the
+        lock state for each element of the output array. We use 1 to represent
+        the locked state, and 0 to indicate the element is unlocked. To lock
+        element @i@ of the output array, we atomically store 1 into the @lock@
+        slot for this element, returning the @old@ state of the lock.
+
+    \item If the @old@ state of the lock was unlocked (0) then we just acquired
+        the lock. Otherwise it was already locked, so we must retry.
+
+    \item Once the lock is acquired, the atomic section can be computed.
+
+    \item To release the lock, write zero back into the lock slot for this
+        element. A memory barrier or atomic operation, as used here, is required
+        for this step to ensure memory consistency on architectures which do not
+        have a strong memory model, such as CUDA devices.
+        % (later x86 architectures can safely use an unlocked @MOV@ instruction).
+
+\end{enumerate}
+
+It is left to future work to fully investigate the use of spin locking as an
+alternative strategy for combining elements in the permute operation.
+
+
+\subsection{Stencil}
+\label{sec:parallel_stencil}
+
+Stencil operations are a fundamental building block of many scientific and image
+processing algorithms. A stencil computation is similar to a @map@, that has
+access to the elements in the local neighbourhood surrounding the element. For
+example, at the core of many image processing algorithms is the convolution
+operator $*$, whose definition is as follows:
+
+\begin{equation*}
+    (A * K)(x, y) = \sum_i \sum_j A(x+i, y+j) K(i,j)
+\end{equation*}
+%
+Here $A$ is the image being processed and $K$ is the \emph{convolution kernel}
+or \emph{stencil}. A \emph{stencil} is a small matrix that defines a
+transformation on the image. Typical transformations include Gaussian blur and
+the Sobel differentiation operator, both of which are used in the Canny edge
+detection algorithm (\S\ref{sec:canny}).
+
+
+\subsubsection{Bounds checking}
+
+Since the stencil has access to elements in the surrounding neighbourhood, an
+immediate concern is what to do when the stencil ``falls off'' the edge of the
+array. Figure~\ref{fig:stencil3x3} shows the application of a $3\times3$ stencil
+in this circumstance. The white squares indicate the \emph{internal} region
+where the stencil is entirely within the array, and the grey squares indicate
+the \emph{border} region, where part of the stencil falls lies outside of the
+array boundary.
+
+\begin{figure}[tbp]
+    \begin{center}
+        \includegraphics[width=0.5\textwidth]{images/basics/stencil3x3}
+    \end{center}
+    \caption[Application of a $3\times3$ stencil in the border region]
+        {Application of a $3\times3$ stencil in the border region. Elements in
+        the border region (grey), such as the indicated element at index
+        \code{(Z:.2:.0)}, have neighbouring elements which might fall outside
+        the array bounds, whereas for elements in the internal region (white)
+        the stencil lies entirely within the array.}
+    \label{fig:stencil3x3}
+\end{figure}
+
+Boundary conditions determine how to handle out-of-bounds neighbours, by
+specifying a constant value to use instead, or by reading the source array at a
+different index. However, with the array sizes typical of GPU programs, the
+border region represents only a tiny fraction of the entire array. For example,
+a 512-pixel square image has less than one percent of its pixels along the edge.
+This fact implies that for optimal performance, we should avoid testing of the
+boundary each time we read an element from the source array. For simple
+convolutions such as those used by Canny (\S\ref{sec:canny}), this adds
+significant overhead~\cite{Lippmeier:2011cd}. Separating computation of the
+border and internal region is left for future work.
+
+
+\subsubsection{Overlapping elements}
+
+Suppose we wish to apply a dense $3\times3$ stencil to a single internal point
+in the array, where each element of the stencil is utilised. Application of the
+stencil requires at least nine elements of the array to be loaded, and one store
+for the result.
+
+\begin{figure}[tbp]
+    \begin{center}
+        \includegraphics[width=0.6\textwidth]{images/basics/stencil-sharing}
+    \end{center}
+    \caption[Overlapping elements in a $3\times3$ stencil]{
+        Overlapping elements in a dense $3\times3$ stencil. Computation of each
+        element requires nine reads from the source array. If the four elements
+        cooperate to share the source data, the number of loads to the source
+        array is halved.}
+    \label{fig:stencil_sharing}
+\end{figure}
+
+Figure~\ref{fig:stencil_sharing} shows the evaluation of four horizontally
+adjacent elements. If we evaluate these points independently, we would need
+$4 \times 9 = 36$ loads of the source array, plus the four stores to the result
+array. However, if the calculation of these four elements can cooperate and
+share loads from the source array into a local temporary array, this would
+requires only $3 \times 6 = 18$ loads, plus the four stores. Sharing of stencil
+elements can thus significantly reduce memory bandwidth requirements.
+
+Sharing of stencil elements in CUDA can be achieved by having the thread block
+first cooperatively read the stencil elements into \indexe{shared
+memory}~\cite{NVIDIA:2012wf}, and then each thread computes its stencil function
+using these shared values. In Accelerate, sharing of stencil elements is
+complicated by two main factors:
+%
+\begin{enumerate}
+    \item Stencil patterns can be large: up to 9 elements in each dimension.
+        Since the shared memory region on the GPU is usually very small, this
+        can significantly limit the maximum thread block size. If the occupancy
+        of the device is too low, there may be insufficient parallelism to hide
+        global memory transfer latency.
+
+    \item A stencil function does not need to use all elements defined in the
+        pattern, so reading all elements into shared memory could waste more
+        bandwidth than it saves. The pattern also does not need to be square nor
+        symmetric, which complicates efficient cooperative loading of the
+        common elements into shared memory.
+\end{enumerate}
+
+The implementation currently ignores this issue and does not explicitly share
+elements between threads, instead relying on the cache. For older (compute 1.x)
+devices that lack a traditional cache mechanism to global memory, we read the
+source array using the texture cache.\footnote{A holdover from the graphical
+heritage of the GPU.} It is left to future work to implement sharing of stencil
+elements between threads, either in general or specialised for certain cases
+such as dense stencils or those commonly used for convolutions.
+
+
+\subsubsection{Interaction with array fusion}
+
+Since the stencil operation has access to the elements surrounding the focal
+point of the stencil, if the input is represented by a symbolic array resulting
+from array fusion (\S\ref{sec:array_fusion}), rather than manifest array data,
+accessing these neighbouring elements implies recomputing the symbolic
+computations on every element access. For some operation @stencil s . map f@, if
+the results of @f@ can be shared between threads of the stencil (previous
+section), or if @f@ is cheap, then the duplicate computations required to fuse
+the two operations might be preferable to the extra memory bandwidth required to
+store the result of @map f@ to memory. A full exploration of stencil-aware array
+fusion is left to future work.
+
+
 
 \section{Embedded domain-specific languages}
 \label{sec:EDSLs}
@@ -239,603 +798,6 @@ code in the embedded language may either be written by the user or generated
 dynamically by the application. If the target language is different to that of
 the host language, this entails the interpreter generating, compiling, and
 executing code for the target language at program runtime.
-
-
-\section{The Accelerate EDSL}
-\label{sec:accelerate}
-
-The current generation of graphical processing units (GPUs) are massively
-multicore processors (\S\ref{sec:gpu_computing}). They are optimised for
-workloads with a large degree of data parallelism (\S\ref{sec:data_parallelism})
-and good performance depends on highly idiomatic programs with low SIMD
-divergence and regular memory-access patterns~\cite{NVIDIA:2012wf}. Hence, the
-development of applications that use the graphics processors for general purpose
-computations (\S\ref{sec:gpu_computing}) is work intensive and requires a
-substantial degree of expert knowledge.
-
-Accelerate is our approach to reducing the complexity of GPU programming: a
-high-level, deeply embedded domain-specific language (\S\ref{sec:EDSLs}) of
-array computations that captures appropriate GPGPU idioms in the form of
-parameterised, \indexe{rank-polymorphic}~\cite{Keller:2010er}, collective
-operations on arrays~\cite{Chakravarty:2011fr}. Our choice of operations was
-informed by the \emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is
-suitable for a wide range of algorithms, and demonstrated that these operations
-can be efficiently implemented on modern GPUs~\cite{Sengupta:2007tc}.
-
-We regard Accelerate's collective array operations as algorithmic
-skeletons~(\S\ref{sec:code_generation}) that capture appropriate GPU programming
-idioms. The dynamic code generator instantiates CUDA implementations of these
-skeletons~(\S\ref{sec:parallel_algorithms_in_cuda}) to implement embedded array
-programs~(\S\ref{sec:instantiating_skeletons}). Dynamic code generation exploits
-runtime information of the target hardware to optimise GPU code, and enables
-on-the-fly generation of embedded array programs by the host
-program~(\S\ref{sec:dynamic_compilation}). The evaluator minimises the overhead
-of dynamic code generation by caching binaries of previously compiled skeleton
-instantiations and by parallelising code generation, data
-transfer~(\S\ref{sec:memory_management}), and GPU kernel loading, configuration,
-and execution~(\S\ref{sec:executing_programs}).
-
-To achieve performance competitive with hand-written
-CUDA~\cite{McDonell:2013wi}, we implement two primary optimisation techniques:
-sharing recovery~(\S\ref{sec:sharing_recovery}) tackles code explosion due to
-the embedding in Haskell, while array
-fusion~(\S\ref{sec:array_fusion}) eliminates superfluous
-intermediate structures, which often arise due to the high-level nature of the
-language. Both of these techniques are well known from other contexts, but they
-present unique challenges for an embedded language compiled for execution on a
-GPU.
-
-\begin{figure}
-    \centering
-    \includegraphics[width=\textwidth]{images/basics/outline-s}
-    \caption[The overall structure of Accelerate]{The overall structure of
-    Accelerate. It comprises a frontend and supports multiple backends that can
-    target a variety of architectures.}
-    \label{fig:outline}
-\end{figure}
-
-Figure~\ref{fig:outline} summarises the overall structure of Accelerate. It
-comprises a frontend and support for multiple backends that can target a variety
-of architectures. Here, we are only concerned with the CUDA generating GPU
-backend, but the approach is amenable to targeting multicore CPU backends
-exploiting SIMD instructions,\footnote{\url{https://github.com/AccelerateHS/accelerate-llvm}}
-backends for OpenCL,\footnote{\url{https://github.com/AccelerateHS/accelerate-backend-kit/tree/master/icc-opencl}}\footnote{\url{https://github.com/HIPERFIT/accelerate-opencl/}}
-and for reconfigurable hardware such as FPGAs. In the following, we briefly
-introduce some features of the design and use of Accelerate.
-
-
-\subsection{Computing a vector dot product}
-\label{sec:computing_dotp}
-
-Consider computing the dot product of two vectors, using standard Haskell lists:
-%
-\begin{lstlisting}[style=haskell]
-dotp_list :: [Float] -> [Float] -> Float
-dotp_list xs ys = foldl (+) 0 (zipWith (*) xs ys)
-\end{lstlisting}
-%
-The two input vectors @xs@ and @ys@ are pointwise multiplied, and the resulting
-list of products is summed, yielding the scalar result.
-
-Using Accelerate, we implement this computation on arrays as follows:
-%
-\begin{lstlisting}[style=haskell]
-dotp :: Vector Float -> Vector Float -> Acc (Scalar Float)                         -- (1)
-dotp xs ys
-    = let xs' = use xs                                                             -- (2)
-          ys' = use ys
-      in
-      fold (+) 0 (zipWith (*) xs' ys')                                             -- (3)
-\end{lstlisting}
-%
-Here, @fold@ and @zipWith@ are taken from the Accelerate library
-@Data.Array.Accelerate@, rather than from the standard Haskell library
-@Data.List@. The Accelerate code consumes two one dimensional arrays (@Vector@)
-of values, and produces a single (@Scalar@) result as output. It differs from
-the list version in three main respects:
-%
-\begin{enumerate}
-    \item The result is an embedded Accelerate computation, indicated by the
-        type constructor @Acc@. It will be evaluated in the \emph{target}
-        language\index{language!target} of dynamically generated parallel code,
-        rather than the \emph{meta} language\index{language!meta}, which is
-        vanilla Haskell (\S\ref{sec:EDSLs}).
-
-    \item We lift the two plain vectors @xs@ and @ys@ into @Acc@ terms with
-        @use@. This makes the arrays available to the embedded computation
-        (\S\ref{sec:arrays_on_the_host_and_device}).
-
-    \item We use @fold@ instead of @foldl@.
-\end{enumerate}
-%
-The first two points are artefacts of lifting the computation into an embedded
-language (\S\ref{sec:EDSLs}), effectively delaying the computation. Concerning
-the final point, the list traversal function @foldl@ guarantees a left-to-right
-traversal of the elements, whereas @fold@ leaves the order in which the elements
-are combined unspecified. This requires that the binary operator supplied to
-@fold@ is associative and commutative,\footnote{Although floating-point
-arithmetic is not strictly associative, it is common to accept the resulting
-error in parallel applications.} but allows for an implementation using a
-parallel tree reduction~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
-
-
-\subsection{Arrays, shapes, and indices}
-\label{sec:arrays_shapes_and_indices}
-
-Parallelism in Accelerate takes the form of collective operations such as
-@zipWith@ on arrays of type @Array sh e@, where @sh@ is the \emph{shape} and @e@
-the \emph{element type} of the array. Following the approach taken in
-Repa~\cite{Keller:2010er}, we represent both the shapes and indices of an array
-using an inductive notation of tuples as heterogeneous \emph{snoc} lists to
-enable rank-polymorphic definitions of array functions.
-
-As shown in Listing~\ref{lst:shapes_and_indices}, on both the type and value
-level, the constructor @Z@ is used to represent the shape of a rank-0 array, and
-the infix operator @(:.)@ is used to increase the rank by adding a new (innermost)
-dimension to the right of the shape. Thus, a rank-3 index with components @x@,
-@y@, and @z@, is written @(Z:.z:.y:.x)@ and has type @(Z:.Int:.Int:.Int)@, where
-the component @x@ is innermost and varies most rapidly, while the component @z@
-varies least rapidly.
-
-\begin{lstlisting}[style=haskell_float
-    ,label=lst:shapes_and_indices
-    ,caption={Types of array shapes and indices}]
-data Z            = Z                   -- rank zero
-data tail :. head = tail :. head        -- increase rank by one
-
-type DIM0 = Z                           -- synonynms for common array dimensionalities
-type DIM1 = DIM0 :. Int
-type DIM2 = DIM1 :. Int
-type DIM3 = DIM2 :. Int
-  -- and so on
-
-type Array DIM0 e = Scalar e            -- synonynms for common array types
-type Array DIM1 e = Vector e
-\end{lstlisting}
-
-Overall, an array of type @Array (Z:.Int:.Int) Float@ is a rank-2 array of
-single precision floating-point numbers. Listing~\ref{lst:shapes_and_indices}
-also defines synonyms for common array types: a singleton array of shape @DIM0@
-represent a single scalar value, while an array of shape @DIM1@ represents a
-vector, and so on. While it may appear that the explicit mentioning of @Int@ in
-each dimension is redundant, we require indices over types other than @Int@ for
-rank polymorphic functions, such as replicating an array into one or more
-additional dimensions or slicing a lower-dimensional subarray out of a larger
-array~\cite{Keller:2010er,Chakravarty:2011fr}.
-
-
-\subsection{Arrays on the host and device}
-\label{sec:arrays_on_the_host_and_device}
-
-Accelerate is an \emph{embedded language} (\S\ref{sec:EDSLs}) that distinguishes
-between vanilla Haskell arrays and arrays in the embedded language, as well as
-computations on both flavours of arrays. Embedded array computations are
-identified by types formed from the type constructor @Acc@, and must be
-explicitly executed before taking effect. To make these arguments available to
-the Accelerate computation they must be embedded with the @use@ function, which
-is overloaded so that it can accept tuples of arrays:
-%
-\begin{lstlisting}[style=haskell]
-use :: Arrays arrays => arrays -> Acc arrays
-\end{lstlisting}
-%
-In the context of GPU programming, GPUs typically have their own
-high-performance memory which is separate from the host CPU's main memory, and
-data must be explicitly transferred to the GPU's memory before it can be used.
-The distinction between regular arrays of type @Array sh e@ and arrays of the
-embedded language @Acc (Array sh e)@ has the added benefit of differentiating
-between arrays allocated in host memory and arrays allocated in GPU device
-memory. Thus, @use@ also implies a host-to-device data transfer. See
-section~\ref{sec:memory_management} for more information on how device memory is
-managed. Similarly, expressions in @Acc@ are computations that are executed on
-the device (the GPU), whereas regular Haskell code runs on the host (the CPU).
-
-
-\subsection{Array computations versus scalar expressions}
-\label{sec:array_computations_vs_scalar_expressions}
-
-The signatures of the two operations @zipWith@ and @fold@, used in the
-definition of @dotp@, are shown in Listing~\ref{lst:acc_operations}. These
-operations are multidimensional variants of the corresponding list functions,
-but with arrays wrapped in @Acc@. In addition to @Acc@, which marks embedded
-array computations, we also have @Exp@, which marks \emph{embedded scalar}
-computations: a term of type @Exp Int@ represents an embedded expression
-yielding a value of type @Int@, and similarly @Exp Float -> Exp (Float,Float)@
-characterises an embedded scalar function that takes an argument of type @Float@
-and yields a pair of @Float@s as the result. As with computations embedded in
-@Acc@, computations in @Exp@ are executed in the target language of GPU device
-code.
-
-\begin{lstlisting}[style=haskell_float,
-    numbers=none,
-    float=t,
-    label={lst:acc_operations},
-    caption={[Core Accelerate array operations] Summary of Accelerate's core
-        collective array operations, omitting \code{Shape} and \code{Elt} class
-        constraints for brevity. In addition, there are other flavours of folds
-        and scans as well as segmented versions of these.}]
-use         :: Array sh e -> Acc (Array sh e)                         %\rm embed an array%
-unit        :: Exp e -> Acc (Scalar e)                                %\rm create singleton array%
-
-reshape     :: Exp sh -> Acc (Array sh' e) -> Acc (Array sh e)        %\rm impose a new shape%
-
-map         :: (Exp a -> Exp b) -> Acc (Array sh a)                   %\rm map a function over an array%
-            -> Acc (Array sh b)
-zipWith     :: (Exp a -> Exp b -> Exp c) -> Acc (Array sh a)          %\rm apply funciton to a\ldots%
-            -> Acc (Array sh b) -> Acc (Array sh c)                   %\rm \ldots pair of arrays%
-
-generate    :: Exp sh -> (Exp sh -> Exp a) -> Acc (Array sh a)        %\rm array from index mapping%
-
-replicate   :: Slice slix                                             %\rm extend array across\ldots%
-            => Exp slix -> Acc (Array (SliceShape slix) e)            %\rm \ldots new dimensions%
-            -> Acc (Array (FullShape slix) e)
-slice       :: Slice slix                                             %\rm remove existing dimensions%
-            => Acc (Array (FullShape  slix) e) -> Exp slix
-            -> Acc (Array (SliceShape slix) e)
-
-fold        :: (Exp a -> Exp a -> Exp a) -> Exp a                     %\rm tree reduction along\ldots%
-            -> Acc (Array (sh:.Int) a) -> Acc (Array sh a)            %\rm \ldots innermost dimension%
-scan{l,r}   :: (Exp a -> Exp a -> Exp a) -> Exp a -> Acc (Vector a)   %\rm left-to-right or right-to-left\ldots%
-            -> Acc (Vector a)                                         %\rm \ldots vector pre-scan%
-
-backpermute :: Exp sh' -> (Exp sh' -> Exp sh) -> Acc (Array sh a)     %\rm backwards permutation%
-            -> Acc (Array sh' e)
-permute     :: (Exp a -> Exp a -> Exp a) -> Acc (Array sh' a)         %\rm forward permutation%
-            -> (Exp sh -> Exp sh') -> Acc (Array sh a)
-            -> Acc (Array sh' a)
-
-stencil     :: Stencil sh a stencil => (stencil -> Exp b)             %\rm map a function with local\ldots%
-            -> Boundary a -> Acc (Array sh a) -> Acc (Array sh b)     %\rm \ldots neighbourhood context%
-\end{lstlisting}
-
-Accelerate distinguishes the types of collective and scalar computations to
-achieve a stratified language. Collective operations in @Acc@ comprise many
-scalar computations in @Exp@ that are executed in parallel. However, scalar
-computations \emph{can not} contain collective operations. This stratification
-excludes \emph{nested, irregular} data parallelism statically --- instead,
-Accelerate is restricted to \emph{flat data-parallelism} involving only regular,
-multi-dimensional arrays.
-
-Compared to regular Haskell, @Exp@ computations are rather limited in order to
-meet the restrictions of what can be efficiently executed on GPUs\@. In
-particular, we do not support recursion, and provide only a limited form of
-explicit value iteration. Scalar expressions support Haskell's standard arithmetic
-operations by overloading the standard type classes such as @Num@ and @Integaral@,
-as well as bitwise operations from @Bits@. Although we can not overload
-functions on @Bool@ in standard Haskell, we support equality and comparison
-operators as well as logical connectives using the operators @(==*)@, @(/=*)@,
-@(<*)@, \lstinline[style=inline,literate=]{(<=*)},      % don't turn into (≤*)
-and so on. We also have conditional expressions in the form of @c ? (t, e)@,
-which evaluates to @t@ if @c@ yields @True@, otherwise to @e@. There are also
-scalar operations that take array valued arguments; namely, @arr!ix@ indexes an
-array and @shape@ queries the extent of an array. The argument to these
-operations is guaranteed to only be a previously let-bound variable, ensuring
-that each invocation of the scalar function can not initiate additional
-parallel work. Finally, we have tupling and projection, and auxiliary functions
-for computing with indices.
-
-
-\subsection{Computing an $n$-body gravitational simulation}
-\label{sec:computing_nbody}
-
-At a second example, consider simulating the Newtonian gravitational forces on a
-set of massive bodies in 3D space, using a precise (but expensive) O($n^2$)
-algorithm. We use the following type synonyms to represent bodies in the
-simulation:
-%
-\begin{lstlisting}[style=haskell]
-type Vec a      = (a, a, a)
-type Position   = Vec Float
-type Accel      = Vec Float
-
-type Mass       = Float
-type PointMass  = (Position, Mass)
-\end{lstlisting}
-%
-@Vec@ is the type of 3-component vectors, which are used to store the $x$-,
-$y$-, and $z$-components of the particle's position or acceleration in 3D space
-along each dimension in @Position@ and @Accel@ respectively. A @PointMass@ is a
-tuple containing the body's @Mass@ and @Position@.
-
-In a data-parallel setting, the natural implementation first computes the forces
-between every pair of bodies, before reducing the components applied to each
-body using a multidimensional (segmented) reduction. In Accelerate, we can calculate
-the acceleration each body experiences as it interacts with all other bodies in
-the system as follows:
-%
-\begin{lstlisting}[style=haskell]
-calcAccels :: Exp R -> Acc (Vector PointMass) -> Acc (Vector Accel)
-calcAccels epsilon bodies
-  = let n       = A.size bodies
-        cols    = A.replicate (lift $ Z :. n :. All) bodies                        -- (1)
-        rows    = A.replicate (lift $ Z :. All :. n) bodies
-    in
-    A.fold (.+.) (vec 0)                                                           -- (3)
-      $ A.zipWith (accel epsilon) rows cols                                        -- (2)
-\end{lstlisting}
-%
-\begin{enumerate}
-\item @replicate@ expands the vector of @n@ bodies into an @n@$\times$@n@
-    matrix, where we replicate the original elements of the source vector,
-    represented by @All@, such that every element down the columns or along the
-    rows of the matrix are identical, respectively. The operation @lift@ is used
-    to push the shape constructors into the expression; that is, in this
-    instance we have @lift :: (Z :. Exp Int :. All) -> Exp (Z :. Int :. All)@.
-
-\item @zipWith@ calculates the interaction between each pair of particles by
-    element wise combining the @n@$\times$@n@ matrices, which were replicated in
-    opposite directions.
-    % Since we replicated the source vector along the rows and columns, this
-    % computes all $n^{2}$ interactions.
-
-\item @fold@ reduces the result along the innermost dimension only, yielding a
-    vector containing the sum of interactions for each particle between all
-    others. The auxiliary function @(.+.)@ performs component-wise addition of
-    the 3-vector.
-\end{enumerate}
-
-This is an example of using rank polymorphic operations in Accelerate. The
-function @fold@ requires an argument array of at least rank-1 (such as a
-matrix), and the result is computed by reducing the array along the innermost
-dimension, reducing the rank of the array by one (in this case yielding a
-vector). The functions @replicate@ and @slice@ are rank polymorphic as well, but
-require more complex shape constraints that we characterise with the type family
-@FullShape@ and @SliceShape@ that statically track changing array dimensions.
-For details on the various forms of shape polymorphism,
-see~\cite{Keller:2010er}. Overall, as shown in Listing~\ref{lst:acc_operations},
-the collective operations of Accelerate are a multi-dimensional variant of those
-underlying the scan-vector model~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
-
-
-\subsubsection{Computing gravitational potential}
-
-We briefly explain how to compute the gravitational potential between a pair of
-bodies. Given $n$ bodies with position $\mathbf{x}_i$ and velocity
-$\mathbf{v}_i$ for $i \in [1,n]$ (bold face indicates a 3-component vector), the
-force $\mathbf{f}_{ij}$ on a body $i$ is caused by its gravitational attraction
-to body $j$ is given by:
-%
-\begin{equation*}
-    \mathbf{f}_{ij}
-      = G \frac{m_i m_j}{\left|\mathbf{r}_{ij}\right|^2}
-        \cdot
-        \frac{\mathbf{r}_{ij}}{\left|\mathbf{r}_{ij}\right|}
-\end{equation*}
-%
-where $m_i$ and $m_j$ are the masses of the bodies, $\mathbf{r}_{ij} =
-\mathbf{x}_j - \mathbf{x}_i$ is the vector from body $i$ to body $j$, and $G$ is
-the gravitational constant. The factor on the left represents the
-\emph{magnitude} of the acceleration, and is proportional to the product of the
-masses and diminishes as the square of the separation of the masses. The right
-factor is the \emph{direction} of the force, and is the unit vector from $i$ in
-the direction of $j$.
-
-The total force $\mathbf{F}_i$ on a body $i$ due to its interactions with the
-other bodies is thus:
-%
-\begin{equation*}
-    \mathbf{F}_i
-      = \sum_{\substack{1 \le j \le n\\j \ne i}} \mathbf{f}_{ij}
-      = G m_i \cdot \sum_{\substack{1 \le j \le n\\j \ne i}}
-            \frac{m_j \mathbf{r}_{ij}}{\left|\mathbf{r}_{ij}\right|^3}
-\end{equation*}
-%
-Note that as the bodies approach each other, the force between them grows
-without bound, which is undesirable for numerical simulations. In astrophysical
-simulation, collisions between bodies are generally precluded, which is
-reasonable if the bodies represent galaxies that may pass through each other. A
-\emph{softening factor} $\epsilon^2 > 0$ is added, which models the interaction
-of two Plummer point masses~\cite{Aarseth:2003uz,Dyer:1993bk}. In effect,
-softening limits the magnitude of forces between bodies. The denominator is
-rewritten as follows:
-%
-\begin{equation*}
-    \mathbf{F}_i \approx G m_i \cdot \sum_{1 \le j \le n}
-        \frac{m_j \mathbf{r}_{ij}}
-             {\left( \left|\mathbf{r}_{ij}\right| + \epsilon^2 \right)^{\sfrac{3}{2}}}
-\end{equation*}
-%
-The condition $j \ne i$ is no longer needed, because $\mathbf{f}_{ii} = 0$ when
-$\epsilon^2 > 0$.
-
-Finally, the acceleration experienced by a body is $\mathbf{a}_i =
-\mathbf{F}_i/m_i$, and we can now present the Accelerate routine to compute the
-acceleration between two bodies.
-%
-%\begin{equation*}
-%    \mathbf{a}_i \approx
-%    G \sum_{1 \le j \le n}
-%      \frac{m_j \mathbf{r}_{ij}}
-%           {\left( \left|\mathbf{r}_{ij}\right|^2 + \epsilon^2 \right)^{\sfrac{3}{2}}}
-%\end{equation*}
-%
-%
-\begin{lstlisting}[style=haskell]
-accel :: Exp R -> Exp PointMass -> Exp PointMass -> Exp Accel
-accel epsilon pmi pmj = (mj * invr3) *. r
-  where
-    mj          = massOfPointMass pmj
-    r           = positionOfPointMass pmj .-. positionOfPointMass pmi
-    rsqr        = dot r r + epsilon * epsilon
-    invr        = 1 / sqrt rsqr
-    invr3       = invr * invr * invr
-\end{lstlisting}
-%
-Here the functions @positionOfPointMass@ and @massOfPointMass@ extract each
-component of the @PointMass@, respectively. The function @(.-.)@ is
-component-wise subtraction applied to the 3-vector, and @(*.)@ multiplies each
-component of a 3-vector by a scalar value.
-
-
-\subsection{Non-parametric array representation}
-
-In order to make arrays available for use in embedded computations, we have the
-function @use@ (\S\ref{sec:arrays_on_the_host_and_device}). For a single array,
-it has the type:
-%
-\begin{lstlisting}[style=haskell]
-use :: (Shape sh, Elt e) => Array sh e -> Acc (Array sh e)
-\end{lstlisting}
-%
-The type classes @Shape@ and @Elt@ characterise the types that may be used as
-array indices and array elements respectively. We discussed the nature of array
-indices in section~\ref{sec:arrays_shapes_and_indices}. The @Elt@ class
-characterises the types of values that can be used as array elements, and hence
-appear in scalar Accelerate expressions. The supported @Elt@ types are signed \&
-unsigned integers (8, 16, 32, and 64-bit wide), floating point numbers (single
-\& double precision), as well as @Char@, @Bool@, and array indices formed from
-@Z@ and @(:.)@. Furthermore, there are tuples of all of those, including nested
-tuples, as was seen in the $n$-body example~(\S\ref{sec:computing_nbody}).
-
-Accelerate arrays of primitive type, such as @Int@ and @Float@, are easily
-represented as arrays of the corresponding integral and floating point types.
-More interesting is the case of arrays of tuples, where we use a non-parametric
-array representation so that arrays of tuples are represented in memory as a
-tuple of arrays, one array for each primitive type in the structure. By virtue
-of this representation, Accelerate is able to make optimal use of the available
-memory bandwidth. See section~\ref{sec:representing_tuples} for details.
-
-Moreover, consider the following types:
-%
-\begin{lstlisting}[style=haskell]
-data Point = P Int Int
-
-point :: Exp Point
-sh    :: Exp (Z :. Int :. Int)
-tup   :: Exp (Int, Int)
-\end{lstlisting}
-%
-The salient feature of each type is that it carries two integers, albeit each
-wrapped in different constructors. We call this the
-\emph{surface}\index{type!surface} type of a term. However, an Accelerate
-backend implementation should not need to know about the surface type
-representation. Indeed, we do not want to have to extend the backend to support
-every new user-defined type such as @Point@. The @Elt@ class tells us how to
-convert between the surface type of an expression that a user programs in, into
-the \emph{representation} type\index{type!representation} that an implementation
-stores and computes data in. We use a type
-family~\cite{Chakravarty:2005dx,Schrijvers:2008ir} of nested tuples to represent
-types as heterogenous snoc-lists of primitive types:
-%
-\begin{lstlisting}[style=haskell]
-type family EltRepr a :: *
-type instance EltRepr ()        = ()
-type instance EltRepr Int       = ((), Int)
-type instance EltRepr Float     = ((), Float)
-type instance EltRepr (a, b)    = (EltRepr a, EltRepr' b)
-type instance EltRepr (a, b, c) = (EltRepr (a, b), EltRepr' c)
-  -- and so on\ldots
-\end{lstlisting}
-%
-Here @EltRepr'@ is similar, except that we use a flattened representation at the
-leaves in order to avoid overly nested pairs; that is, primitive types are
-represented as @EltRepr' Int = Int@. Arrays of tuples have a similar mapping
-into a nested tuple of arrays, defined by the @Arrays@ class.
-
-
-\subsection{Richly typed terms}
-\label{sec:richly_typed_terms}
-
-%\marginnote{tk: this bit is very implementation-y}
-As a deeply embedded language, the operations of both the array and scalar
-sub-language do not directly issue computations; instead, they build term trees
-to represent embedded computations (\S\ref{sec:EDSLs}). The terms in the surface
-language use \indexe{higher-order abstract syntax} (HOAS) to embed
-function-valued scalar expressions as well as type class overloading to reflect
-arithmetic expressions. For example, the body of the @dotp@ function
-% @fold (+) 0 (zipWith (*) xs' ys')@
-is translated into:\footnote{The subterms to \footcode{add} and \footcode{mul}
-here are inline into the \footcode{Fold} and \code{ZipWith} terms respectively,
-we only use a \footcode{where}-clause to improve readability.}
-%
-\begin{lstlisting}[style=haskell]
-Fold add (Const 0) (ZipWith mul xs' ys')
-  where
-    add = \x y -> PrimAdd (FloatingNumType (TypeFloat FloatingDict))               -- (1)
-                  `PrimApp`
-                  Tuple (NilTup `SnocTup` x
-                                `SnocTup` y)
-    mul = -- as \emph{\texttt{add}}, but using \emph{\texttt{PrimMul}} ...
-\end{lstlisting}
-%
-This is very much like the approach taken by \citet{Elliott:2004hh},
-\citet{Gill:2011wy}, and \citet{Mainland:2010vj}. The difference is that in our
-approach we use GADTs~\cite{Jones:2006eh} and type
-families~\cite{Chakravarty:2005dx,Schrijvers:2008ir} to preserve the embedded
-program's type information in the term tree (1), and use type-preserving
-transformations in the front end (\S\ref{sec:manipulating_embedded_programs}).
-
-The HOAS representation, while convenient for a human reader, is awkward
-for program transformations as it complicates looking under lambdas; i.e.
-inspecting and manipulating the bodies of function abstractions. After the
-frontend reifies the embedded program written in HOAS, it recovers sharing
-(\S\ref{sec:sharing_recovery}) while converting the HOAS representation into a
-\emph{nameless} representation using \emph{typed de Bruijn indices}\index{de
-Bruijn} in the style of~\citet{Altenkirch:2003kz}. The type preserving
-conversion from HOAS to a nameless de Bruijn representation using
-GADTs~\cite{Chakravarty:2009uo} was simultaneously discovered
-by~\citet{Atkey:2009dj}.
-
-Overall, the nameless form of @dotp@ is:
-%
-\begin{lstlisting}[style=haskell]
-Fold add (Const 0) (ZipWith mul xs' ys')
-  where
-    add = Lam (Lam (Body (
-        PrimAdd (FloatingNumType (TypeFloat FloatingDict))
-                `PrimApp`
-                Tuple (NilTup `SnocTup` (Var (SuccIdx ZeroIdx))
-                              `SnocTup` (Var ZeroIdx)))))
-    mul = -- as \emph{\texttt{add}}, but using \emph{\texttt{PrimMul}} ...
-\end{lstlisting}
-%
-The @Lam@ constructor introduces nameless abstractions and @Var@ wraps a de
-Bruijn index. At this point, the program is further optimised by the frontend,
-for example by applying the fusion transformation~(\S\ref{sec:array_fusion}).
-
-Finally, we represent the environment as a heterogenous snoc-list, encoded on
-the type level as nested pairs and building this list on the value level with
-the two constructors:
-%
-\begin{lstlisting}[style=haskell]
-data Val env where
-    Empty :: Val ()
-    Push  :: Val env -> t -> Val (env, t)
-\end{lstlisting}
-%
-A nameless \indext{de Bruijn} index projects out a specific type from the
-environment:
-%
-\begin{lstlisting}[style=haskell]
-data Idx env t where                                -- an index is either\ldots
-    ZeroIdx ::              Idx (env, t) t          -- \ldots at the top of the stack, or\ldots
-    SuccIdx :: Idx env t -> Idx (env, s) t          -- \ldots under some junk
-\end{lstlisting}
-%
-Indices have type @Idx env t@, where the type @env@ keeps track of what
-variables are in scope using the same encoding of nested tuples used by the
-environment, while @t@ represents the type of a distinguished element in this
-list. At the value level, @Idx@ encodes the index of that element in the list.
-
-As terms are pushed into the environment, the type of the new term becomes
-wrapped in the type of the environment; i.e.\ @t@ is existentially quantified in
-@Push@. Our de Bruijn indices recover the wrapped type of individual elements by
-projecting the index through the environment:
-%
-\begin{lstlisting}[style=haskell]
-prj :: Idx env t -> Val env -> t
-prj ZeroIdx       (Push _   v) = v
-prj (SuccIdx idx) (Push val _) = prj idx val
-prj _             _            = error "inconsistent valuation"
-\end{lstlisting}
-
-% \marginnote{tk: use Let/Alet constructor as further example?}
-Overall, this is an example of using nested datatypes and polymorphic recursion
-to precisely enforce constraints and invariants in the type of a term; in this
-case the type and scope of bound variables. Since an embedded Accelerate program is
-constructed and evaluated at program \emph{runtime}, encoding properties in the
-type means that these invariants are checked at \emph{compile} time, reducing
-the number of possible runtime errors in type-correct programs.
 
 
 \section{Discussion}

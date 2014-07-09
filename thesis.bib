@@ -1,4 +1,4 @@
-%% Created using Papers on Tue, 24 Jun 2014.
+%% Created using Papers on Wed, 09 Jul 2014.
 %% http://papersapp.com/papers/
 
 @book{Altenkirch:2003kz,
@@ -493,7 +493,7 @@ month = sep
 
 @article{Barnes:1986,
 author = {Barnes, Josh and Hut, Piet},
-title = {{A hierarchical $\mathcalO(N \log N)$ force--calculation algorithm}},
+title = {{A hierarchical $\mathcal{O}(N \log N)$ force-calculation algorithm}},
 journal = {Nature},
 year = {1986},
 volume = {324},
@@ -1030,11 +1030,14 @@ editor = {Deussen, O and Hansen, C and Keim, D A and Saupe, D},
 pages = {221--230}
 }
 
-@techreport{UPC:2005,
-author = {{UPC Consortium}},
-title = {{UPC Language Specification, v1.2}},
-year = {2005},
-month = may
+@article{Hartigan:1979kv,
+author = {Hartigan, J A and Wong, M A},
+title = {{Algorithm AS 136: A K-Means Clustering Algorithm}},
+journal = {Applied Statistics},
+year = {1979},
+volume = {28},
+number = {1},
+pages = {100}
 }
 
 @article{Williams:2009cy,
@@ -1067,12 +1070,14 @@ number = {7},
 pages = {54--62}
 }
 
-@techreport{Blelloch:1990vl,
-author = {Blelloch, Guy E.},
-title = {{Prefix Sums and Their Applications}},
-year = {1990},
-number = {CMU-CS-90-190},
-month = nov
+@inproceedings{Robison:2011dc,
+author = {Robison, Austin},
+title = {{Domain specific compilation in the NVIDIA OptiX ray tracing engine}},
+booktitle = {DAMP '11: The 6th workshop on Declarative Aspects of Multicore Programming},
+year = {2011},
+pages = {1},
+publisher = {ACM Press},
+address = {New York, New York, USA}
 }
 
 @article{Sipelstein:1991fp,
@@ -1084,6 +1089,13 @@ volume = {79},
 number = {4},
 pages = {504--523},
 month = apr
+}
+
+@article{CUSPGenericParall:2013ue,
+author = {Bell, Nathan and Garland, Michael},
+title = {{CUSP: Generic Parallel Algorithms for Sparse Matrix and Graph Computations}},
+year = {2013},
+annote = {Version 0.3.0}
 }
 
 @article{Subhlok:1997,
@@ -1106,14 +1118,6 @@ number = {3},
 pages = {400--462}
 }
 
-@techreport{CTM:2006,
-author = {{AMD}},
-title = {{ATI CTM Guide, v1.01}},
-year = {2006},
-month = nov,
-annote = {Deprecated.}
-}
-
 @inproceedings{Fatahalian:2006,
 author = {Fatahalian, Kayvon and Horn, Daniel Reiter and Knight, Timothy J. and Leem, Larkhoon and Houston, Mike and Park, Ji Young and Erez, Mattan and Ren, Manman and Aiken, Alex and Dally, William J. and Hanrahan, Pat},
 title = {{Sequoia: programming the memory hierarchy}},
@@ -1123,6 +1127,16 @@ pages = {83},
 publisher = {ACM},
 address = {New York, NY, USA},
 annote = {Data-parallel language that adds the concepts of tunables and recursion over the memory hierarchy in order to better exploit memory locality. This permits code to be structured so that a recursive problem can be conveniently mapped onto the many levels of parallelism and memory in a parallel processor.}
+}
+
+@inproceedings{Gautier:2013bp,
+author = {Gautier, Thierry and Lima, Jo ao V F and Maillard, Nicolas and Raffin, Bruno},
+title = {{XKaapi: A Runtime System for Data-Flow Task Programming on Heterogeneous Architectures}},
+booktitle = {IPDPS '13: IEEE International Symposium on Parallel {\&} Distributed Processing},
+year = {2013},
+pages = {1299--1308},
+publisher = {IEEE},
+month = may
 }
 
 @article{Myer:1968,
@@ -1136,11 +1150,14 @@ pages = {410--414},
 annote = {Wheel of reincarnation: Term used to refer to a well-known effect whereby function in a computing system family is migrated out to special-purpose peripheral hardware for speed, then the peripheral evolves toward more computing power as it does its job, then somebody notices that it is inefficient to support two asymmetrical processors in the architecture and folds the function back into the main CPU, at which point the cycle begins again}
 }
 
-@techreport{Glaskowsky:2009,
-author = {Glaskowsky, Peter N.},
-title = {{NVIDIA's Fermi: The First Complete GPU Computing Architecture}},
-year = {2009},
-month = sep
+@inproceedings{Pandit:2014kk,
+author = {Pandit, Prasanna and Govindarajan, R},
+title = {{Fluidic Kernels: Cooperative Execution of OpenCL Programs on Multiple Heterogeneous Devices}},
+booktitle = {CGO '14: The 12th IEEE/ACM International Symposium on Code Generation and Optimization},
+year = {2014},
+pages = {273},
+publisher = {ACM},
+month = feb
 }
 
 @inproceedings{Ueng:2008,
@@ -1155,6 +1172,13 @@ month = nov,
 annote = {A source-to-source transformation that takes a (straightforward) implementation of a CUDA kernel that utilises only global memory, and optimises the memory performance. Requires some programmer annotations, and currently does not use constant or texture memory. The main focus is coalescing global memory access -- threads in a block sync and load all data (coalesced) into shared memory, regardless or not if there is data reuse (although it appears annotations exist for a tiling transformation) Newer hardware generations have significantly relaxed memory access coalescing rules...}
 }
 
+@techreport{UPC:2005,
+author = {{UPC Consortium}},
+title = {{UPC Language Specification, v1.2}},
+year = {2005},
+month = may
+}
+
 @inproceedings{McBride:2004jt,
 author = {McBride, Conor and McKinna, James},
 title = {{I am not a number -- I am a free variable}},
@@ -1166,6 +1190,14 @@ address = {New York, NY, USA},
 annote = {http://www.e-pig.org/epilogue/?p=773}
 }
 
+@techreport{Blelloch:1990vl,
+author = {Blelloch, Guy E.},
+title = {{Prefix Sums and Their Applications}},
+year = {1990},
+number = {CMU-CS-90-190},
+month = nov
+}
+
 @article{Barrett:2008,
 author = {Barrett, R. F. and Alam, S. R. and Almeida, V. F. d. and Bernholdt, D. E. and Elwasif, W. R. and Kuehn, J. A. and Poole, S. W. and Shet, A. G.},
 title = {{Exploring HPCS languages in scientific computing}},
@@ -1175,6 +1207,14 @@ volume = {125},
 number = {1},
 pages = {12034},
 annote = {Compares three HPC languages under development, Chapel, Fortress, and X10. These are new, high-level languages with support for object oriented and generic programming, and provide a broad range of contstructs for expressing both task and data parallelism at multiple levels, with a global view of data. A good background on related (now, historical) work. MPI combined with a sequential language, often coupled with OpenMP as well. Failure of HPF, an early attempt at a truly parallel language that pushed too far, too soon. CAF, UPC and Titanium, which provide only minimal extensions to their base languages. ZPL, which demonstrated a high-level approach to array operations (s.c. NESL?). Provides two fairly detailed examples of parallel expression in these languages with a finite difference problem (PDE: data decomposition), and Hartree-Fock algorithm (task parallelism of distributed data). Describes different features the languages support to express these types of parallelism easily. Provides a decent outline of these languages. Optimistic about new features, but (sensibly) cautions that the languages are not yet mature enough for a reasonable evaluation to long-standing approaches.}
+}
+
+@techreport{CTM:2006,
+author = {{AMD}},
+title = {{ATI CTM Guide, v1.01}},
+year = {2006},
+month = nov,
+annote = {Deprecated.}
 }
 
 @inproceedings{Elliott:2004hh,
@@ -1229,6 +1269,13 @@ month = aug,
 annote = {A prefix-sum implementation for GPUs shown to be more efficient than that of Horn:2005 (GPU Gems 2).}
 }
 
+@techreport{Glaskowsky:2009,
+author = {Glaskowsky, Peter N.},
+title = {{NVIDIA's Fermi: The First Complete GPU Computing Architecture}},
+year = {2009},
+month = sep
+}
+
 @mastersthesis{Svensson:2008,
 author = {Svensson, Joen and Claessen, Koen and Sheeran, Mary},
 title = {{Obsidian: An embedded language for data--parallel programming}},
@@ -1245,6 +1292,13 @@ pages = {69--78},
 publisher = {Eurographics Association},
 address = {Aire-la-Ville, Switzerland, Switzerland},
 annote = {A polynomial-time algorithm for partitioning fragment shaders into multiple phases. Find near-optimal partitions for a number of shaders on architectures with different resources limitations and different cost models. Could be applicable for my work.}
+}
+
+@techreport{Stevens:2006uo,
+author = {Stevens, Marc},
+title = {{Fast Collision Attack on MD5}},
+year = {2006},
+number = {104}
 }
 
 @book{Chatterjee:2009vh,
@@ -1285,6 +1339,13 @@ number = {3},
 pages = {291--312},
 month = sep,
 annote = {Provide an overview of data-parallel programming languages, breaking down languages by their design principles. Defines parallel programming productivity as a combination of performance, programmability, portability and robustness. Describes their work on the language Chapel, which strives to impact positively in all of these areas. Argues that as many data-parallel languages require programmers to write in a SPMD style, makes it difficult to express nested data or data/task parallelism. Such fragmented programming models make it fairly easy to understand and reason about, but require programmers to express algorithms on a task-by-task basis, explicitly decomposing data structures and control flow into per-task chunks. Rather negative of SPMD. Expounds the global programming model, expressing algorithms and data structures as a whole without needing to specify the mapping onto threads (or specifying only when necessary for performance-critical sections). Supports many other data/task parallelism initiatives.}
+}
+
+@techreport{Xie:2013uo,
+author = {Xie, Tao and Liu, Fanbao and Feng, Dengguo},
+title = {{Fast Collision Attack on MD5}},
+year = {2013},
+number = {170}
 }
 
 @article{Blelloch:1998eo,

@@ -173,17 +173,92 @@ processor thread and memory hierarchy, which is of crucial importance to
 achieving high performance.
 
 
-% \subsection{A language of collective array operations}
-% \subsection{A fusion system for embedded array languages}
-% \subsection{A high-performance implementation for CUDA GPUs}
-%
-% \section{Related work}
-%
-% \section{Future work}
-% \subsection{Type-preserving code generation}
-% \subsection{Nested data parallelism}
-% \subsection{Flexibility in the optimisation pipeline}
+\section{Related work}
 
+
+\section{Future work}
+
+Based on the results of this thesis, a wide range of interesting future work is
+possible. The previous chapters and the analysis of the benchmark results in
+particular have already given suggestions for future work; these are not
+repeated here, but some further topics are discussed.
+
+\subsection{Nested data parallelism}
+
+This thesis has demonstrated a high level array programming language and runtime
+environment that is expressive and has performance competitive to much lower
+level imperative program languages. However, the Accelerate language is
+restricted to programs which express only \emph{flat} data parallelism, in which
+the computation of each data element must itself be sequential. In practice,
+this severely limits the applications of data-parallel computing, especially for
+sparse and irregular problems~\cite{Prins:1999}.
+
+Blelloch's pioneering work on NESL showed that it was possible to combine the
+more flexible model of \emph{nested} data parallelism, where the computation of
+each element may spawn further parallel computations, with a flat data parallel
+execution model~\cite{Blelloch:1988iu}. Recent work has extend the flatting
+transformation to support richer data types and higher order
+functions~\cite{Jones:2008uu}.
+
+Extending the Accelerate language to support the expression nested parallelism,
+and implementing the vectorisation transformation to convert this nested
+parallelism into a flat data parallel program which can be executed on the
+compiler and runtime system presented in this thesis, is worthwhile future work.
+This would allow Accelerate to support programs that are very difficult to
+parallelise in a flat data parallel setting, such as the Barnes-Hut algorithm
+for $N$-body simulation~\cite{Barnes:1986}.
+
+
+\subsection{Type-preserving code generation}
+
+The Accelerate language is richly typed, maintaining full type information of
+the embedded language in the term tree and during the transformations described
+in this thesis. Since Accelerate is an embedded language implemented via online
+compilation, compilation time of the Accelerate program corresponds to Haskell
+program \emph{runtime}. By encoding type information into the Accelerate terms
+that are checked by the Haskell type checker at Haskell compile time, we ensure
+that only well formed Accelerate programs will be compiled, reducing the number
+of possible runtime errors.
+
+Although we ensure the source Accelerate program is well typed, the
+implementation of code generation presented in this thesis does not reflect the
+types of the target language into the Haskell type system. Thus, any errors in
+translating the Accelerate program into CUDA source code will not be detected at
+Haskell compilation time, and will instead raise a runtime error when the
+program is executed. Adding a fully type preserving compiler that translates the
+well-typed Accelerate program into a verifiable target code is left for future
+work.
+
+
+\subsection{Flexibility in the optimisation pipeline}
+
+Chapter~\ref{ch:results} demonstrated the positive effects of the optimisations
+that have been presented in this thesis. However, the optimisation pipeline is
+completely fixed, so changing or extending the set of optimisations requires
+changing the compiler itself.
+
+Useful future work would be the ability to control the existing optimisation
+process, for example by specifying the eagerness with which producer operations
+should be fused. This would allow the user to override the default behaviour of
+always fusing expressions that are used exactly once in subsequent computations.
+
+Orthogonal to this work would be the ability to extend the optimisation process
+through the implementation of a system of extensible rewrite
+rules~\cite{Jones:2001wm}. Although our host language Haskell compiler supports
+rewrite rules, since Accelerate programs can be generated at program runtime, we
+require rewrite rules at program runtime as well. In addition to allowing the
+compiler to generate rules internally to propagate information obtained from
+automated analyses, this would allow library authors to express domain specific
+knowledge that the compiler can not discover for itself. For example, the author
+of a library of linear algebra routines might like to express the equivalence
+that $x^{-1}x \mapsto 1$, or the less obvious $\left( 1 - x y \right)^{1}x
+\mapsto x \left( 1 - y x \right)^{-1}$. While a programmer may be unlikely to
+write such expressions themselves, they can easily appear when aggressive
+inlining brings together code that was written separately. Adding the ability to
+add rewrite rules to the program could be a very powerful feature, but raises
+questions such as verifying whether the programmer-specified rules are
+consistent with the underlying function definitions that they purport to
+describe, or that the set of rules are confluent or even terminating.
 
 
 % \begin{itemize}

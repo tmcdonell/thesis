@@ -2367,10 +2367,10 @@ then combine these $n$ collective operations into a single operation containing
 $n$ instances of the loop body. However, it was found that the CUDA compiler was
 not well suited to compiling the manually unrolled loop C compilers don't
 compile C code, they compile \emph{idiomatic} C code. The loop recovery
-simplification was thus designed to convert the unrolled loop body back into an
-explicit iteration form, and in part this relied on the structure of let terms,
-which could be obfuscated by shrinking. Following the introduction of explicit
-iteration, loop recovery has since been disabled.}
+simplification (\S\ref{sec:loop_recovery}) was thus designed to convert the
+unrolled loop body back into an explicit iteration form, and in part this relied
+on the structure of let terms, which could be obfuscated by shrinking. Following
+the introduction of explicit iteration, loop recovery has since been disabled.}
 we perform scalar simplifications before shrinking. Additionally, both the
 simplification and shrinking operations return a boolean indicating whether or
 not the operation made any changes to the AST. The scalar optimisation pipeline

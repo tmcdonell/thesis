@@ -1,6 +1,30 @@
 %
 % conclusions, related work, future work
 %
+%
+% aim:
+%   implement programming language targeting parallel hardware / GPUs
+%
+% why:
+%   higher level of abstraction, still competitive with hand-written / lower
+%   level programs.
+%
+% how:
+%   (a) purely functional language of parallel array operations
+%   (b) runtime code generationn
+%   (c) runtime system for efficiently managing stuff
+%   (d) sharing and fusion optimisations
+%
+% result:
+%   * results show that we have achieved this for a range of benchmark programs.
+%     significant future work will be the support expressing nested data
+%     parallel programs.
+%
+%   * Some things remain difficult/impossible to express (general recursion,
+%     nested parallelism) or are less efficient..?
+%
+% last: overall we can see that i should get a floopy hat
+
 
 \chapter{Conclusion}
 \label{ch:conclusion}
@@ -13,17 +37,152 @@ and a new generation grows up that is familiar with it.}%
 % \epigraph{The best way to predict the future is to implement it.}
 % {\textsc{---david heinemeier hansson}}
 
+% Purely functional programming is a good model for programming massively parallel
+% SIMD processors such as graphics processing units. Indeed, all current GPU
+% programming models, including CUDA, an imperative C-like programming language,
+% implicitly emphasise a purely functional style for writing kernels, where global
+% effects must be tightly controlled by the user. Indeed, functional programming
+% may be \emph{the} main virtue of GPU programming, even if this fact is not
+% widely recognised.
+
+% Bubbabear worked thuuuuuuuuper hard to write the thesises. Pwease give him his
+% doctor hat now pweaaaaaaaaaaaaaaaase~<3
+
+The present dissertation argues that purely functional embedded languages
+represent a good programming model for massively parallel SIMD hardware. Indeed,
+all current GPU programming models, including CUDA --- the standard, imperative,
+C-like programming language for NVIDIA GPUs --- implicitly emphasise a purely
+functional style of writing kernels, where global side-effects must be tightly
+controlled by the user.
+
+To this end, this thesis has developed a purely functional language, compiler,
+and runtime system for executing flat data-parallel array computations targeting
+graphics processing units. When implementing such an embedded language, the
+na\"ive compilation of such programs quickly leads to both code explosion and
+excessive intermediate data structures. The resulting slowdown is not acceptable
+on target hardware that is usually chosen to achieve high performance. This
+thesis demonstrates that our embedding in Haskell, combined with the program
+optimisations and runtime system that I have implemented in this thesis, are a
+successful approach to implementing an expressive array programming language
+targeting bulk-parallel SIMD hardware. Moreover, I demonstrate that the
+Accelerate language and CUDA backend that I developed offers a higher level of
+abstraction while often approaching the performance of traditional low-level
+methods for programming GPUs.
+
+Chapter~\ref{ch:accelerate} introduces Accelerate, an embedded language of
+parameterised, collective array operations. Accelerate is our approach to
+reducing the complexity of programming massively parallel multicore processors
+such as GPUs. The choice of language operations is informed by the scan-vector
+model, which has been shown to be suitable for a wide range of algorithms and
+can be efficiently implemented on the GPU\@. We extend this model with
+parameterised, rank-polymorphic operations over multidimensional arrays, making
+Accelerate more expressive than previous high-level GPU programming language
+proposals.
+
+Chapter~\ref{ch:implementation} details how I implemented the Accelerate backend
+which targets programmable graphics processing units. While the current
+implementation targets CUDA, the same approach works for other target languages
+such as OpenCL and LLVM. In the implementation of Accelerate's CUDA backend, I
+regard the collective operations of the Accelerate language as algorithmic
+skeletons, where a parallel program is composed of one or more parameterised
+skeletons, or templates, encapsulating specific parallel behaviour. The
+dynamically generated code is specialised to the capabilities of the current
+hardware, and to minimise the overhead of online compilation, kernels are
+compiled in parallel and asynchronously with other operations, and previously
+compiled kernels are cached and reused. The runtime system automatically manages
+data on the GPU, minimising allocations and data transfers and overlapping
+host-to-device transfers with other operations. The execution engine optimises
+kernel launches for the current hardware to maximise thread occupancy, and
+kernels are scheduled so that independent operations are executed concurrently,
+for devices that support this capability. All this and more is done to ensure
+that the Accelerate runtime system executes programs as efficiently as possible.
+
+Chapter~\ref{ch:optimising} describes our solution to what we found as the two
+most pressing performance limitations for executing embedded array computations:
+sharing recovery and array fusion. In particular, Chapter~\ref{ch:optimising}
+discusses my novel approach to type-safe array fusion for compilers targeting
+bulk-parallel SIMD hardware. Fusion for a massively data-parallel embedded
+language instrumented via algorithmic skeletons requires a few uncommon
+considerations compared to existing shortcut fusion methods. This problem was
+tacked by classifying array operations into two categories: producers are
+operations where individual elements are computed independently, while consumers
+need to know exactly how the input elements depend on each other in order to
+implement the operation efficiently in parallel. The problem with existing
+fusion systems is that this information is obfuscated, and as a result the
+parallel interpretation of the program is lost. Program fusion is realised in
+two stages. First, sequences of producer operations are fused using
+type-preserving source-to-source term rewrites. In the second stage, the fused
+producer representation is embedded directly into the consumer skeleton during
+code generation. This phase distinction is necessary in order to support the
+different properties of producers and consumers.
+
+Following these two main chapters, Chapter~\ref{ch:results} presents a series of
+benchmarks comparing the performance of the Accelerate program to hand-optimised
+reference implementations. The benchmarks illustrate the positive effect of the
+optimisations discussed in this thesis, and the accompanying analyses discuss
+future work that can be undertaken in cases where the performance of the
+Accelerate program is lower than that of the reference solution. Overall, I have
+demonstrated that the Accelerate language is suitable for expressing a wide
+range of programs, and that the runtime system and program optimisations
+described in this thesis result in programs that are often competitive with low
+level, hand optimised solutions.
+
+
 \section{Research contribution}
-\subsection{A language of collective array operations}
-\subsection{A fusion system for embedded array languages}
-\subsection{A high-performance implementation for CUDA GPUs}
 
-\section{Related work}
+This thesis presents two main research contributions. First, it demonstrates how
+to implement a high-performance embedded language and runtime system. Second, it
+establishes a novel method of array fusion for languages targeting bulk-parallel
+SIMD hardware. Together, these contributions provide an embedded language of
+array operations, which achieves performance comparable to traditional
+imperative language approaches, but at a much higher level of abstraction.
 
-\section{Future work}
-\subsection{Type-preserving code generation}
-\subsection{Nested data parallelism}
-\subsection{Flexibility in the optimisation pipeline}
+\subsection{A high-performance embedded language}
+
+While the current generation of graphics processing units are massively parallel
+processors with peak arithmetic and memory throughput rates much higher than
+traditional CPUs, programming them remains a work intensive exercise that
+requires a substantial degree of expert knowledge. While several researchers
+have proposed ameliorate the status quo, by either using a library to compose
+GPU code or by compiling a subset of a high-level language to low-level GPU
+code, no high-level embedded language has addressed either the breath of
+operations supported by Accelerate, nor the underlying runtime system necessary
+to achieve competitive performance.
+
+The implementation of Accelerate's CUDA backend, covered in
+Chapter~\ref{ch:implementation}, is original in that it successfully addresses
+these problems. While the current implementation targets CUDA, the approach to
+code generation works for other target languages, and the runtime system is
+applicable to any deeply embedded language which coordinates with a foreign
+language or library in order to evaluate computations.
+
+
+\subsection{A fusion system for parallel array languages}
+
+Although the topic of fusion has received significant prior attention in
+the context functional programming languages, none of the existing techniques
+are adequate for type-preserving embedded language compilers targeting massively
+parallel SIMD hardware, such as GPUs.
+
+The implementation of fusion for array languages implemented via algorithmic
+skeletons, as developed in Chapter~\ref{ch:optimising}, is original. In
+particular, by retaining the structure of the program as a sequence of
+collective operations, we are able to generate efficient parallel
+implementations of fused operations that are able to exploit all levels of the
+processor thread and memory hierarchy, which is of crucial importance to
+achieving high performance.
+
+
+% \subsection{A language of collective array operations}
+% \subsection{A fusion system for embedded array languages}
+% \subsection{A high-performance implementation for CUDA GPUs}
+%
+% \section{Related work}
+%
+% \section{Future work}
+% \subsection{Type-preserving code generation}
+% \subsection{Nested data parallelism}
+% \subsection{Flexibility in the optimisation pipeline}
 
 
 

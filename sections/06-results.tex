@@ -913,7 +913,7 @@ program, because every thread always executes until the iteration limit.
 
 \subsection{Explicit iteration}
 
-Following our most recent published results~\cite{McDonell:2013wi}, we added
+Although not yet appearing in any published materials, we have added
 explicit value recursion constructs to the source and target languages. Robert
 Clifton-Everest implemented the necessary changes to the sharing recovery
 algorithm, while I implemented the backend changes for code generation and
@@ -1094,14 +1094,13 @@ the fused program requires only $\mathcal{O}\left( n \right)$ space, it still
 requires all $\mathcal{O}\left( n^2 \right)$ memory accesses, and $n^{2}$
 threads to cooperatively compute the interactions.
 
-With the addition of sequential iteration following our most recent
-publication~\cite{McDonell:2013wi}, we can emit an alternative implementation.
-Rather than computing all interactions between each pair of bodies and reducing
-this array in parallel, we express the program as a parallel map of sequential
-reductions, as shown in Listing~\ref{lst:nbody_seq}. Although the program still
-performs all $n^{2}$ memory accesses, since all threads access the @bodies@
-array in sequence, these values can be cached efficiently by the GPU, and the
-actual bandwidth requirements to main memory are reduced.
+With the addition of sequential iteration, we can emit an alternative
+implementation. Rather than computing all interactions between each pair of
+bodies and reducing this array in parallel, we express the program as a parallel
+map of sequential reductions, as shown in Listing~\ref{lst:nbody_seq}. Although
+the program still performs all $n^{2}$ memory accesses, since all threads access
+the @bodies@ array in sequence, these values can be cached efficiently by the
+GPU, and the actual bandwidth requirements to main memory are reduced.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:nbody_seq

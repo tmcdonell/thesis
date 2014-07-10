@@ -999,3 +999,23 @@ the variable indices shift by. Using @sink@, we can weaken terms based on the
 witness provided by @Extend@.
 
 
+
+\section{Related work}
+
+Conal's early work (vertigo), Nikola, Obsidian.
+
+
+\section{Discussion}
+
+This chapter has covered the design of our Haskell-based purely functional
+embedded language, which can express a wide range of programs over regular
+multidimensional arrays. We have also discussed methods for the type safe
+representation of programs, and several base techniques for type preserving
+manipulation of those programs.
+
+The next chapter covers my implementation of the CUDA based Accelerate backend
+which executes Accelerate programs on massively parallel GPUs. The next chapter
+also covers issues such as caching, which must be considered in order to ensure
+that the embedded language exhibits performance competitive to traditional
+offline compiled languages.
+

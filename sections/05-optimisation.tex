@@ -1913,7 +1913,9 @@ that additionally includes a source-to-source fusion mechanism based on list
 homomorphisms. SkeTo~\cite{Matsuzaki:2011ew} is a C++ library that provides
 parallel skeletons for CPUs. SkeTo's use of C++ templates provides a fusion
 system similar to delayed arrays, which would be equivalently implemented using
-CUDA templates.
+CUDA templates. In contrast, the popular Thrust~\cite{ThrustAParallelT:ub}
+library of C++ templates requires users to fuse operations manually through the
+construction of iterators.
 
 
 % TODO:

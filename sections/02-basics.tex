@@ -809,15 +809,11 @@ yet can efficiently make use of large numbers of processors. We introduced the
 idea of using graphics processors for general purpose computing tasks, and show
 that GPU computing, and CUDA in particular, are data-parallel programming
 models. Finally, we have introduced the idea of embedded domain-specific
-languages and runtime code generation as a way to make use of GPUs from a
-high-level language, before outlining the design of our embedded language of
-parameterised, data-parallel array operations.
+languages.
 
-The next chapter covers the implementation of the Accelerate language, such as
-skeleton-based code generation and subsequent execution on GPUs. We also cover
-issues such as caching, which must be considered in order to ensure that the
-embedded language retains performance competitive to traditional offline
-compiled languages.
+The next chapter ties these ideas together to introduce Accelerate: an embedded
+language of array computations that has been designed with massive data parallel
+processors such as GPUs in mind.
 
 
 % MMTC: Chapter 2 (Background): Don't bother introducing Haskell and things like

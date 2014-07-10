@@ -10,17 +10,38 @@ working that persists after confidence breaks down.}%
 {\textsc{---walter kirn}}
 
 
+Starting with Fortran, array-based code has played a central role in
+high-performance computing. Array-based programming has proved to be successful
+not only on data-parallel (SIMD) hardware such as the CM-2, vector computers,
+and modern graphics processing units (GPUs), but also on control parallel (MIMD)
+hardware such as distributed memory, symmetric multiprocessor (SMP), and
+multicore machines.
+
+Recent work on stream fusion in the vector
+library~\cite{Coutts:2007kp,Mainland:2013ez} and the parallel array library
+Repa~\cite{Keller:2010er,Lippmeier:2011cd,Lippmeier:2012gx} have demonstrated
+that purely functional array code in Haskell (1) can be competitive with the
+performance of imperative array programs; and (2) lends itself to an efficient
+parallel implementation on control-parallel multicore CPUs.
+
+So far, less successful has been the use of purely functional array programs for
+programming data-parallel SIMD hardware. This chapter describes the Accelerate
+language, our purely functional language over regular, multidimensional arrays,
+which has been designed to allow efficient execution on massively data-parallel
+hardware such as GPUs.
+
+
 \section{The Accelerate EDSL}
 \label{sec:accelerate}
 
-The current generation of graphical processing units (GPUs) are massively
-multicore processors (\S\ref{sec:gpu_computing}). They are optimised for
-workloads with a large degree of data parallelism (\S\ref{sec:data_parallelism})
-and good performance depends on highly idiomatic programs with low SIMD
-divergence and regular memory-access patterns~\cite{NVIDIA:2012wf}. Hence, the
-development of applications that use the graphics processors for general purpose
-computations (\S\ref{sec:gpu_computing}) is work intensive and requires a
-substantial degree of expert knowledge.
+The current generation of graphical processing units are massively multicore
+processors (\S\ref{sec:gpu_computing}). They are optimised for workloads with a
+large degree of data parallelism (\S\ref{sec:data_parallelism}) and good
+performance depends on highly idiomatic programs with low SIMD divergence and
+regular memory-access patterns~\cite{NVIDIA:2012wf}. These unusual
+characteristics of GPUs means that the development of applications that use the
+graphics processors for general purpose computations (\S\ref{sec:gpu_computing})
+is work intensive and requires a substantial degree of expert knowledge.
 
 Accelerate is our approach to reducing the complexity of GPU programming: a
 high-level, deeply embedded domain-specific language (\S\ref{sec:EDSLs}) of

@@ -998,7 +998,21 @@ witness provided by @Extend@.
 
 \section{Related work}
 
-Conal's early work (vertigo), Nikola, Obsidian.
+Vertigo~\cite{Elliott:2004hh} is an embedded language in Haskell that exposes a
+functional language for 3D graphics, together with an optimising compiler that
+generates DirectX shader code for the graphics processor. Vertigo is a first
+order language, so does not provide higher-order combinators such as @map@ and
+@fold@.
+
+Obsidian~\cite{Svensson:2008a} and Nikola~\cite{Mainland:2010vj} are embedded
+languages in Haskell for array programming, both of which target parallel
+execution on graphics processors. Compared to Accelerate, the programming
+languages of both Obsidian and Nikola are severely restricted. Both are limited
+to a single computation over one dimensional vectors, whereas Accelerate
+supports multidimensional arrays and computations can span many kernels. Due to
+its compilation method, Nikola only supports @map@-like functions, while
+Obsidian is able to encode more complex operations such as @scan@, due to its
+lower level interface that exposes more details of the GPU hardware.
 
 
 \section{Discussion}

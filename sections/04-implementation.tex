@@ -11,9 +11,14 @@ working that persists after confidence breaks down.}%
 
 
 The previous chapter described the design of the Accelerate language, an
-embedded DSL of operations over arrays, rich enough to express some interesting
-real-world problems. This chapter details the architecture and implementation of
-a backend for parallel execution on CUDA hardware.
+embedded DSL of purely functional operations over regular multidimensional
+arrays. Accelerate is a rich language based on the scan-vector model, and is
+able to express some interesting real-world problems. The Accelerate language is
+designed with the idea of executing purely functional array programs on
+massively data-parallel hardware. This chapter details the implementation of the
+Accelerate backend targeting parallel execution on CUDA graphics processing
+units.
+
 
 \section{Embedding GPU programs as skeletons}
 \label{sec:code_generation}

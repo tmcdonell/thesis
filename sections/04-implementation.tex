@@ -2410,7 +2410,7 @@ internally to provide a higher level of abstraction to compile, link, cache, and
 execute CUDA code. Both Parakeet~\cite{Rubinsteyn:2012ve} and Anaconda
 Accelerate~\cite{AnacondaAccelerate:2013vn} are Python libraries that attempt to
 just-in-time compile a subset of Python code that uses the
-NumPy~\cite{NumPy:2006uq} array library to instead target the GPU.
+NumPy~\cite{NumPy:2006uq} array library to instead target the GPU\@.
 
 The Jacket~\cite{AccelerEyes:vq} extension to Matlab supports offloading matrix
 computations to GPUs by introducing new datatypes for matrices allocated in GPU
@@ -2420,8 +2420,9 @@ matrices triggers execution of suitable GPU kernels.
 
 \subsection{Other approaches}
 
-Delite/LMS~\cite{Rompf:2013er} is a parallelisation framework for DSLs in Scala,
-and has several backend targets including CPUs and GPUs.
+Delite/LMS~\cite{Rompf:2013er} is a compiler framework for writing parallel domain
+specific languages in Scala. It includes several backend code generation targets
+including C++ and CUDA\@.
 
 NDP2GPU~\cite{Bergstrom:2012bi} compiles NESL~\cite{Blelloch:1995ut} code to
 CUDA. Performance suffers because the implementation relies on the legacy NESL

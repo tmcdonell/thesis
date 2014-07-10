@@ -2326,21 +2326,23 @@ This section explores some of these approaches.
 
 Vertigo~\cite{Elliott:2004hh} is an embedded language in Haskell for GPGPU
 programming. Vertigo is a statically compiled graphics language targeting the
-DirectX 8.1 shader model, and does not offer higher-order combinators such as
-@map@ and @fold@.
+DirectX shader model, and does not offer higher-order combinators such as @map@
+and @fold@.
 
 Obsidian~\cite{Svensson:2008a} and Nikola~\cite{Mainland:2010vj} are also
 Haskell EDSLs for GPGPU programming, and are in aim and spirit the embeddings
 closest to Accelerate. Both Nikola and Obsidian produce CUDA code as we do,
 however while we use algorithmic skeletons (\S\ref{sec:code_generation}), Nikola
-explicitly schedules loops, and Obsidian is a lower level language where more
-details of the GPU hardware are exposed to the programmer. Moreover, the
-Accelerate language is more expressive, supporting generative functions such as
-@replicate@, and Accelerate computations can span multiple GPU kernels, whereas
-both Nikola and Obsidian can only express array computations that can be
-implemented in a single GPU kernel. Algorithms spanning multiple kernels need to
-be explicitly scheduled by the application programmer and incur additional
-host-device data transfer overhead, which can be rather significant.
+explicitly schedules loops, limiting it to @map@-like operations, and Obsidian
+is a lower level language where more details of the GPU hardware are exposed to
+the programmer. Moreover, the Accelerate language is more expressive, supporting
+multidimensional arrays, generative functions such as @replicate@, and
+Accelerate computations can span multiple GPU kernels. Both Nikola and Obsidian
+can only express array computations that can be implemented in a single GPU
+kernel over one dimensional vectors. In both Obsidian and Nikola, algorithms
+spanning multiple kernels need to be explicitly scheduled by the application
+programmer and incur additional host-device data transfer overhead, which incurs
+as severe performance penalty.
 
 % \marginnote{tk: to related work for fusion?}
 % Recent versions of Obsidian~\cite{Claessen:2012hl} implement

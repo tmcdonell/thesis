@@ -30,3 +30,7 @@ plot    'radixsort.dat' using ($1):($2)                                 \
                 title "Thrust"                                          \
                 ls 1  lw 4 with linespoints
 
+#        'radixsort-nikola.dat' using ($1/1000000):($2)                  \
+#                title "Nikola"                                          \
+#                ls 8  lw 4 with linespoints
+

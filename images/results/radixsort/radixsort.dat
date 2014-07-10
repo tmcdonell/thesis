@@ -1,4 +1,4 @@
-# Radix Sort 
+# Radix Sort
 # Elements (million)    Accelerate      Accelerate (+sharing)   Accelerate (+fusion)    CUDA    Vector
 0.2     30.9323762376238        30.8629702970297        24.3421782178218        1.82896         773.4085
 0.4     59.1837623762376        59.0442574257426        46.419900990099         2.20111         1571.949

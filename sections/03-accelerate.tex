@@ -1,3 +1,5 @@
+% The front end accelerate language
+%
 
 \chapter{Embedding array computations}
 \label{ch:accelerate}
@@ -48,7 +50,7 @@ informed by the \emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is
 suitable for a wide range of algorithms, and demonstrated that these operations
 can be efficiently implemented on modern GPUs~\cite{Sengupta:2007tc}.
 
-We regard Accelerate's collective array operations as algorithmic
+I regard Accelerate's collective array operations as algorithmic
 skeletons~(\S\ref{sec:code_generation}) that capture appropriate GPU programming
 idioms. The dynamic code generator instantiates CUDA implementations of these
 skeletons~(\S\ref{sec:parallel_algorithms_in_cuda}) to implement embedded array
@@ -223,14 +225,13 @@ the device (the GPU), whereas regular Haskell code runs on the host (the CPU).
 The signatures of the two operations @zipWith@ and @fold@, used in the
 definition of @dotp@, are shown in Listing~\ref{lst:acc_operations}. These
 operations are multidimensional variants of the corresponding list functions,
-but with arrays wrapped in @Acc@. In addition to @Acc@, which marks embedded
-array computations, we also have @Exp@, which marks \emph{embedded scalar}
+but with arrays wrapped in @Acc@. In addition to @Acc@, which marks \emph{embedded
+array} computations, we also have @Exp@, which marks \emph{embedded scalar}
 computations: a term of type @Exp Int@ represents an embedded expression
 yielding a value of type @Int@, and similarly @Exp Float -> Exp (Float,Float)@
 characterises an embedded scalar function that takes an argument of type @Float@
 and yields a pair of @Float@s as the result. As with computations embedded in
-@Acc@, computations in @Exp@ are executed in the target language of GPU device
-code.
+@Acc@, computations in @Exp@ are executed in the target language of GPU code.
 
 \begin{lstlisting}[style=haskell_float,
     numbers=none,
@@ -274,13 +275,13 @@ stencil     :: Stencil sh a stencil => (stencil -> Exp b)             %\rm map a
             -> Boundary a -> Acc (Array sh a) -> Acc (Array sh b)     %\rm \ldots neighbourhood context%
 \end{lstlisting}
 
-Accelerate distinguishes the types of collective and scalar computations to
-achieve a stratified language. Collective operations in @Acc@ comprise many
-scalar computations in @Exp@ that are executed in parallel. However, scalar
-computations \emph{can not} contain collective operations. This stratification
-excludes \emph{nested, irregular} data parallelism statically --- instead,
-Accelerate is restricted to \emph{flat data-parallelism} involving only regular,
-multi-dimensional arrays.
+Accelerate distinguishes the types of collective operations and scalar
+computations to achieve a stratified language. Collective operations in @Acc@
+consist of many scalar computations in @Exp@ that are executed in data-parallel.
+However, scalar computations \emph{can not} contain collective operations. This
+stratification excludes \emph{nested, irregular} data parallelism statically ---
+instead, Accelerate is restricted to only \emph{flat data-parallelism} involving
+regular, multi-dimensional arrays.
 
 Compared to regular Haskell, @Exp@ computations are rather limited in order to
 meet the restrictions of what can be efficiently executed on GPUs\@. In
@@ -318,16 +319,16 @@ type Mass       = Float
 type PointMass  = (Position, Mass)
 \end{lstlisting}
 %
-@Vec@ is the type of 3-component vectors, which are used to store the $x$-,
-$y$-, and $z$-components of the particle's position or acceleration in 3D space
-along each dimension in @Position@ and @Accel@ respectively. A @PointMass@ is a
-tuple containing the body's @Mass@ and @Position@.
+Here, @Vec@ is the type of 3-component vectors, which are used to store the $x$-,
+$y$-, and $z$-components of the particle's position or acceleration in three
+dimensional space, along each dimension in @Position@ and @Accel@ respectively.
+A @PointMass@ is a tuple containing the body's @Mass@ and @Position@.
 
-In a data-parallel setting, the natural implementation first computes the forces
-between every pair of bodies, before reducing the components applied to each
-body using a multidimensional (segmented) reduction. In Accelerate, we can calculate
-the acceleration each body experiences as it interacts with all other bodies in
-the system as follows:
+In a data-parallel setting, the natural implementation of the all-pairs $n$-body
+algorithm first computes the forces between every pair of bodies, before
+reducing the components applied to each body using a multidimensional
+(segmented) reduction. In Accelerate, we can calculate the acceleration each
+body experiences as it interacts with all other bodies in the system as follows:
 %
 \begin{lstlisting}[style=haskell]
 calcAccels :: Exp R -> Acc (Vector PointMass) -> Acc (Vector Accel)
@@ -378,7 +379,7 @@ underlying the scan-vector model~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
 We briefly explain how to compute the gravitational potential between a pair of
 bodies. Given $n$ bodies with position $\mathbf{x}_i$ and velocity
 $\mathbf{v}_i$ for $i \in [1,n]$ (bold face indicates a 3-component vector), the
-force $\mathbf{f}_{ij}$ on a body $i$ is caused by its gravitational attraction
+force $\mathbf{f}_{ij}$ on a body $i$ caused by its gravitational attraction
 to body $j$ is given by:
 %
 \begin{equation*}
@@ -457,7 +458,7 @@ component of a 3-vector by a scalar value.
 
 In order to make arrays available for use in embedded computations, we have the
 function @use@ (\S\ref{sec:arrays_on_the_host_and_device}). For a single array,
-it has the type:
+it has the effective type:
 %
 \begin{lstlisting}[style=haskell]
 use :: (Shape sh, Elt e) => Array sh e -> Acc (Array sh e)
@@ -471,15 +472,16 @@ appear in scalar Accelerate expressions. The supported @Elt@ types are signed \&
 unsigned integers (8, 16, 32, and 64-bit wide), floating point numbers (single
 \& double precision), as well as @Char@, @Bool@, and array indices formed from
 @Z@ and @(:.)@. Furthermore, there are tuples of all of those, including nested
-tuples, as was seen in the $n$-body example~(\S\ref{sec:computing_nbody}).
+tuples, as was seen in the $n$-body example
+program~(\S\ref{sec:computing_nbody}).
 
 Accelerate arrays of primitive type, such as @Int@ and @Float@, are easily
-represented as arrays of the corresponding integral and floating point types.
-More interesting is the case of arrays of tuples, where we use a non-parametric
-array representation so that arrays of tuples are represented in memory as a
-tuple of arrays, one array for each primitive type in the structure. By virtue
-of this representation, Accelerate is able to make optimal use of the available
-memory bandwidth. See section~\ref{sec:representing_tuples} for details.
+represented as unboxed arrays of the corresponding primitive type. More
+interesting is the case of arrays of tuples, where we use a non-parametric array
+representation so that arrays of tuples are represented in memory as a tuple of
+arrays, one array for each primitive type in the structure. By virtue of this
+representation, Accelerate is able to make optimal use of the available memory
+bandwidth. See section~\ref{sec:representing_tuples} for details.
 
 Moreover, consider the following types:
 %
@@ -507,16 +509,16 @@ types as heterogenous snoc-lists of primitive types:
 type family EltRepr a :: *
 type instance EltRepr ()        = ()
 type instance EltRepr Int       = ((), Int)
-type instance EltRepr Float     = ((), Float)
 type instance EltRepr (a, b)    = (EltRepr a, EltRepr' b)
 type instance EltRepr (a, b, c) = (EltRepr (a, b), EltRepr' c)
   -- and so on\ldots
 \end{lstlisting}
+% type instance EltRepr Float     = ((), Float)
 %
-Here @EltRepr'@ is similar, except that we use a flattened representation at the
-leaves in order to avoid overly nested pairs; that is, primitive types are
-represented as @EltRepr' Int = Int@. Arrays of tuples have a similar mapping
-into a nested tuple of arrays, defined by the @Arrays@ class.
+The type @EltRepr'@ is similar, except that it uses a flattened representation
+for primitive types in order to avoid overly nested pairs, for example,
+@EltRepr' Int = Int@. Arrays of tuples have a similar mapping into nested tuples
+of arrays, with the @Arrays@ class acting analogously to @Elt@.
 
 
 \subsection{Richly typed terms}
@@ -530,9 +532,10 @@ language use \indexe{higher-order abstract syntax} (HOAS) to embed
 function-valued scalar expressions as well as type class overloading to reflect
 arithmetic expressions. For example, the body of the @dotp@ function
 % @fold (+) 0 (zipWith (*) xs' ys')@
-is translated into:\footnote{The subterms to \footcode{add} and \footcode{mul}
-here are inline into the \footcode{Fold} and \code{ZipWith} terms respectively,
-we only use a \footcode{where}-clause to improve readability.}
+is translated into:
+% \footnote{The subterms to \footcode{add} and \footcode{mul}
+% here are inline into the \footcode{Fold} and \code{ZipWith} terms respectively,
+% we only use a \footcode{where}-clause to improve readability.}
 %
 \begin{lstlisting}[style=haskell]
 Fold add (Const 0) (ZipWith mul xs' ys')
@@ -544,16 +547,17 @@ Fold add (Const 0) (ZipWith mul xs' ys')
     mul = -- as \emph{\texttt{add}}, but using \emph{\texttt{PrimMul}} ...
 \end{lstlisting}
 %
-This is very much like the approach taken by \citet{Elliott:2004hh},
-\citet{Gill:2011wy}, and \citet{Mainland:2010vj}. The difference is that in our
-approach we use GADTs~\cite{Jones:2006eh} and type
+where the subterms @add@ and @mul@ have been extracted into the @where@-clause
+to improve readability. This is very much like the approach taken by
+\citet{Elliott:2004hh}, \citet{Gill:2011wy}, and \citet{Mainland:2010vj}. The
+difference is that in our approach we use GADTs~\cite{Jones:2006eh} and type
 families~\cite{Chakravarty:2005dx,Schrijvers:2008ir} to preserve the embedded
 program's type information in the term tree (1), and use type-preserving
 transformations in the front end (\S\ref{sec:manipulating_embedded_programs}).
 
 The HOAS representation, while convenient for a human reader, is awkward
-for program transformations as it complicates looking under lambdas; i.e.
-inspecting and manipulating the bodies of function abstractions. After the
+for program transformations as it complicates looking under lambdas;
+i.e.\ inspecting and manipulating the bodies of function abstractions. After the
 frontend reifies the embedded program written in HOAS, it recovers sharing
 (\S\ref{sec:sharing_recovery}) while converting the HOAS representation into a
 \emph{nameless} representation using \emph{typed de Bruijn indices}\index{de
@@ -601,7 +605,8 @@ data Idx env t where                                -- an index is either\ldots
 Indices have type @Idx env t@, where the type @env@ keeps track of what
 variables are in scope using the same encoding of nested tuples used by the
 environment, while @t@ represents the type of a distinguished element in this
-list. At the value level, @Idx@ encodes the index of that element in the list.
+list. At the value level, the constructors of @Idx@ encode the index of that
+distinguished element in the list.
 
 As terms are pushed into the environment, the type of the new term becomes
 wrapped in the type of the environment; i.e.\ @t@ is existentially quantified in
@@ -631,9 +636,9 @@ The Accelerate core language is richly typed, maintaining full type information
 of the embedded language in the term tree. In order to apply transformations to
 these terms while maintaining the correctness of the program as encoded in its
 type, we require methods to manipulate these richly typed terms in a type- and
-scope-preserving manner. This section covers several technique for manipulating
-the embedded Accelerate programs, that are required to implement the
-optimisations discussed in the following chapter.
+scope-preserving manner. This section covers several techniques I developed for
+manipulating embedded Accelerate programs, that are required to implement the
+optimisations discussed in the following chapters.
 
 
 \subsection{Typed equality}
@@ -671,22 +676,23 @@ of the bound term (\S\ref{sec:richly_typed_terms}):
 %
 \begin{lstlisting}[style=haskell]
 data PreOpenExp acc env aenv t where
-    Let :: (Elt bnd_t, Elt body_t)                      -- Local binding of a scalar expression
-        => PreOpenExp acc env          aenv bnd_t       -- bound term
-        -> PreOpenExp acc (env, bnd_t) aenv body_t      -- body/scope of binding
-        -> PreOpenExp acc env          aenv body_t
+    Let :: (Elt bnd, Elt body)                          -- Local binding of a scalar expression
+        => PreOpenExp acc env        aenv bnd           -- bound term
+        -> PreOpenExp acc (env, bnd) aenv body          -- body/scope of binding
+        -> PreOpenExp acc env        aenv body
 
     -- other language constructs\ldots
 \end{lstlisting}
 %
 To apply @heq@ to the body expression, we need to know something about
 the type of the bound terms to ensure that the scalar environments are the same,
-namely \lstinline[style=inline,mathescape]{a $\sim$ bnd_t $\sim$ b}.%
+namely \lstinline[style=inline,mathescape]{s $\sim$ bnd $\sim$ t}.%
 \footnote{Alternatively we can use \footcode{Data.Typeable.gcast} to provide a
-type-safe cast, but this quickly becomes unwieldy and is a little
-unsatisfactory.} To do this we must equip terms with a runtime witness to the
-existentially quantified type. Our reified dictionaries will allow us to do
-exactly this, so we can define heterogeneous equality for reified dictionaries:
+type-safe cast, but this quickly becomes unwieldy, and is a little
+unsatisfactory as this amounts to a runtime, rather than compile time, test.} To
+do this we must equip terms with some runtime witness to the existentially
+quantified type. Our reified dictionaries allow us to do exactly this, so we can
+define heterogeneous equality for reified dictionaries:
 %
 \begin{lstlisting}[style=haskell]
 heqIntegralType :: IntegralType s -> IntegralType t -> Bool
@@ -699,8 +705,8 @@ heqIntegralType _            _            = False
 However, doing this is perfectly useless as it only gives us a value of type
 @Bool@, with no idea what that value means or to what its truth might
 entitle us. The type checker does not gain any useful knowledge about the types
-the dictionaries @a@ and @b@ witness simply by knowing that
-@heqIntegralType a b = True@. A boolean is a bit uninformative.
+the dictionaries @s@ and @t@ witness simply by knowing that
+@heqIntegralType s t = True@. A boolean is a bit uninformative.
 
 Instead, we can write essentially the same test, but in the positive case
 deliver some \emph{evidence} that the types are equal:
@@ -740,14 +746,14 @@ matchPreOpenExp ...
 
 \subsubsection{Congruence}
 
-As we are interested in the facility of matching terms for the purposes of
+If we are interested in the facility of matching terms for the purposes of
 optimisations such as common subexpression elimination (\S\ref{sec:cse}), it is
 beneficial to define not equality but instead \indexe{congruence} of terms. Two
-nodes are considered congruent if the nodes they label are constants and the
-constants are equal; or they have the same operator and the operands are
+nodes are considered congruent if (1) the nodes they label are constants and the
+constants are equal; or (2) they have the same operator and the operands are
 congruent. The crux of the latter condition refers to commutative relations,
 such as scalar addition, where an operator yields the same result when the order
-of the operands are reversed. When checking equality of primitive applications,
+of the operands are reversed. When checking congruence of primitive applications,
 we discriminate binary functions whose arguments commute, and return those
 arguments in a stable ordering by comparing a hash of each of the sub-terms.
 %
@@ -786,10 +792,9 @@ v :: forall t'. Idx env t' -> f env' t'
 \end{lstlisting}
 
 Where the operation differs is in the image of variables: renaming maps
-variables to variables and substitution maps variables to terms. We then lift
+variables to variables while substitution maps variables to terms. We then lift
 this to an operation which traverses terms, with appropriate lifting to push
-under a lambda, and rebuilding the term after applying @v@ to the
-variables:
+under binders, and rebuild the term after applying @v@ to the variables:
 %
 \begin{lstlisting}[style=haskell]
 rebuild :: Syntactic f
@@ -917,14 +922,13 @@ of the text, we elide the impossible cases for brevity.
 \subsection{Environment manipulation}
 \label{sec:environment_manipulation}
 
-As part of the fusion transformation of recasting terms we often need to lift
-array valued inputs to be let-bound at higher points to avoid work duplication,
-but at the same time we can not immediately add these bindings to the output
-term because they will interfere with further fusion steps. We need to collect
-these extra bindings separately from the main term, and add them to the output
-term at some later point. Furthermore, we must ensure we correctly track the
-types of the environments between the fused terms and the collected
-let-bindings.
+As part of the fusion transformation~(\S\ref{sec:array_fusion}) we often need to
+lift array valued inputs to be let-bound at higher points in the term tree, but
+at the same time we can not immediately add these bindings to the output term
+because they will interfere with further fusion steps. Instead, we collect these
+extra bindings separately from the main term, and splice them back in to the
+output term at some later point, ensuring that we correctly track the types of
+the environments between the fused terms and the collected let-bindings.
 
 Listing~\ref{lst:Extend} defines a heterogeneous snoc-list of array terms that
 witnesses how an array environment is extended by the application of these
@@ -959,8 +963,7 @@ bind (PushEnv env a) = bind env . Alet (inject a) . inject
 \end{lstlisting}
 %
 The auxiliary function @inject :: PreOpenAcc acc aenv a -> acc aenv a@ completes
-the knot tying trick (\S\ref{sec:knot_tying}) to complete the definition of each
-of the array terms.
+the definition of each of the array terms.
 
 
 \subsubsection{Sinking}
@@ -1004,15 +1007,27 @@ generates DirectX shader code for the graphics processor. Vertigo is a first
 order language, so does not provide higher-order combinators such as @map@ and
 @fold@.
 
+Paraiso~\cite{Muranushi:2012eh} is a deeply embedded language in Haskell for
+solving systems of partial differential equations, such as hydrodynamics
+equations. While Accelerate supports @stencil@ operations,
+% that can be used to express such programs,
+it lacks the more domain-specific language features or compiler optimisations
+offered by Paraiso for this class of problem. Programs in Paraiso are written
+using a monadic style, whereas Accelerate has a purely functional interface.
+
 Obsidian~\cite{Svensson:2008a} and Nikola~\cite{Mainland:2010vj} are embedded
-languages in Haskell for array programming, both of which target parallel
-execution on graphics processors. Compared to Accelerate, the programming
-languages of both Obsidian and Nikola are severely restricted. Both are limited
-to a single computation over one dimensional vectors, whereas Accelerate
-supports multidimensional arrays and computations can span many kernels. Due to
-its compilation method, Nikola only supports @map@-like functions, while
-Obsidian is able to encode more complex operations such as @scan@ because its
-lower level interface that exposes more details of the GPU hardware.
+languages in Haskell for array programming, both of which are similar in intent
+to Accelerate. Compared to Accelerate, the programming languages of both
+Obsidian and Nikola are severely restricted. Both are limited to a single
+computation over one dimensional vectors of primitive type, whereas Accelerate
+supports multidimensional arrays, tuples, and computations can span multiple
+operations and kernels. Due to its compilation method, Nikola only supports
+@map@-like functions, while Obsidian is able to encode more complex operations
+such as @scan@ because its lower level interface exposes more details of the
+target hardware.
+
+None of these embedded languages encode the types of the source program into the
+embedded language terms to the degree with which Accelerate does.
 
 
 \section{Discussion}

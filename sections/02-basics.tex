@@ -1,12 +1,9 @@
-% Embedded languages, stratified types, richly typed terms, representing
-% programs. The Accelerate language.
-%
-% Accelerate CUDA backend. Code generation. Executing computations. Garbage
-% collection. Caching.
+% Background:
+%   Data parallelism and GPU computing.
+%   Embedded languages
 %
 
-% Need a better title
-\chapter{Basics}  % Design of an embedded language
+\chapter{Basics}
 \label{ch:basics}
 
 \epigraph{You see a wile, you thwart. Am I right?}%
@@ -111,11 +108,12 @@ and these applications can often be coded to execute on the GPU\@.
 \subsection{CUDA}
 \label{sec:cuda}
 
-CUDA\index{CUDA} is the parallel computing platform and programming model
-created by NVIDIA, which gives programmers direct access to the memory and
-parallel computation units of their GPUs. Using CUDA, the massively parallel
-multicore architecture of the GPU becomes accessible for general purpose
-computing, not just graphics.
+The \indext{CUDA} architecture is the parallel computing platform and
+programming model created by NVIDIA and implemented by the graphics processing
+units (GPUs)\index{GPU|see {graphics processing unit}}\index{graphics processing
+unit} that they produce. Using CUDA, programmers gain direct access to the
+memory and massively parallel multicore architecture of the GPU, which can then
+be used for general purpose computing, not just graphics.
 
 CUDA extends the C programming language by allowing the C programmer to define
 functions, called \emph{kernels}\index{GPU!kernel}, that, when called, are
@@ -176,14 +174,11 @@ in the result. See the CUDA C programming guide for details~\cite{NVIDIA:2012wf}
 \section{Parallel algorithms in CUDA}
 \label{sec:parallel_algorithms_in_cuda}
 
-The CUDA architecture is a parallel computing platform and programming model
-created by NVIDIA and implemented by the graphics processing units
-(GPUs)\index{GPU|see {graphics processing unit}}\index{graphics processing unit}
-that they produce. Using CUDA, the GPU becomes accessible not just for
-graphics applications, but for computational tasks much like a CPU\@. Unlike
-CPUs, however, GPUs have a parallel throughput architecture that emphasises
-executing many concurrent threads slowly, rather than executing a single thread
-very quickly.
+\indext{CUDA} is a parallel computing platform for programming NVIDIA GPUs.
+Using CUDA, the GPU becomes accessible not just for graphics applications, but
+for computational tasks much like a CPU\@. Unlike CPUs, however, GPUs have a
+parallel throughput architecture that emphasises executing many concurrent
+threads slowly, rather than executing a single thread very quickly.
 % Unlike CPU cores, instructions are issued in order and there is no
 % branch prediction and no speculative execution.
 See section~\ref{sec:cuda} for more information.
@@ -215,26 +210,28 @@ See section~\ref{sec:cuda} for more information.
 Some collective operations such as @map@ have an obvious mapping to the
 highly parallel CUDA architecture, so we elide discussion of their
 implementation. Other collective operations such as @scan@, where the value
-of each element depends on the value of the last, may at first seem to not admit
-a parallel interpretation at all. This section outlines the implementation of
-this second kind of collective operation, where efficient parallel
-implementation in CUDA may not be obvious.
+of each element depends on the value of the previous last, may at first seem to
+not admit a parallel interpretation at all. This section outlines the
+implementation of this second kind of collective operation, where efficient
+parallel implementation in CUDA may not be obvious.
 
 
 \subsection{Reduction}
 \label{sec:parallel_reduction}
 
-Reductions are a common and important data-parallel primitive~\cite{Chatterjee:2009vh}.
-Figure~\ref{fig:tree_reduction} illustrates the basic strategy of a tree
-reduction: within each thread block a tree-based approach is used to reduce
-elements to a single value, and multiple thread blocks each process a portion of
-the array in parallel. There is no global synchronisation primitive in CUDA,
-because (a) it would be expensive to build in hardware for large numbers of
-multiprocessors, and (b) would be difficult for programmers to use without
-introducing sources of deadlock. Instead, kernel launches serve as a global
-synchronisation point, so thread blocks instead communicate their partial
-results by committing them to memory, and the kernel is launched recursively
-until the final reduction value is computed.
+Reductions are a common and important data-parallel
+primitive~\cite{Chatterjee:2009vh}. Figure~\ref{fig:tree_reduction} illustrates
+the basic strategy for reducing an array in parallel. Within each thread block a
+tree-based approach is used to reduce elements to a single value, and multiple
+thread blocks each process a portion of the array in parallel. However, there is
+no global synchronisation primitive in CUDA that can be used to combine the
+partial results. This is because global synchronisation (a) would be expensive
+to build in hardware for large numbers of multiprocessors, and (b) would be
+difficult for programmers to use without introducing sources of deadlock.
+Instead, kernel launches serve as a global synchronisation point, so thread
+blocks instead communicate their partial results by committing them to memory,
+and the kernel is launched recursively until the final reduction value is
+computed.
 
 \begin{figure}
     \begin{center}
@@ -292,8 +289,8 @@ $\mathcal{O}\left( N \log N \right)$, which is \emph{not} cost efficient.
 
 Brent's theorem~\cite{Chatterjee:2009vh} suggests that instead of each thread
 summing two elements, \emph{algorithm cascading} can be used to combine a
-sequential and parallel reduction. Each thread does $\mathcal{O}\left( \log N
-\right)$ sequential work, which reduces the cost of the algorithm to
+sequential and parallel reduction. If each thread does $\mathcal{O}\left( \log N
+\right)$ sequential work, this will reduce the cost of the algorithm to
 $\mathcal{O}\left( \sfrac{N}{\log N} \log N \right)$, or rather:
 \[
 \mathcal{O}\left( N \right)
@@ -301,10 +298,11 @@ $\mathcal{O}\left( \sfrac{N}{\log N} \log N \right)$, or rather:
 while keeping the work complexity $\mathcal{O}\left( N \right)$ and step
 complexity $\mathcal{O}\left( \log N \right)$.
 
-At an example, this result implies that a block of 256 threads should sum a
-total of 2048 elements. In practice it is beneficial to do even more sequential
-work per thread, since this reduces the number of levels in the recursive tree
-reduction and provides better latency hiding.
+At an example, this result implies that each block of 256 threads should sum a
+total of $256 \times \log_2 \left( 256 \right) = 2048$ elements. In practice it
+is beneficial to do even more sequential work per thread, as this will reduce
+the number of levels in the recursive tree reduction, and provide better latency
+hiding by minimising the number of thread blocks launched.
 
 
 \subsubsection{Mapping to CUDA Threads}
@@ -325,16 +323,16 @@ parallel steps can not be guaranteed.}
 Higher-dimensional reductions reduce the array along the innermost dimension
 only. This is similar to a segmented fold, except that the segment descriptor is
 not necessary since the length of every segment is the same and can be
-determined from the array shape. Instead of thread blocks cooperatively reducing
-each segment sequentially, each segment is reduced by a single thread block
-which operates independently of all other thread blocks. A consequence of this
-is that proper device utilisation depends on the shape of the array and not
-simply the total number of elements in the array. For example, reduction of an
-array with shape @(Z :. 1 :. n)@ will use a single thread block, no matter
-how large @n@ is. This simplifies the implementation but is clearly not
-always ideal.\footnote{The number of multiprocessors on a device various between
-architecture generation and performance of a given card. For example, a Tesla
-T10 processor (compute capability 1.3) has 240 cores split over 30
+determined directly from the extent of the input array. Instead of thread blocks
+cooperatively reducing each segment sequentially, each segment is reduced by a
+single thread block which operates independently of all other thread blocks. A
+consequence of this is that proper device utilisation depends on the shape of
+the array and not simply the total number of elements in the array. For example,
+reduction of an array with shape @(Z :. 1 :. n)@ will use a single thread block,
+no matter how large @n@ is. This simplifies the implementation but is clearly
+not always ideal.\footnote{The number of multiprocessors on a device various
+between architecture generation and performance of a given card. For example, a
+Tesla T10 processor (compute capability 1.3) has 240 cores split over 30
 multiprocessors, while a Kepler K20X processor (compute capability 3.5) has 2688
 cores split over only 14 multiprocessors. A given architecture generation will
 have the same number of cores per multiprocessor, and lower performance
@@ -345,7 +343,6 @@ A segmented reduction uses a single warp to reduce each segment. Investigation
 of whether it is more efficient to implement the multidimensional reduction
 using this warp-per-segment strategy, rather than mapping one thread block per
 segment as is done currently, is left for future work.
-
 
 \subsection{Scan}
 \label{sec:parallel_scan}
@@ -376,29 +373,33 @@ The basic binary-tree based scan algorithm proceeds in $\log N$ stages.
 % As shown in Figure~\ref{fig:fast_scan}, the binary operator is applied to two
 % distinct elements of the input array and the output is stored into a new array.
 In order to compute scans efficiently on the GPU, the input array is decomposed
-into a number of blocks of size $B$, such that the scan of $B$ elements can be
-computed by a thread block locally in shared memory. This inclusive scan
-algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
+into a number of blocks of size $B$, such that an inclusive scan of $B$ elements
+can be computed by an individual thread block, locally in shared memory. The
+inclusive scan algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in
+three phases:
 %
 \begin{enumerate}
-\item All blocks are scanned in parallel, and the partial result (final scan
-    value) from each block @i@ is stored into an intermediate array
-    @block_results[i]@. Note that even though we require only the final value,
-    because scans are directional --- either to the left or right --- we still
-    compute the entire scan and return only the final value, to ensure that
-    elements are processed in the correct left-to-right or right-to-left order.
+\item The input array is divided into chunks of size $B$ elements and
+    distributed to the thread blocks, which each scan their portion of the array
+    in parallel. The final scan value (partial result) from each thread block
+    @i@ is stored into an intermediate array @block_results[i]@. Note that even
+    though we require only the final value, since scans are directional ---
+    either to the left or right --- we must compute the entire scan and return
+    only the last value, to ensure that elements are processed in the correct
+    left-to-right or right-to-left order.
 
 \item A single thread block performs a scan of the helper array @block_results@.
     Accelerate is set up such that the number of blocks in the first step is
     less than the maximum thread block size (\S\ref{sec:executing_programs}), so
     this step does not need to repeatedly apply the global scan algorithm.
 
-\item All blocks scan the array in parallel again, where thread block @i@ uses
-    element @i@ of the result of step 2 as the initial element.
+\item All blocks scan their section of the input array in parallel again, where
+    thread block @i@ uses element @i@ of the result of step 2 as the initial
+    element of the scan.
 
 \end{enumerate}
 
-For an exclusive scan, it is only necessary to ensure that the computation of
+For an exclusive scan, it is also necessary to ensure that the computation of
 the partial block sums includes the seed element.
 
 
@@ -416,8 +417,9 @@ flag-value pairs $\left( f_x, x \right)$ as follows:
 \end{equation*}
 
 Segmented operations often arise when dealing with nested parallelism and the
-flattening transformation~\cite{Blelloch:1995ut}. In future it may be beneficial
-to implement segmented scans directly rather than by operator
+flattening transformation~\cite{Blelloch:1995ut}. If future work adds support
+for nested parallelism, it may be beneficial to implement segmented scans
+directly rather than by operator
 transformation~\cite{Sengupta:2008ut,Dotsenko:2008fo}.
 
 
@@ -559,26 +561,28 @@ as @atomicAdd@ when available is left to future work.
 
 The implementation for combining elements of the permutation function works well
 for simple atomic types, but as Accelerate uses a struct-of-arrays
-representation (\S\ref{sec:representing_tuples}, combining tuple types must
-apply the procedure to each component of the tuple separately, which can lead to
-inconsistencies.\footnote{\url{https://github.com/AccelerateHS/accelerate/issues/137}}
+representation (\S\ref{sec:representing_tuples}), combining tuple types must
+apply the procedure to each component of the tuple separately. Because the
+critical section does not apply to all components of the tuple at once, this can
+lead to inconsistencies in the
+result.\footnote{\url{https://github.com/AccelerateHS/accelerate/issues/137}}
 
 One alternative would be to explicitly lock each element of the output array
 before threads can access it, and then for each thread to commit all components
-of the array as a single atomic operation. A straightforward to implement this
-is via a \emph{spin lock}, where threads trying to acquire the lock simply wait
-in a loop (``spin''), repeatedly checking whether the lock is available. Since
-the thread remains active but is not performing any useful work, the use of this
-kind of busy waiting is inefficient if threads are blocked for an extended
-period of time (because the lock is contended by many threads, or the atomic
-section executed while the lock is held is lengthy).
+of the array as a single atomic operation. A straightforward method to implement
+this is via a \emph{spin lock}, where threads trying to acquire the lock simply
+wait in a loop (``spin''), repeatedly checking whether the lock is available.
+Since the thread remains active but is not performing any useful work, the use
+of this kind of busy waiting is inefficient if threads are blocked for an
+extended period of time (because the lock is contended by many threads, or the
+atomic section executed while the lock is held is lengthy).
 
 Implementing a spin-lock can be done similarly to the following:
 %
 \begin{lstlisting}[style=cuda]
   do {
       old = atomicExch(&lock[i], 1);                                               // (1)
-  while (old == 1);                                                                // (2)
+  } while (old == 1);                                                              // (2)
     /* atomic section */                                                           // (3)
   atomicExch(&lock[i], 0);                                                         // (4)
 \end{lstlisting}
@@ -634,8 +638,8 @@ immediate concern is what to do when the stencil ``falls off'' the edge of the
 array. Figure~\ref{fig:stencil3x3} shows the application of a $3\times3$ stencil
 in this circumstance. The white squares indicate the \emph{internal} region
 where the stencil is entirely within the array, and the grey squares indicate
-the \emph{border} region, where part of the stencil falls lies outside of the
-array boundary.
+the \emph{border} region, where part of the stencil lies outside of the array
+boundary.
 
 \begin{figure}[tbp]
     \begin{center}
@@ -651,13 +655,13 @@ array boundary.
 \end{figure}
 
 Boundary conditions determine how to handle out-of-bounds neighbours, by
-specifying a constant value to use instead, or by reading the source array at a
-different index. However, with the array sizes typical of GPU programs, the
-border region represents only a tiny fraction of the entire array. For example,
-a 512-pixel square image has less than one percent of its pixels along the edge.
-This fact implies that for optimal performance, we should avoid testing of the
-boundary each time we read an element from the source array. For simple
-convolutions such as those used by Canny (\S\ref{sec:canny}), this adds
+specifying either a constant value to use instead, or by reading the source
+array at a different index. However, with the array sizes typical of GPU
+programs, the border region represents only a tiny fraction of the entire array.
+For example, a 512-pixel square image has less than one percent of its pixels
+along the edge. This fact implies that for optimal performance, we should avoid
+testing of the boundary each time we read an element from the source array. For
+simple convolutions such as those used by Canny (\S\ref{sec:canny}), this adds
 significant overhead~\cite{Lippmeier:2011cd}. Separating computation of the
 border and internal region is left for future work.
 
@@ -665,7 +669,7 @@ border and internal region is left for future work.
 \subsubsection{Overlapping elements}
 
 Suppose we wish to apply a dense $3\times3$ stencil to a single internal point
-in the array, where each element of the stencil is utilised. Application of the
+in the array, where every element of the stencil is utilised. Application of the
 stencil requires at least nine elements of the array to be loaded, and one store
 for the result.
 
@@ -743,10 +747,14 @@ describing graphs. This is in contrast to a general purpose language such as
 Haskell~\cite{Haskell:1998}, which is broadly applicable across domains but may
 lack specialised features for a particular domain. A domain specific language is
 created to solve problems in a particular domain, and is not intended to solve
-problems outside it (although this may be technically possible). Restricting the
-problem domain the language is intended to solve may allow for more
-optimisations during compilation, or increased expressivity when representing
-problems or defining solutions in that domain.
+problems outside it although this may be technically possible, for example, the
+PostScript~\cite{AdobeSystemsIncorporated:1999ue} page description language.
+% for creating vector graphics
+% and is used in printers and desktop publishing applications, but is also a
+% Turing complete language in its own right.
+Restricting the problem domain the language is intended to solve may allow for
+more optimisations during compilation, or increased expressivity when
+representing problems or defining solutions in that domain.
 
 An \emph{embedded} (or \emph{internal}) \emph{domain-specific
 language}\index{language!domain-specific!embedded} (EDSL) is a domain-specific
@@ -757,8 +765,8 @@ compiler, including compilation phases such as lexing, parsing, and semantic
 analyses such as type checking, while adding domain specific elements such as
 data types, or domain specific optimisations and code generation.
 
-There are two major degrees in which an embedded language can be implemented:
-\emph{shallow} and \emph{deep}.
+There are two major degrees in which an embedded language can be implemented; as
+either a \emph{shallow} or \emph{deep} embedding.
 
 \subsection{Shallow embedding}
 
@@ -766,25 +774,25 @@ In a shallow embedding, operations in the embedded language translate directly
 into operations in the target language. A shallow embedding captures the
 semantics of the data of that domain in a data type, and provides a \emph{fixed}
 interpretation of that data. Thus, it is easy to add new constructs to the
-language --- so long as they can be interpreted in the semantic domain --- and
-the embedded language can reuse features of the host language, such as variable
+language, so long as they can be interpreted in the semantic domain. The
+embedded language can also reuse features of the host language, such as variable
 bindings.
 
 
 \subsection{Deep embedding}
 
-A deep embedding captures the semantics of the embedding by reflecting the
+A deep embedding captures the semantics of the domain by reflecting the
 operations of the \emph{object language}\index{language!object} (or \emph{meta
 language}\index{language!meta|see {object}}) into a data structure. This data
 structure --- an \indexe{abstract syntax tree} (AST) --- then permits
 transformations, such as optimisations, before being translated into the
 \emph{target} language. Deeply embedded languages therefore enable a
-\emph{variable} interpretation of operations in the domain, so it is easy to add
-new interpretations of the embedding, for example, compiling to a different
-target language. However, adding new language constructs requires extending the
-AST data type, and the implementation must deal explicitly with binding of
-variables. Sharing and recursion are common problems when implementing deeply
-embedded languages~\cite{Gill:2009dx}.
+\emph{variable} interpretation of operations in the domain. This makes it is
+easy to add new interpretations of the embedding, for example, by compiling to a
+different target language. However, adding new language constructs requires
+extending the AST data type, and the implementation must deal explicitly with
+binding of variables. Sharing and recursion are common problems when
+implementing deeply embedded languages~\cite{Gill:2009dx}.
 
 As the deeply embedded language runs inside of the \emph{host
 language}\index{language!host}, reflecting operations into an AST, an

@@ -106,10 +106,36 @@ but the same approach works for OpenCL, as well as traditional CPU programming
 languages such as C and LLVM.
 
 Our results show that Accelerate programs can be competitive with programs
-hand-written in CUDA, while having a much higher level of abstraction.
-Anecdotally, use of Accelerate has gained some traction within the community,
-being used by both end users as well as other researchers, and I have
-encountered Accelerate being mentioned at conferences simply by name.
+hand-written in CUDA, while having a much higher level of abstraction. Because
+of the work undertaken in this thesis, we have seen Accelerate gain some
+traction within academia and industry, including:
+
+\begin{itemize}
+    \item Peter Braam of Parallel Scientific is building a high level DSL in
+        Haskell based on Accelerate, for image reconstruction computations for
+        the Square Kilometer Array, the largest radio telescope in the world.
+
+    \item Andy Gill has recently been awarded an NSF grant to research
+        resource-aware DSLs for high performance computing applications, and is
+        building on top of Accelerate.\footnote{\url{http://www.nsf.gov/awardsearch/showAward?AWD_ID=1350901}}
+
+    \item Flowbox\footnote{\url{http://www.flowbox.io}} is a startup developing
+        tools for composition and visual effects for images and video that is
+        built on top of Accelerate. Flowbox is generating interest amongst
+        several Hollywood studios as a promising new technology.
+
+%    \item Matt Sottile of Galois is using Accelerate for computations in a
+%        research project that attempts to reconstruct the brain activity of a
+%        simple worm.
+
+    \item We commonly see research papers on array-based computations and
+        languages, particularly in a functional programming context, include a
+        comparison to Accelerate in their own benchmarks.\footnote{However, I
+        modestly refrain from going so far as to claim that my work in this
+        thesis has set a new gold standard by which functional array-based
+        programming languages are measured.}
+
+\end{itemize}
 
 We discuss related work as each topic arises. The source code for Accelerate
 including all benchmark code is available from

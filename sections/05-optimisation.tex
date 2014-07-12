@@ -104,7 +104,7 @@ growing number of predicated instructions which incurs a large penalty on the SI
 a GPU\@. A lack of sharing recovery was a significant shortcoming of our initial implementation of
 Accelerate~\cite{Chakravarty:2011fr}.
 
-% As described in section~TK, operations of the embedded language do not
+% As described in Section~TK, operations of the embedded language do not
 % directly issue computations; instead, they build \emph{abstract syntax
 % trees}\index{abstract syntax tree}\index{AST|see{abstract syntax tree}} that
 % represent the embedded computation. These term trees use \indexe{higher-order
@@ -300,7 +300,7 @@ has been lost.
 
 Fusion in a massively data-parallel (embedded) language such as Accelerate
 requires several uncommon considerations. We discuss related work further in
-section~\ref{sec:fusion_related_work}.
+Section~\ref{sec:fusion_related_work}.
 
 \subsubsection{Parallelism}
 
@@ -641,7 +641,7 @@ embedded scalar computation will not invoke further parallel computations
 
 In order to bring additional array terms into scope, which may be required for
 @Done@ and @Step@, we combine this representation of producer arrays with the
-method of section~\ref{sec:environment_manipulation} for collecting
+method of Section~\ref{sec:environment_manipulation} for collecting
 supplementary environment bindings. Listing~\ref{lst:Embed} shows the complete
 data structure used for representing producer terms in Accelerate.
 %
@@ -741,7 +741,7 @@ terms of the representation to identify special cases, such as @map@ and
 @backpermute@.
 %
 The helper functions @match@ and @isIdentity@ check for congruence of
-expressions. As discussed in section~\ref{sec:equality}, we match on @Just REFL@
+expressions. As discussed in Section~\ref{sec:equality}, we match on @Just REFL@
 to inject information on the positive case to both the type and value level. For
 example, @isIdentity@ checks whether a function corresponds to the term $\lambda
 x.x$, and in the positive case witnesses that its type must be @a -> a@.
@@ -760,7 +760,7 @@ number of rewrite rules quadratic in the number of combinators we wish to fuse.
 This approach does not scale.
 
 Instead, producer/producer fusion is achieved by converting terms into the array
-representation discussed in section~\ref{sec:representing_producers}, and
+representation discussed in Section~\ref{sec:representing_producers}, and
 merging sequences of these terms into a single operation. Smart constructors for
 each producer manage the integration with predecessor terms. For example,
 Listing~\ref{lst:mapD} shows the smart constructor used to generate the fused
@@ -923,7 +923,7 @@ embedAcc  :: Arrays arrs => acc aenv arrs -> Embed acc aenv arrs
 \begin{enumerate}
 \item Non-computation forms such as control flow and let bindings may also
     employ smart constructors. We discuss fusion of let bindings in
-    section~\ref{sec:binder_elimination}.
+    Section~\ref{sec:binder_elimination}.
 
 \item Array introduction forms convert their argument into the internal
     representation by adding the term as manifest data into the extended
@@ -951,7 +951,7 @@ embedAcc  :: Arrays arrs => acc aenv arrs -> Embed acc aenv arrs
     representation back into AST terms using @compute'@
     (Listing~\ref{lst:compute}) and pushing the result onto the extended
     environment. Consumers fusion will be treated in
-    section~\ref{sec:producer_consumer_fusion}, although note that the producer
+    Section~\ref{sec:producer_consumer_fusion}, although note that the producer
     is placed adjacent to the term that consumes it.
 
 \end{enumerate}
@@ -990,7 +990,7 @@ finally embedded into consumers during code
 generation~(\S\ref{sec:code_generation}).
 
 To work around this stage mismatch, the second phase of the fusion
-transformation annotates the program AST (see section~\ref{sec:knot_tying}) with
+transformation annotates the program AST (see Section~\ref{sec:knot_tying}) with
 the representation shown in Listing~\ref{lst:DelayedOpenAcc}. This encodes the
 information as to which nodes should be computed to manifest arrays, and which
 should be embedded into their consumers. During code generation, the code for
@@ -1059,7 +1059,7 @@ convertOpenAcc = manifest . computeOpenAcc . embedOpenAcc                       
 \item The fusion pipeline proceeds in two phases. A bottom-up traversal that
     merges adjacent producer/producer pairs, which is implemented by the
     function @embedOpenAcc@, described in
-    section~\ref{sec:producer_producer_fusion}. The second phase is the top-down
+    Section~\ref{sec:producer_producer_fusion}. The second phase is the top-down
     traversal which annotates the AST as to which nodes should be computed to
     manifest data and which should be embedded into their consumers. This phase
     is implemented by the function @manifest@.
@@ -1145,7 +1145,7 @@ reverseMap f xs
 \end{lstlisting}
 %
 Unfortunately, sharing recovery, using the algorithm from
-section~\ref{sec:sharing_recovery}, causes a problem. The variable @xs@
+Section~\ref{sec:sharing_recovery}, causes a problem. The variable @xs@
 is used three times in the arguments to @backpermute@, so sharing recovery
 introduces a let binding at the lowest common meet point for all uses of the
 array. This places it between the @map@ and @backpermute@ operations:
@@ -1444,7 +1444,7 @@ inlining and dead code elimination.
 % Listing~\ref{lst:shrinking} is that of a $\beta$-redex where the number of uses
 % is less than or equal to one. The implementation uses the \indext{de Bruijn}
 % manipulation techniques developed in
-% section~\ref{sec:manipulating_embedded_programs}. This also suffices to
+% Section~\ref{sec:manipulating_embedded_programs}. This also suffices to
 % eliminate dead code, as Accelerate does not have separate forms for let-bindings
 % and lambda abstractions.
 

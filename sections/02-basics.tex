@@ -181,7 +181,7 @@ parallel throughput architecture that emphasises executing many concurrent
 threads slowly, rather than executing a single thread very quickly.
 % Unlike CPU cores, instructions are issued in order and there is no
 % branch prediction and no speculative execution.
-See section~\ref{sec:cuda} for more information.
+See Section~\ref{sec:cuda} for more information.
 
 % The CUDA hardware architecture is built around a scalable array of
 % multithreaded \emph{streaming multiprocessors} (SMs).\index{SM|see {streaming
@@ -249,7 +249,7 @@ Note that if we wish to fuse other operations into the fold kernel, only the
 first line of reductions at level zero perform the fused operation. All
 subsequent reductions in that kernel, as well as the recursive steps at level
 one and beyond, are pure reductions. We discuss fusion further in
-section~\ref{sec:array_fusion}.
+Section~\ref{sec:array_fusion}.
 % Thus, the fused operation requires compilation of two separate kernels.
 % We focus on the level zero kernel, which is more interesting.
 

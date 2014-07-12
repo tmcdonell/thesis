@@ -214,7 +214,7 @@ The distinction between regular arrays of type @Array sh e@ and arrays of the
 embedded language @Acc (Array sh e)@ has the added benefit of differentiating
 between arrays allocated in host memory and arrays allocated in GPU device
 memory. Thus, @use@ also implies a host-to-device data transfer. See
-section~\ref{sec:memory_management} for more information on how device memory is
+Section~\ref{sec:memory_management} for more information on how device memory is
 managed. Similarly, expressions in @Acc@ are computations that are executed on
 the device (the GPU), whereas regular Haskell code runs on the host (the CPU).
 
@@ -466,7 +466,7 @@ use :: (Shape sh, Elt e) => Array sh e -> Acc (Array sh e)
 %
 The type classes @Shape@ and @Elt@ characterise the types that may be used as
 array indices and array elements respectively. We discussed the nature of array
-indices in section~\ref{sec:arrays_shapes_and_indices}. The @Elt@ class
+indices in Section~\ref{sec:arrays_shapes_and_indices}. The @Elt@ class
 characterises the types of values that can be used as array elements, and hence
 appear in scalar Accelerate expressions. The supported @Elt@ types are signed \&
 unsigned integers (8, 16, 32, and 64-bit wide), floating point numbers (single
@@ -481,7 +481,7 @@ interesting is the case of arrays of tuples, where we use a non-parametric array
 representation so that arrays of tuples are represented in memory as a tuple of
 arrays, one array for each primitive type in the structure. By virtue of this
 representation, Accelerate is able to make optimal use of the available memory
-bandwidth. See section~\ref{sec:representing_tuples} for details.
+bandwidth. See Section~\ref{sec:representing_tuples} for details.
 
 Moreover, consider the following types:
 %
@@ -991,7 +991,7 @@ environment into another, where new things have come into scope according to
 some witness, and no old things have disappeared.
 
 Listing~\ref{lst:sinking} generalises @weaken@ from
-section~\ref{sec:substitution} to increase the environment of an object @f@
+Section~\ref{sec:substitution} to increase the environment of an object @f@
 based on some function on indices rather than shifting by a single de Bruijn
 index. Thus we only need to traverse a term once no matter how many positions
 the variable indices shift by. Using @sink@, we can weaken terms based on the

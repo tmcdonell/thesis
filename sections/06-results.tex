@@ -107,9 +107,8 @@ portion of the overall execution time for some benchmarks.
 
 Table~\ref{tab:compilation_times} lists the code generation and compilation
 times for each of the benchmark programs considered in this chapter. Compilation
-times are measured by saving the Accelerated generated code to file and
-compiling separately with the @nvcc@ command line tool. Times are the average of
-10 evaluations.
+times are measured directly by compiling separately with the @nvcc@ command line
+tool. Times are the average of 10 evaluations.
 
 \begin{table}
     \centering
@@ -260,21 +259,22 @@ sharing.
 The slow-down in the unoptimised version is due to Accelerate generating one GPU
 kernel function for each aggregate operation in the source program. The use of
 two separate kernels requires the intermediate array produced by @zipWith@ to be
-constructed in GPU memory before being immediately read back by @fold@. In
-contrast, the CUBLAS version uses only a single kernel. As this is a simple
-memory bound benchmark, we would expect the lack of fusion to double the
-runtime, which is what we observe.
+constructed in GPU memory, which is then immediately read back by @fold@. In
+contrast, the CUBLAS version combines these operations into a single kernel. As
+this is a simple memory bound benchmark, we would expect the lack of fusion to
+double the runtime, which is what we observe.
 
 The fused version of dot product combines the aggregate computations by
-embedding a function of type @(sh -> a)@ into the reduction, represented
-here as the second argument to the constructor @Delayed@. This scalar
-function does the work of element wise multiplying the two input vectors, and is
-performed on-the-fly as part of the reduction kernel instead of requiring an
-intermediate array. See Section~\ref{sec:array_fusion} for more information.
-Applied to two manifest arrays, the following embedded program will be executed:
+embedding a function from array indices to array values of type @(sh -> a)@ into
+the reduction, represented here as the second argument to the constructor
+@Delayed@. This scalar function does the work of element wise multiplying the
+two input vectors, and is performed on-the-fly as part of the reduction kernel
+instead of requiring an intermediate array. See Section~\ref{sec:array_fusion}
+for more information. Applied to two manifest arrays, the following embedded
+program will be executed:
 
 \begin{lstlisting}[style=haskell]
-let a0 = use (Array ...) in
+let a0 = use (Array ...) in                       -- manifest input arrays
 let a1 = use (Array ...) in
 fold (\x0 x1 -> x0 + x1) 0.0
      (Delayed (intersect (shape a0) (shape a1))   -- extent of the input array
@@ -453,7 +453,6 @@ to the developer:
 //  13      const Int64 v1 = ({ assert(ix >= 0 && ix < min(shIn1_0, shIn0_0)); ix; });
         cvt.s64.s32     %rd5, %r5;
         mov.s64         %rd6, %rd5;
-//  14
 //  15      y0 = arrIn1_0[v1] * arrIn0_0[v1];
         mov.s64         %rd7, %rd6;
         mul.lo.u64      %rd8, %rd7, 4;
@@ -832,8 +831,8 @@ being longer.%
 \footnote{\label{ft:fixed_unrolling}Register usage depends on which architecture
 the code is being compiled for. For the compute 1.3 series processor, each
 thread required 29 registers, whereas on a newer 3.0 processor the same code
-required 59 per thread. I conjecture that this is because older devices use a
-different underlying compiler architecture (Open64 vs\. LLVM).}
+required 59 registers per thread. I conjecture that this is because older
+devices use a different underlying compiler architecture (Open64 vs.\ LLVM).}
 % The unrolled code requires 63 registers, resulting in a multiprocessor occupancy
 % of 50\% on a compute 3.0 device.
 Since the Mandelbrot program is limited by computation, reducing the number of
@@ -1043,13 +1042,11 @@ for the view parameter will be embedded directly into each call to the
 @generate@ function, which will defeat Accelerate's caching of CUDA kernels.
 
 Any scalar values that we wish to be treated as function parameters must be
-lifted to array variables. This is because Accelerate currently does not support
-nested data parallelism, so our internal representation of array terms is closed
-with respect to scalar variables.
-% to ensure that array computations can not depend on scalar values.
-Adding support for nested data parallelism in Accelerate is an active area of
-research. With it, it may be possible to avoid lifting free scalar variables to
-the array level in order to correctly cache kernels.
+lifted to array variables. This is because the internal representation of array
+terms is closed with respect to scalar variables, in order to statically exclude
+nested parallelism. Adding support for nested data parallelism to Accelerate is
+an active area of research. With it, it may be possible to avoid lifting free
+scalar variables to free array variables in order to correctly cache kernels.
 
 
 \section{N-body gravitational simulation}
@@ -1343,10 +1340,9 @@ CUSPARSE library is significantly slower on all test matrices.
 To maximise global memory throughput the skeleton code ensures that the vector
 read of each matrix row is coalesced and aligned to the warp boundary. Combined
 with the behaviour that reduction operations in Accelerate do not require a
-neutral starting element (see Section~\ref{sec:dotp} for further discussion),
-this means that there is significant overhead in initialising the local sum for
-each thread at the beginning of the reduction.
-
+neutral starting element, this means that there is significant overhead in
+initialising the local sum for each thread at the beginning of the reduction.
+See Section~\ref{sec:dotp} for further discussion.
 
 % Since Accelerate does not require the starting element of the reduction to be a
 % neutral element, threads must also ensure they initialise their local sum from
@@ -1419,10 +1415,14 @@ each thread at the beginning of the reduction.
 % for the second cooperative tree-reduction phase of the algorithm, as it combines
 % values for indices $\left[0,n\right)$ into index zero.
 
-Matrices such as the FEM/Spheres, which contain only a few non-zero elements per
-row ($\lesssim 2 \times \text{warp size} = 64$) exhibit a drop in performance,
-because this extra startup cost necessary to align global memory reads to the
-warp boundary can not be amortised over the row length.
+For matrices such as Dense, the increased memory bandwidth gained from aligning
+global memory reads to the warp boundary offsets the additional startup cost,
+and Accelerate exhibits higher performance than its competitors.
+%
+However, matrices such as the FEM/Spheres, which contain only a few non-zero
+elements per row ($\lesssim 2 \times \text{warp size} = 64$) exhibit a drop in
+performance, because this extra startup cost can not be amortised over the row
+length.
 %
 Matrices such as Epidemiology, with large vectors and few non-zero elements per
 row, exhibit low flop:byte ratio and are poorly suited to the CSR format, with
@@ -1432,7 +1432,7 @@ and matrix formats.
 
 As was found with the dot product benchmark (\S\ref{sec:dotp}), implementing
 specialised kernels that can avoid this additional startup cost when the
-combining function and starting element form a moniod is expected to improve
+combining function and starting element form a monoid is expected to improve
 performance, but is left to future work.
 
 % This may be related to the way the skeleton code ensures that
@@ -1586,10 +1586,11 @@ horizontal and vertical image gradients.
 There is a significant amount of sharing between these two kernels, in terms of
 the coefficients required to compute the derivative at each point. Thus, it
 could be beneficial to merge these two stencils into a single kernel, rather
-than computing them separately. As with all shortcut fusion methods, the system
-presented here does not combine multiple passes over the same array into a
-single traversal that computes multiple results. We leave this, as well as other
-significant stencil
+than computing them separately. This would reduce the number of accesses to the
+source array from $6+6=12$ to only $8$. As with all shortcut fusion methods, the
+system presented here does not combine multiple passes over the same array into
+a single traversal that computes multiple results. We leave this, as well as
+other significant stencil
 optimisations~\cite{Henretty:2013wb,Kamil:2006un,Lesniak:2010}, to future work.
 
 % We leave this to future work,
@@ -1689,9 +1690,9 @@ project steps vf = A.stencil2 poisson (A.Constant zero) vf (A.Constant zero) p
     \end{center}
     \caption[Fluid flow simulation kernel benchmarks]{Kernel runtimes for the
         fluid flow simulation, in Accelerate with and without optimisations,
-        compared to sequential and parallel CPU implementations. Running the
-        Repa program with seven threads on the eight cores was found to be
-        faster. Note the log-log scale.}
+        compared to sequential and parallel CPU implementations.
+        % Running the Repa program with seven threads on the eight cores was found to be faster.
+        Note the log-log scale.}
     \label{fig:fluid}
 \end{figure}
 
@@ -1725,22 +1726,29 @@ expensive.
 \section{Radix sort}
 
 The radix sort benchmark implements a simple parallel radix sort algorithm as
-described by \citet{Blelloch:1990vl} to sort an array by an integral key. We
-compare our implementation of Blelloch's algorithm in Accelerate, shown in
-Listing~\ref{lst:radixsort}, to one written in Nikola~\cite{Mainland:2010vj},
-which is also an embedded language in Haskell for CUDA programming.%
-\footnote{To be more specific, we estimate based on the results presented in the
-paper~\cite{Mainland:2010vj} as Nikola no longer compiles with recent versions
-of GHC, and the development version to replace it is not yet complete.
-Nevertheless, results are informative as the same GPU, a Tesla T10, is used in
-both cases.}
-For this benchmark the Accelerate code is faster than Nikola, because Nikola is
-limited to single kernel programs so must transfer every intermediate result
-back to the host. Additionally, we are faster than a sequential radix sort
-implementation using \texttt{Data.Vector} for as few as $\sim256$ elements,
-whereas Nikola requires a dataset of about 32kB before the additional
-parallelism of the GPU outperforms the sequential
-version~\cite{Mainland:2010vj}.
+described by \citet{Blelloch:1990vl} to sort an array by an integral key, and is
+shown in Listing~\ref{lst:radixsort}.
+The @radixPass@ function sorts the vector @v@ based on the value of
+bit @k@; moving elements with a zero at that bit to the beginning of the
+vector and those with a one bit to the end. This simple algorithm requires
+$b$ iterations to sort an array of elements whose keys are $b$-bits wide, and
+each pass requires multiple traversals of the array.
+
+% We compare our implementation of Blelloch's algorithm in Accelerate, shown in
+% Listing~\ref{lst:radixsort}, to one written in Nikola~\cite{Mainland:2010vj},
+% which is also an embedded language in Haskell for CUDA programming.%
+% \footnote{To be more specific, we estimate based on the results presented in the
+% paper~\cite{Mainland:2010vj} as Nikola no longer compiles with recent versions
+% of GHC, and the development version to replace it is not yet complete.
+% Nevertheless, results are informative as the same GPU, a Tesla T10, is used in
+% both cases.}
+% For this benchmark the Accelerate code is faster than Nikola, because Nikola is
+% limited to single kernel programs so must transfer every intermediate result
+% back to the host. Additionally, we are faster than a sequential radix sort
+% implementation using \texttt{Data.Vector} for as few as $\sim256$ elements,
+% whereas Nikola requires a dataset of about 32kB before the additional
+% parallelism of the GPU outperforms the sequential
+% version~\cite{Mainland:2010vj}.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:radixsort
@@ -1768,12 +1776,6 @@ sortBy rdx arr = foldr1 (>->) (P.map radixPass [0..p-1]) arr    -- loop over bit
       permute const v (\ix -> index1 (index!ix)) v              -- move elements to new position
 \end{lstlisting}
 
-The @radixPass@ function sorts the vector @v@ based on the value of
-bit @k@; moving elements with a zero at that bit to the beginning of the
-vector and those with a one bit to the end. This simple algorithm requires
-$b$ iterations to sort an array of elements whose keys are $b$-bits wide, and
-each pass requires multiple traversals of the array.
-
 \begin{figure}
     \begin{center}
         \includegraphics[width=0.8\textwidth]{images/results/radixsort/radixsort}
@@ -1788,17 +1790,16 @@ As seen in Figure~\ref{fig:radixsort}, the absolute performance of this simple
 algorithm, which sorts the array by a single bit at a time, is quite low.
 Implementations of radix sort optimised for the CUDA
 architecture~\cite{Satish:2009kx,Merrill:2011bz,ThrustAParallelT:ub}, are
-approximately $10\times$ faster because they make efficient use of memory
-bandwidth and on-chip shared memory to sort keys by 8-bits at a time. Such
-implementations are, essentially, different algorithms than Blelloch's radix
-sort algorithm that we have implemented here, but serve to illustrate the
-absolute performance of the device. To address this we have implemented a
-foreign function interface for Accelerate to take advantage of existing
-high-performance libraries (\S\ref{sec:ffi}). The foreign function interface is
-orthogonal to the work presented here of optimising programs written in the
-Accelerate language. Useful future work would be to combine a fast-yet-fixed
-foreign implementation with a more generic interface, using a method such
-as~\cite{Henglein:2013dd}.
+approximately $10\times$ faster because they make efficient use of the on-chip
+shared memory to sort keys by 8-bits at a time. Such implementations are,
+essentially, different algorithms to Blelloch's algorithm we have implemented
+here, but serve to illustrate the absolute performance of the device. To address
+this we have implemented a foreign function interface for Accelerate to take
+advantage of existing high-performance libraries (\S\ref{sec:ffi}). The foreign
+function interface is orthogonal to the work presented here of optimising
+programs written in the Accelerate language. Useful future work would be to
+combine a fast-yet-fixed foreign implementation with a more generic interface,
+using for example the method of \citet{Henglein:2013dd}.
 
 
 \section{Shortest paths in a graph}
@@ -1808,10 +1809,11 @@ The Floyd-Warshall algorithm finds the lengths of the shortest paths between all
 pairs of points in a weighted directed graph. The implementation in Accelerate
 is shown in Listing~\ref{lst:floyd_warshall}, and appeared in the book
 \emph{Parallel and Concurrent Programming in Haskell}~\cite{Marlow:2013wn}. The
-algorithm runs over an adjacency matrix, building the solution bottom-up so that
-earlier results are used when computing later ones. Each step of the algorithm
-is $O\left(n^2\right)$ in the number of vertices, so the whole algorithm is
-$O\left(n^3\right)$.
+implementation in Accelerate applies the algorithm over a dense adjacency
+matrix, building the solution bottom-up so that earlier results are used when
+computing later ones. Each step of the algorithm is $O\left(n^2\right)$ in the
+number of vertices, so the whole algorithm is $O\left(n^3\right)$.
+See~\cite{Marlow:2013wn} for further information.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:floyd_warshall
@@ -2022,7 +2024,7 @@ baseline.
 \midrule
 Accelerate      & 213.3 \\
 % Repa (-N8)      & \\
-Hashcat (CPU)   & 57.14 \\
+Hashcat (CPU)   & 57.1 \\  % 57.14
 Hashcat (GPU)   & 773.3 \\
 
 \bottomrule
@@ -2166,9 +2168,10 @@ refraction, scattering, and dispersion phenomena. This increased accuracy has a
 larger computational cost, which is why ray tracing is not typically used for
 real time rendering applications such as computer games.
 Figure~\ref{fig:ray_sample} shows the result of rendering a scene using the ray
-casting algorithm shown in Listing~\ref{lst:ray}. The algorithm computes the
-colour of a pixel by casting a ray from that point in a specified direction, and
-tracing its interaction with the objects in the scene.
+casting algorithm shown in Listing~\ref{lst:ray}.
+% The algorithm computes the
+% colour of a pixel by casting a ray from that point in a specified direction, and
+% tracing its interaction with the objects in the scene.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:ray
@@ -2238,7 +2241,7 @@ Accelerate has no support for general recursion, the structure of the program is
 unrolled on the Haskell level, resulting in a large amount of generated code as
 well as additional branching. As code generation in Accelerate is based on the
 generation of sequences of C expressions, branches must evaluate both sides of
-the conditional before selecting the appropriate result with the ternary
+the conditional before selecting the correct result with the ternary
 operator @(?:)@. While this reduces the amount of divergent branching, it
 increases the amount of redundant work, especially when all threads select the
 same branch. Additionally, Accelerate does not have any support for sum
@@ -2265,9 +2268,9 @@ The previous chapters have discussed how to implement and optimise an EDSL with
 skeleton based code generation targeting bulk parallel SIMD hardware such as
 GPUs. This chapter presented a series of benchmark applications, including a
 comparison to other hand-optimised CPU and/or GPU implementations, that
-demonstrates the effect of these optimisations, showing that we can approach the
-performance of hand-written CUDA code, while retaining a much higher level of
-abstraction.
+demonstrates the positive effect of these optimisations, showing that we can
+approach the performance of hand-written CUDA code while retaining a much higher
+level of abstraction.
 
 
 % \subsection{Related Work}

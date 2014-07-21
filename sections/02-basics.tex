@@ -75,7 +75,7 @@ computations in applications typically handled by the central processing unit
 single thread of execution, much of the processor's resources (die area and
 power) are dedicated to non-computational tasks such as caching and branch
 prediction. Conversely, the highly parallel nature of graphics processing
-(rasterisation) means the GPU architecture instead uses these resources to
+(rasterisation) means the GPU architecture can instead use these resources to
 execute many tasks in parallel, improving the computational throughput for
 parallel workloads at the expense of decreased single threaded performance. This
 difference in architectures between the CPU and GPU is illustrated in
@@ -85,7 +85,7 @@ Figure~\ref{fig:cpu_gpu_block_diagram}.
     \centering
     \includegraphics[width=0.4\textwidth]{images/basics/block_cpu}
     \includegraphics[width=0.4\textwidth]{images/basics/block_gpu}
-    \caption[The GPU devotes more transistors to data processing]{Block diagram
+    \caption[Block diagram comparing CPU and GPU architectures]{Block diagram
     comparing the relative use of transistors in a CPU (left) compared to a GPU
     (right). The GPU is specialised for highly parallel, compute intensive
     workloads, and so is designed such that the majority of its transistors are
@@ -105,7 +105,7 @@ data sets can use the data parallel programming model to speed up calculations,
 and these applications can often be coded to execute on the GPU\@.
 
 
-\subsection{CUDA}
+\section{CUDA}
 \label{sec:cuda}
 
 The \indext{CUDA} architecture is the parallel computing platform and
@@ -113,9 +113,9 @@ programming model created by NVIDIA and implemented by the graphics processing
 units (GPUs)\index{GPU|see {graphics processing unit}}\index{graphics processing
 unit} that they produce. Using CUDA, programmers gain direct access to the
 memory and massively parallel multicore architecture of the GPU, which can then
-be used for general purpose computing, not just graphics.
+be used for general purpose computing applications, not just graphics.
 
-CUDA extends the C programming language by allowing the C programmer to define
+CUDA extends the C programming language by allowing the programmer to define
 functions, called \emph{kernels}\index{GPU!kernel}, that, when called, are
 executed $n$ times in $n$ data parallel threads on the available processing
 elements, rather than only once like regular C functions. These functions are
@@ -125,7 +125,7 @@ data through some \emph{shared memory}\index{GPU!shared memory} and by
 synchronising their execution to coordinate memory access. More precisely, the
 programmer can specify synchronisation points in the kernel by calling
 @__syncthreads()@\index{GPU!\code{__syncthreads()}}, which acts as a barrier at
-which all threads in the block must wait before any is allowed to proceed. Each
+which all threads in the block must wait before any are allowed to proceed. Each
 thread block executes independently of each other, so a GPU with a higher number
 of CUDA cores --- or \emph{streaming multiprocessors}\index{GPU!streaming
 multiprocessor} (SM) --- will execute the program in less time than a GPU with
@@ -171,7 +171,7 @@ execute $N$ individual instances of the kernel function @VecAdd@, and each
 thread operates on a single element of each input array to create a single value
 in the result. See the CUDA C programming guide for details~\cite{NVIDIA:2012wf}.
 
-\section{Parallel algorithms in CUDA}
+\section{Data parallel algorithms in CUDA}
 \label{sec:parallel_algorithms_in_cuda}
 
 \indext{CUDA} is a parallel computing platform for programming NVIDIA GPUs.
@@ -318,7 +318,8 @@ threads in a block, the reduction will typically require at most two kernel
 invocations.\footnote{Accelerate selects the thread block size in order to
 maximise thread occupancy. As this depends on both the specific GPU being used
 as well as the user function the array is reduced with, an upper bound of two
-parallel steps can not be guaranteed.}
+parallel steps can not be guaranteed. See Section~\ref{sec:launch_configuration}
+for more information.}
 
 Higher-dimensional reductions reduce the array along the innermost dimension
 only. This is similar to a segmented fold, except that the segment descriptor is
@@ -339,10 +340,10 @@ have the same number of cores per multiprocessor, and lower performance
 processors in a generation are produced by incorporating (or activating) fewer
 multiprocessors, thereby reducing the total core count.}
 
-A segmented reduction uses a single warp to reduce each segment. Investigation
-of whether it is more efficient to implement the multidimensional reduction
-using this warp-per-segment strategy, rather than mapping one thread block per
-segment as is done currently, is left for future work.
+In the current implementation, a segmented reduction uses a single warp (SIMD
+group) to reduce each segment, although it would also be possible to use the
+entire thread block, as is done for regular multidimensional reductions. It
+remains to fully investigate which mapping is more efficient.
 
 \subsection{Scan}
 \label{sec:parallel_scan}
@@ -417,10 +418,9 @@ flag-value pairs $\left( f_x, x \right)$ as follows:
 \end{equation*}
 
 Segmented operations often arise when dealing with nested parallelism and the
-flattening transformation~\cite{Blelloch:1995ut}. If future work adds support
-for nested parallelism, it may be beneficial to implement segmented scans
-directly rather than by operator
-transformation~\cite{Sengupta:2008ut,Dotsenko:2008fo}.
+flattening transformation~\cite{Blelloch:1995ut}. It is expected that
+implementing segmented scans directly~\cite{Sengupta:2008ut,Dotsenko:2008fo},
+rather than by operator transformation, will improve performance.
 
 
 \subsubsection{Interaction with array fusion}
@@ -439,10 +439,14 @@ than just the final element; or (b) to always read in manifest data, effectively
 disallowing producer/consumer fusion (\S\ref{sec:array_fusion}) for
 scans in the CUDA backend. The latter option is undesirable, and the former may
 not work for non-commutative operators, such as the one we used in the
-operator-transformation-based definition of segmented scan. It is left to future
-work to fully investigate this interaction between array fusion and operations
-such as scan, where the underlying implementation requires multiple passes over
-the input data.
+operator-transformation-based definition of segmented scan. Currently the user
+has no control as to whether the input array is manifest or delayed, and no
+special action is taken on the part of the backend in its current
+implementation, although both alternatives are possible.
+
+% It is left to future work to fully investigate this interaction between array
+% fusion and operations such as scan, where the underlying implementation requires
+% multiple passes over the input data.
 
 % In order to avoid this, it might seem that one approach could be for each thread
 % block in the first phase to write its entire partial scan result to memory,
@@ -487,9 +491,9 @@ satisfy the predicate, by not mapping those indices to an index in the codomain.
 %
 \begin{lstlisting}[style=haskell_float
     ,label=lst:filter
-    ,caption={[Filter] Filtering returns only those elements of a
-    vector which satisfy a predicate. This operation is included as part of
-    Accelerate's standard prelude.}]
+    ,caption={[Filtering a vector based on a predicate] Filtering returns only
+    those elements of a vector which satisfy a predicate. This operation is
+    included as part of Accelerate's standard prelude.}]
 filter :: Elt a => (Exp a -> Exp Bool) -> Acc (Vector a) -> Acc (Vector a)
 filter p vec
   = let flags            = map (boolToInt . p) vec
@@ -517,7 +521,7 @@ combined (accumulated) correctly.
 %
 \begin{lstlisting}[style=haskell_float
     ,label=lst:histogram
-    ,caption={[Simple histogram] A simple histogram written in
+    ,caption={[A simple histogram] A simple histogram written in
     Accelerate. We assume the input vector contains elements in the range
     $\left[0,100\right)$ and accumulate into ten equally sized bins.}]
 histogram :: Acc (Vector Float) -> Acc (Vector Int)
@@ -553,8 +557,8 @@ from the source array @x@ with the value of the result array @y@:
 \end{lstlisting}
 %
 Any atomic operation on simple types can be implemented in terms of
-compare-and-swap in this manner. Utilising more specific atomic operations such
-as @atomicAdd@ when available is left to future work.
+compare-and-swap in this manner, although it would also be possible to use more
+specific atomic operations such as @atomicAdd@ in special cases.
 
 
 \subsubsection{Implementation using explicit locking}
@@ -607,8 +611,8 @@ Implementing a spin-lock can be done similarly to the following:
 
 \end{enumerate}
 
-It is left to future work to fully investigate the use of spin locking as an
-alternative strategy for combining elements in the permute operation.
+The current implementation does not use spin locking, but this is a possible
+alternative strategy for combining complex types in the permute operation.
 
 
 \subsection{Stencil}
@@ -646,11 +650,11 @@ boundary.
         \includegraphics[width=0.5\textwidth]{images/basics/stencil3x3}
     \end{center}
     \caption[Application of a $3\times3$ stencil in the border region]
-        {Application of a $3\times3$ stencil in the border region. Elements in
-        the border region (grey), such as the indicated element at index
-        \code{(Z:.2:.0)}, have neighbouring elements which might fall outside
-        the array bounds, whereas for elements in the internal region (white)
-        the stencil lies entirely within the array.}
+        {Application of a $3\times3$ stencil in the border region. If the focal
+        point of the stencil, such as the indicated element at index
+        \code{(Z:.2:.0)}, lies in the border region (grey), the neighbouring
+        elements might fall outside the array bounds, whereas for elements in
+        the internal region (white) the stencil lies entirely within the array.}
     \label{fig:stencil3x3}
 \end{figure}
 
@@ -662,8 +666,12 @@ For example, a 512-pixel square image has less than one percent of its pixels
 along the edge. This fact implies that for optimal performance, we should avoid
 testing of the boundary each time we read an element from the source array. For
 simple convolutions such as those used by Canny (\S\ref{sec:canny}), this adds
-significant overhead~\cite{Lippmeier:2011cd}. Separating computation of the
-border and internal region is left for future work.
+significant overhead~\cite{Lippmeier:2011cd}.
+%
+The current implementation does not separate computation of the border and
+internal regions.
+% Separating computation of the border and internal region is left for future
+% work.
 
 
 \subsubsection{Overlapping elements}
@@ -695,7 +703,7 @@ elements can thus significantly reduce memory bandwidth requirements.
 
 Sharing of stencil elements in CUDA can be achieved by having the thread block
 first cooperatively read the stencil elements into \indexe{shared
-memory}~\cite{NVIDIA:2012wf}, and then each thread computes its stencil function
+memory}~\cite{NVIDIA:2012wf}, and each thread then computes its stencil function
 using these shared values. In Accelerate, sharing of stencil elements is
 complicated by two main factors:
 %
@@ -704,7 +712,7 @@ complicated by two main factors:
         Since the shared memory region on the GPU is usually very small, this
         can significantly limit the maximum thread block size. If the occupancy
         of the device is too low, there may be insufficient parallelism to hide
-        global memory transfer latency.
+        global memory transfer latency (\S\ref{sec:launch_configuration}).
 
     \item A stencil function does not need to use all elements defined in the
         pattern, so reading all elements into shared memory could waste more
@@ -717,7 +725,7 @@ The implementation currently ignores this issue and does not explicitly share
 elements between threads, instead relying on the cache. For older (compute 1.x)
 devices that lack a traditional cache mechanism to global memory, we read the
 source array using the texture cache.\footnote{A holdover from the graphical
-heritage of the GPU.} It is left to future work to implement sharing of stencil
+heritage of the GPU.} It is left to future work to investigate sharing of stencil
 elements between threads, either in general or specialised for certain cases
 such as dense stencils or those commonly used for convolutions.
 

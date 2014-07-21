@@ -64,7 +64,7 @@ discussed in Section~\ref{sec:floyd_warshall}, was found to cause serious
 problems with the original implementation of the optimisations discussed in this
 thesis. Thus, changes were made to ensure that the complexity of the
 optimisations are not exponential in the number of terms in the program. In
-particular, the Floyd-Warshall program consists of a sequence of let bindings to
+particular, the reified program consists of a sequence of let bindings to
 producer operations, so the handling of let bindings
 (\S\ref{sec:binder_elimination}) and the representation of producers that
 separates the delayed array representation from the captured environment terms
@@ -418,7 +418,7 @@ code to inspect it for sources of overhead.
 % capability 2.0 and later~\cite{NVIDIA:2012wf}. % [\SB.15]
 
 
-\subsection{64-bit Arithmetic}
+\subsection{64-bit arithmetic}
 
 The host architecture that the Haskell program executes on is likely to be a
 64-bit processor. If this is the case, then manipulating machine word sized
@@ -551,43 +551,43 @@ put option. The function @callput@ evaluates the Black-Scholes formula for
 a single triple, and @blackscholes@ maps it over a vector of triples such
 that all individual applications of the formula are executed in parallel.
 
-\begin{lstlisting}[style=haskell_float
-    ,float
-    ,label=lst:blackscholes
-    ,caption={Black-Scholes option pricing}]
-horner :: Num a => [a] -> a -> a
-horner coeff x =
-  let madd a b  = a + x*b
-  in
-  x * foldr1 madd coeff
-
-cnd' :: Floating a => a -> a
-cnd' d =
-  let poly      = horner coeff
-      coeff     = [0.31938153, -0.356563782, 1.781477937, -1.821255978, 1.330274429]
-      rsqrt2pi  = 0.39894228040143267793994605993438
-      k         = 1.0 / (1.0 + 0.2316419 * abs d)
-  in
-  rsqrt2pi * exp (-0.5*d*d) * poly k
-
-blackscholes :: Acc (Vector (Float, Float, Float)) -> Acc (Vector (Float, Float))
-blackscholes = A.map callput
-  where
-  callput x =
-    let (price, strike, years) = A.unlift x
-        r       = A.constant riskfree
-        v       = A.constant volatility
-        v_sqrtT = v * sqrt years
-        d1      = (log (price / strike) + (r + 0.5 * v * v) * years) / v_sqrtT
-        d2      = d1 - v_sqrtT
-        cnd d   = let c = cnd' d in d >* 0 ? (1.0 - c, c)
-        cndD1   = cnd d1
-        cndD2   = cnd d2
-        x_expRT = strike * exp (-r * years)
-    in
-    A.lift ( price * cndD1 - x_expRT * cndD2                    -- call price
-           , x_expRT * (1.0 - cndD2) - price * (1.0 - cndD1))   -- put price
-\end{lstlisting}
+% \begin{lstlisting}[style=haskell_float
+%     ,float
+%     ,label=lst:blackscholes
+%     ,caption={Black-Scholes option pricing}]
+% horner :: Num a => [a] -> a -> a
+% horner coeff x =
+%   let madd a b  = a + x*b
+%   in
+%   x * foldr1 madd coeff
+%
+% cnd' :: Floating a => a -> a
+% cnd' d =
+%   let poly      = horner coeff
+%       coeff     = [0.31938153, -0.356563782, 1.781477937, -1.821255978, 1.330274429]
+%       rsqrt2pi  = 0.39894228040143267793994605993438
+%       k         = 1.0 / (1.0 + 0.2316419 * abs d)
+%   in
+%   rsqrt2pi * exp (-0.5*d*d) * poly k
+%
+% blackscholes :: Acc (Vector (Float, Float, Float)) -> Acc (Vector (Float, Float))
+% blackscholes = A.map callput
+%   where
+%   callput x =
+%     let (price, strike, years) = A.unlift x
+%         r       = A.constant riskfree
+%         v       = A.constant volatility
+%         v_sqrtT = v * sqrt years
+%         d1      = (log (price / strike) + (r + 0.5 * v * v) * years) / v_sqrtT
+%         d2      = d1 - v_sqrtT
+%         cnd d   = let c = cnd' d in d >* 0 ? (1.0 - c, c)
+%         cndD1   = cnd d1
+%         cndD2   = cnd d2
+%         x_expRT = strike * exp (-r * years)
+%     in
+%     A.lift ( price * cndD1 - x_expRT * cndD2                    -- call price
+%            , x_expRT * (1.0 - cndD2) - price * (1.0 - cndD1))   -- put price
+% \end{lstlisting}
 
 Figure~\ref{fig:blackscholes} shows the result of running this code compared to
 the implementation that ships with the CUDA SDK. Without optimisations, the
@@ -1119,7 +1119,7 @@ calcAccels epsilon bodies
 \end{lstlisting}
 
 
-\subsection{Use of Shared Memory}
+\subsection{Use of shared memory}
 
 In CUDA, the memory hierarchy of the device is made explicit to the programmer,
 including a small on-chip shared memory region threads can use to share data,

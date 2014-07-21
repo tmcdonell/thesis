@@ -38,7 +38,7 @@ not at the expense of making it incorrect.
 
 \begin{lstlisting}[style=haskell_float
     ,float=t
-    ,label=lst:black_scholes
+    ,label=lst:blackscholes
     ,caption={Black-Scholes option pricing}]
 riskfree, volatility :: Float
 riskfree   = 0.02
@@ -73,8 +73,8 @@ blackscholes = map callput . use
         cndD2   = cnd d2
         x_expRT = strike * exp (-r * years)
     in
-    lift ( price * cndD1 - x_expRT * cndD2
-         , x_expRT * (1.0 - cndD2) - price * (1.0 - cndD1))
+    lift ( price * cndD1 - x_expRT * cndD2                      -- call price
+         , x_expRT * (1.0 - cndD2) - price * (1.0 - cndD1))     -- put price
 \end{lstlisting}
 
 Accelerate is a \emph{deeply embedded} language, meaning that evaluating an
@@ -90,18 +90,21 @@ Haskell. However, a straightforward reification of the surface language program
 results in each occurrence of a let-bound variable in the source program
 creating a separate unfolding of the bound expression in the compiled code.
 
-At an example, consider the pricing of European-style options using the Black-Scholes formula, the
-Accelerate program for which is shown in Listing~\ref{lst:black_scholes}. Given a vector with
-triples of underlying stock price, strike price, and time to maturity (in years), the Black-Scholes
-formula computes the price of a call and put option. The function @callput@ evaluates the
-Black-Scholes formula for a single triple, and @blackscholes@ maps it over a vector of triples,
-such that all individual applications of the formula are executed in parallel.
+At an example, consider the pricing of European-style options using the
+Black-Scholes formula, the Accelerate program for which is shown in
+Listing~\ref{lst:blackscholes}. Given a vector with triples of underlying stock
+price, strike price, and time to maturity (in years), the Black-Scholes formula
+computes the price of a call and put option. The function @callput@ evaluates
+the Black-Scholes formula for a single triple, and @blackscholes@ maps it over a
+vector of triples, such that all individual applications of the formula are
+executed in parallel.
 
-The function @callput@ introduces a significant amount of sharing: the helper functions
-@cnd'@ and hence also @horner@ are used twice --- for @d1@ and @d2@ --- and its
-argument @d@ is used multiple times in the body. Worse, the conditional expression leads to a
-growing number of predicated instructions which incurs a large penalty on the SIMD architecture of
-a GPU\@. A lack of sharing recovery was a significant shortcoming of our initial implementation of
+The function @callput@ introduces a significant amount of sharing: the helper
+functions @cnd'@ and hence also @horner@ are used twice --- for @d1@ and @d2@
+--- and its argument @d@ is used multiple times in the body. Worse, the
+conditional expression leads to a growing number of predicated instructions
+which incurs a large penalty on the SIMD architecture of a GPU\@. A lack of
+sharing recovery was a significant shortcoming of our initial implementation of
 Accelerate~\cite{Chakravarty:2011fr}.
 
 % As described in Section~TK, operations of the embedded language do not
@@ -280,7 +283,7 @@ sum_of_squares n = go 1 0
 \end{lstlisting}
 %
 The second program is much more efficient than the first because it does not
-involve the production of any intermediate lists and executes is constant space.
+involve the production of any intermediate lists and executes in constant space.
 Unfortunately, the clarity of the original program has been lost. What we
 \emph{really} want is to write the first program, and have the compiler
 \emph{automatically} transform it into the second, or something morally
@@ -342,7 +345,9 @@ program happens at Haskell \emph{runtime} rather than when compiling the Haskell
 program~(\S\ref{sec:dynamic_compilation}). For this reason, optimisations
 applied to an Accelerate program contribute to its overall runtime, so we must
 be mindful of the cost of analysis and code transformations. On the flip-side,
-we are able to make use of information that is only available at runtime.
+we are able to make use of information that is only available at runtime, such
+as constant values, and code generation (\S\ref{sec:code_generation}) selects
+instructions based on the capabilities of the target hardware.
 
 \subsubsection{Filtering}
 
@@ -351,10 +356,9 @@ which the size of the result structure depends on the \emph{values} of the input
 array, as well as its size. For example \index{fusion!stream}stream fusion
 includes the @Skip@ constructor in order to support filtering operations (among
 other uses). Although easily implementable as a combination of the core
-primitives and provided by the library as such, filtering is difficult to
+primitives (Listing~\ref{lst:filter}), filtering is difficult to
 implement as a single-step parallel operation. Since filter-like operations are
-not part of the core Accelerate operations, we do not need to consider them
-further.
+not part of the core language, we do not need to consider them further.
 
 % Today I did some of my thesis. I wrote LOOOOOTS of pages of words and thingies.
 % I think I should get to have ALLLLL the plays and ALLLLLL the rests now. Thesis,
@@ -362,9 +366,8 @@ further.
 % themself, so why don't you! DOn't turn this against me and say that writing my
 % thesis is me providing for myself. YOU THIK I DONT KNOW WHAT. Stupid thesis.
 % Go home.
-% LET'S FUCK!
-%
-%   - pookie 19/06/2013
+% LET'S *****
+% 19/06/2013
 
 \subsubsection{Fusion on typed de Bruijn indices}
 
@@ -467,13 +470,16 @@ into two distinct phases:
 \end{enumerate}
 
 \begin{figure}[htb]
-    \flushright \small(Before fusion)\qquad\\
-    \centering  \includegraphics[scale=0.245]{images/opt/fusion1.pdf}
-    \flushright \small(After producer/producer fusion)\qquad\\
-    \centering  \includegraphics[scale=0.245]{images/opt/fusion2.pdf}
-    \flushright \small(After producer/consumer fusion)\qquad\\
+    % \flushright \small(Before fusion)\qquad\\
+    \centering  \includegraphics[scale=0.245]{images/opt/fusion1.pdf} \\
+    % \flushright \small(After producer/producer fusion)\qquad\\
+    \centering  \includegraphics[scale=0.245]{images/opt/fusion2.pdf} \\
+    % \flushright \small(After producer/consumer fusion)\qquad\\
     \centering  \includegraphics[scale=0.245]{images/opt/fusion3.pdf}
-    \caption[Fusion in Accelerate]{Producer/producer and Producer/consumer fusion in Accelerate.}
+    \caption[Fusion in Accelerate]{The stages of Accelerate's fusion algorithm.
+    (1) Before fusion.
+    (2) After producer/producer fusion.
+    (3) After producer/consumer fusion.}
     \label{fig:fusion}
 \end{figure}
 
@@ -490,8 +496,12 @@ In the first phase (centre) successive producer operations are fused together
 ($p_2$, $p_3$, $p_4$ and $p_5$). In the second phase (bottom) fused producers
 are embedded into consumers ($p_{2,3,4,5}$ into $ c_2$). The resulting fused
 producer/consumer terms are not fused into successive operations.
-% Overall, each box in Figure~\ref{fig:fusion} represents a term that will be
-% computed and stored to memory.
+%
+% In some limited cases it may be possible to fuse $p_{2,3,4,5}/c_2$ into
+% $p_{6,7}$, but this is not currently done.
+%
+Overall, each box in Figure~\ref{fig:fusion} represents a term that will be
+computed and stored to memory.
 
 Throughout the transformation $p_1$ is left as is, as its result is used by both
 $c_1$ and $p_2$. It would be straightforward to change the implementation such
@@ -510,7 +520,9 @@ array is efficiently consumed by multiple operations without work duplication
 would require fundamental changes to the algorithm.
 %
 Consumer/producer fusion of $c_1$ into $p_4$, or $c_2$ into $p_6$, would also
-require substantial changes to the fusion implementation.
+require substantial changes to the fusion implementation, and is only applicable
+for @map@-like producer terms, as these producers do not require arbitrary array
+indexing of the source array.
 
 % \section{Implementing array fusion}
 % \label{sec:implementing_array_fusion}
@@ -738,7 +750,7 @@ compute' cc = case simplify cc of
 Finally, we convert the delayed representations into manifest data using the
 @compute@ function shown in Listing~\ref{lst:compute}. It inspects the argument
 terms of the representation to identify special cases, such as @map@ and
-@backpermute@.
+@backpermute@, as this may allow a backend to emit better code.
 %
 The helper functions @match@ and @isIdentity@ check for congruence of
 expressions. As discussed in Section~\ref{sec:equality}, we match on @Just REFL@
@@ -1204,7 +1216,7 @@ constructor for let bindings during the first fusion phase that contracts the
 AST and merges adjacent producer/producer pairs
 (\S\ref{sec:producer_producer_fusion}). The smart constructor for let bindings
 must consider several cases, as well as maintain type correctness and the
-complexity of the algorithm, by ensuring each term in inspected exactly once.
+complexity of the algorithm, by ensuring each term is inspected exactly once.
 The code is shown in Listing~\ref{lst:aletD}.
 
 \begin{lstlisting}[style=haskell_float
@@ -1834,8 +1846,8 @@ transformations~\cite{Hu:1997tk,Grelck:2006ci} can fuse a restricted form of
 branching data flow, where two results are computed by directly traversing the
 same input structure. More recent work was able to fuse programs in a restricted
 % (first order, non-recursive, synchronous, finite)
-data flow language into a single loop, which can compute multiple arrays and
-values as output~\cite{Lippmeier:2013vz}.
+data flow language into a sequence of loops which can each compute multiple
+arrays and values as output~\cite{Lippmeier:2013vz,Robinson:2014ve}.
 
 % Full data flow languages~\cite{Caspi:1987jw,Caspi:1996jj,Pouzet:2006uf} are
 % designed primarily for implementing embedded control systems, writing signal
@@ -2257,12 +2269,13 @@ The array fusion transformation (\S\ref{sec:array_fusion}) is
 designed to be a single-pass algorithm that specifies only a single rewrite to
 be applied at each node. Thus, the transformation does not need to select from a
 set of possible rewrites to apply or the order in which to apply them, based on
-heuristics or otherwise. Since the delayed representation of producers is
-non-recursive (Listing~\ref{lst:Cunctation}), referencing input arrays via
-environment indices rather than as general terms, a subsequent shrinking pass
-(\S\ref{sec:shrinking}) is not required to eliminate or combine the uses of
-bound variables. Hence, it is not necessary to iterate the fusion and shrinking
-steps, so that shrinking can expose all opportunities for fusion.
+heuristics or otherwise, so the same code is always generated. Since the delayed
+representation of producers is non-recursive (Listing~\ref{lst:Cunctation}),
+referencing input arrays via environment indices rather than as general terms, a
+subsequent shrinking pass (\S\ref{sec:shrinking}) is not required to eliminate
+or combine the uses of bound variables. Hence, it is not necessary to iterate
+the fusion and shrinking steps, so that shrinking can expose all opportunities
+for fusion.
 
 Informally, then, we are confident that the fusion transformation is both
 confluent and terminating. Furthermore, since we fuse programs by rewriting

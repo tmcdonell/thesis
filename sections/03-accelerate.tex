@@ -50,7 +50,7 @@ informed by the \emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is
 suitable for a wide range of algorithms, and demonstrated that these operations
 can be efficiently implemented on modern GPUs~\cite{Sengupta:2007tc}.
 
-I regard Accelerate's collective array operations as algorithmic
+Accelerate's collective array operations are implemented as algorithmic
 skeletons~(\S\ref{sec:code_generation}) that capture appropriate GPU programming
 idioms. The dynamic code generator instantiates CUDA implementations of these
 skeletons~(\S\ref{sec:parallel_algorithms_in_cuda}) to implement embedded array
@@ -241,8 +241,8 @@ and yields a pair of @Float@s as the result. As with computations embedded in
         collective array operations, omitting \code{Shape} and \code{Elt} class
         constraints for brevity. In addition, there are other flavours of folds
         and scans as well as segmented versions of these.}]
-use         :: Array sh e -> Acc (Array sh e)                         %\rm embed an array%
-unit        :: Exp e -> Acc (Scalar e)                                %\rm create singleton array%
+use         :: Arrays arrs => arrs -> Acc arrs                        %\rm embed an array%
+unit        :: Elt e => Exp e -> Acc (Scalar e)                       %\rm create singleton array%
 
 reshape     :: Exp sh -> Acc (Array sh' e) -> Acc (Array sh e)        %\rm impose a new shape%
 
@@ -281,7 +281,9 @@ consist of many scalar computations in @Exp@ that are executed in data-parallel.
 However, scalar computations \emph{can not} contain collective operations. This
 stratification excludes \emph{nested, irregular} data parallelism statically ---
 instead, Accelerate is restricted to only \emph{flat data-parallelism} involving
-regular, multi-dimensional arrays.
+regular, multi-dimensional arrays. This stratification, which restricts the
+Accelerate language to only flat data parallelism, ensures that computations can
+be efficiently mapped to the hardware.
 
 Compared to regular Haskell, @Exp@ computations are rather limited in order to
 meet the restrictions of what can be efficiently executed on GPUs\@. In
@@ -327,11 +329,11 @@ A @PointMass@ is a tuple containing the body's @Mass@ and @Position@.
 In a data-parallel setting, the natural implementation of the all-pairs $n$-body
 algorithm first computes the forces between every pair of bodies, before
 reducing the components applied to each body using a multidimensional
-(segmented) reduction. In Accelerate, we can calculate the acceleration each
-body experiences as it interacts with all other bodies in the system as follows:
+(segmented) reduction. We can calculate the acceleration each body experiences
+as it interacts with all other bodies in the system as:
 %
 \begin{lstlisting}[style=haskell]
-calcAccels :: Exp R -> Acc (Vector PointMass) -> Acc (Vector Accel)
+calcAccels :: Exp Float -> Acc (Vector PointMass) -> Acc (Vector Accel)
 calcAccels epsilon bodies
   = let n       = A.size bodies
         cols    = A.replicate (lift $ Z :. n :. All) bodies                        -- (1)
@@ -456,16 +458,15 @@ component of a 3-vector by a scalar value.
 
 \subsection{Non-parametric array representation}
 
-In order to make arrays available for use in embedded computations, we have the
-function @use@ (\S\ref{sec:arrays_on_the_host_and_device}). For a single array,
-it has the effective type:
+Accelerate computations are parameterised by the type classes @Shape@ and @Elt@,
+which characterise the types that may be used as array indices and array
+elements respectively. For example, the type of @map@ is:
 %
 \begin{lstlisting}[style=haskell]
-use :: (Shape sh, Elt e) => Array sh e -> Acc (Array sh e)
+map :: (Shape sh, Elt a, Elt b) => (Exp a -> Exp b) -> Acc (Array sh a) -> Acc (Array sh b)
 \end{lstlisting}
 %
-The type classes @Shape@ and @Elt@ characterise the types that may be used as
-array indices and array elements respectively. We discussed the nature of array
+We discussed the nature of array
 indices in Section~\ref{sec:arrays_shapes_and_indices}. The @Elt@ class
 characterises the types of values that can be used as array elements, and hence
 appear in scalar Accelerate expressions. The supported @Elt@ types are signed \&
@@ -1000,6 +1001,9 @@ witness provided by @Extend@.
 
 
 \section{Related work}
+
+This section compares several Haskell-based domain specific embedded languages,
+in particular focusing on the expressivity of the object language.
 
 Vertigo~\cite{Elliott:2004hh} is an embedded language in Haskell that exposes a
 functional language for 3D graphics, together with an optimising compiler that

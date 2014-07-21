@@ -64,7 +64,10 @@ array operations. Our choice of operations was informed primarily by the
 range of algorithms and can be efficiently implemented on modern
 GPUs~\cite{Sengupta:2007tc}.
 
-In summary, the main contributions are the following:
+The beginning of the Accelerate project predates this thesis, and several
+researchers have contributed to it in that time. The following summarises the
+main areas I have contributed to, and I have explicitly noted which are my own
+individual work:
 %
 \begin{itemize}
     \item We propose an embedded language, \emph{Accelerate}, of parameterised
@@ -73,7 +76,7 @@ In summary, the main contributions are the following:
 
     \item I implement a dynamic code generator based on CUDA skeletons of
         collective array operations that are instantiated at runtime
-        (\ref{sec:code_generation}, \& \ref{sec:instantiating_skeletons}).
+        (Sections \ref{sec:code_generation} \& \ref{sec:instantiating_skeletons}).
 
     \item I implement an execution engine that caches previously compiled
         skeleton instances and host-to-device data transfers, as well as
@@ -82,11 +85,11 @@ In summary, the main contributions are the following:
         \ref{sec:memory_management}, \&
         \ref{sec:executing_programs}).
 
-    \item We introduce a novel sharing recovery algorithm for type-safe ASTs,
-        preserving the structure of the deeply embedded program
+    \item We introduce a novel sharing recovery algorithm for type-safe abstract
+        syntax trees, preserving the structure of the deeply embedded program
         (Section~\ref{sec:sharing_recovery}).
 
-    \item I introduce type preserving optimisations of embedded array language
+    \item I introduce type preserving optimisations of embedded language array
         programs, including a novel approach to array fusion
         % as well as scalar simplifications
         (Sections~\ref{sec:manipulating_embedded_programs},
@@ -100,7 +103,7 @@ In summary, the main contributions are the following:
 Although we motivate and evaluate our work in the context of the Accelerate
 language, our contributions are not limited to this context. Specifically, our
 sharing recovery algorithm applies to any embedded language based on the typed
-lambda calculus and my approach to array fusion applies to any dynamic compiler
+lambda calculus, and my approach to array fusion applies to any dynamic compiler
 targeting bulk-parallel SIMD hardware. The current implementation targets CUDA,
 but the same approach works for OpenCL, as well as traditional CPU programming
 languages such as C and LLVM.

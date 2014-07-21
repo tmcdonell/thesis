@@ -1,4 +1,4 @@
-%% Created using Papers on Fri, 11 Jul 2014.
+%% Created using Papers on Mon, 21 Jul 2014.
 %% http://papersapp.com/papers/
 
 @book{Altenkirch:2003kz,
@@ -1213,11 +1213,12 @@ pages = {12034},
 annote = {Compares three HPC languages under development, Chapel, Fortress, and X10. These are new, high-level languages with support for object oriented and generic programming, and provide a broad range of contstructs for expressing both task and data parallelism at multiple levels, with a global view of data. A good background on related (now, historical) work. MPI combined with a sequential language, often coupled with OpenMP as well. Failure of HPF, an early attempt at a truly parallel language that pushed too far, too soon. CAF, UPC and Titanium, which provide only minimal extensions to their base languages. ZPL, which demonstrated a high-level approach to array operations (s.c. NESL?). Provides two fairly detailed examples of parallel expression in these languages with a finite difference problem (PDE: data decomposition), and Hartree-Fock algorithm (task parallelism of distributed data). Describes different features the languages support to express these types of parallelism easily. Provides a decent outline of these languages. Optimistic about new features, but (sensibly) cautions that the languages are not yet mature enough for a reasonable evaluation to long-standing approaches.}
 }
 
-@techreport{UPC:2005,
-author = {{UPC Consortium}},
-title = {{UPC Language Specification, v1.2}},
-year = {2005},
-month = may
+@inproceedings{Robinson:2014ve,
+author = {Robinson, Amos and Lippmeier, Ben and Keller, Gabriele},
+title = {{Fusing Filters with Integer Linear Programming}},
+booktitle = {FHPC '14: The 3rd ACM SIGPLAN Workshop on Functional High-Performance Computing},
+year = {2014},
+month = sep
 }
 
 @inproceedings{Elliott:2004hh,
@@ -1272,12 +1273,11 @@ month = aug,
 annote = {A prefix-sum implementation for GPUs shown to be more efficient than that of Horn:2005 (GPU Gems 2).}
 }
 
-@techreport{Blelloch:1990vl,
-author = {Blelloch, Guy E.},
-title = {{Prefix Sums and Their Applications}},
-year = {1990},
-number = {CMU-CS-90-190},
-month = nov
+@techreport{UPC:2005,
+author = {{UPC Consortium}},
+title = {{UPC Language Specification, v1.2}},
+year = {2005},
+month = may
 }
 
 @mastersthesis{Svensson:2008,
@@ -1298,12 +1298,12 @@ address = {Aire-la-Ville, Switzerland, Switzerland},
 annote = {A polynomial-time algorithm for partitioning fragment shaders into multiple phases. Find near-optimal partitions for a number of shaders on architectures with different resources limitations and different cost models. Could be applicable for my work.}
 }
 
-@techreport{CTM:2006,
-author = {{AMD}},
-title = {{ATI CTM Guide, v1.01}},
-year = {2006},
-month = nov,
-annote = {Deprecated.}
+@techreport{Blelloch:1990vl,
+author = {Blelloch, Guy E.},
+title = {{Prefix Sums and Their Applications}},
+year = {1990},
+number = {CMU-CS-90-190},
+month = nov
 }
 
 @book{Chatterjee:2009vh,
@@ -1346,11 +1346,12 @@ month = sep,
 annote = {Provide an overview of data-parallel programming languages, breaking down languages by their design principles. Defines parallel programming productivity as a combination of performance, programmability, portability and robustness. Describes their work on the language Chapel, which strives to impact positively in all of these areas. Argues that as many data-parallel languages require programmers to write in a SPMD style, makes it difficult to express nested data or data/task parallelism. Such fragmented programming models make it fairly easy to understand and reason about, but require programmers to express algorithms on a task-by-task basis, explicitly decomposing data structures and control flow into per-task chunks. Rather negative of SPMD. Expounds the global programming model, expressing algorithms and data structures as a whole without needing to specify the mapping onto threads (or specifying only when necessary for performance-critical sections). Supports many other data/task parallelism initiatives.}
 }
 
-@techreport{Glaskowsky:2009,
-author = {Glaskowsky, Peter N.},
-title = {{NVIDIA's Fermi: The First Complete GPU Computing Architecture}},
-year = {2009},
-month = sep
+@techreport{CTM:2006,
+author = {{AMD}},
+title = {{ATI CTM Guide, v1.01}},
+year = {2006},
+month = nov,
+annote = {Deprecated.}
 }
 
 @article{Blelloch:1998eo,
@@ -1364,11 +1365,11 @@ pages = {135--167},
 month = apr
 }
 
-@techreport{Stevens:2006uo,
-author = {Stevens, Marc},
-title = {{Fast Collision Attack on MD5}},
-year = {2006},
-number = {104}
+@techreport{Glaskowsky:2009,
+author = {Glaskowsky, Peter N.},
+title = {{NVIDIA's Fermi: The First Complete GPU Computing Architecture}},
+year = {2009},
+month = sep
 }
 
 @inproceedings{Keller:1996,
@@ -1381,11 +1382,11 @@ pages = {234--243},
 publisher = {Springer-Verlag}
 }
 
-@techreport{Xie:2013uo,
-author = {Xie, Tao and Liu, Fanbao and Feng, Dengguo},
+@techreport{Stevens:2006uo,
+author = {Stevens, Marc},
 title = {{Fast Collision Attack on MD5}},
-year = {2013},
-number = {170}
+year = {2006},
+number = {104}
 }
 
 @inproceedings{Chakravarty:2000bk,
@@ -1396,6 +1397,13 @@ year = {2000},
 pages = {94--105},
 publisher = {ACM},
 address = {New York, NY, USA}
+}
+
+@techreport{Xie:2013uo,
+author = {Xie, Tao and Liu, Fanbao and Feng, Dengguo},
+title = {{Fast Collision Attack on MD5}},
+year = {2013},
+number = {170}
 }
 
 @phdthesis{Randall:1998,

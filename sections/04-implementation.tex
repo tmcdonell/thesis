@@ -1480,7 +1480,7 @@ a reference to the device memory for later reuse. This memory area is the
 \indexe{nursery}, which is simply a finite mapping from array sizes to a chunk
 of memory of that size. When a new array is allocated, we first check if a block
 of the appropriate size is available in the nursery; if so that block is reused,
-else fresh memory is allocated.
+otherwise fresh memory is allocated.
 
 % To increase the hit rate of the nursery, allocations for fresh arrays are
 % rounded up to a set chunk size, rather than being sized to exactly fit the
@@ -1496,38 +1496,46 @@ else fresh memory is allocated.
 \subsection{Memory manager implementation}
 \label{sec:memory_manager_implementation}
 
-The memory management system is implemented over several modules:
+% TK: rewrap from here onwards
+
+% The memory management system is implemented over several modules:
+% %
+% \begin{itemize}
+% \item \texttt{Data.hs} defines operations on the surface @Array@ data type, in
+%     particular applying operations to each member of the non-parametric
+%     struct-of-array representation.
 %
-\begin{itemize}
-\item \texttt{Data.hs} defines operations on the surface @Array@ data type, in
-    particular applying operations to each member of the non-parametric
-    struct-of-array representation.
+% \item \texttt{Prim.hs} is an interface to the CUDA API for operations on arrays
+%     of primitive type, for example to initiate data transfers to and from the
+%     device. Queries the memory table functions to retrieve the raw pointers for
+%     device arrays.
+%
+% \item \texttt{Table.hs} defines a mapping from host arrays to the corresponding
+%     array in device memory on the GPU\@. This module handles allocations, and
+%     sets up finalisers so device arrays can be moved into the nursery when the
+%     host array is garbage collected (or otherwise deallocate the memory).
+%
+% \item \texttt{Nursery.hs} manages unused blocks of memory that can be reused
+%     instead of allocating fresh data.
+% \end{itemize}
 
-\item \texttt{Prim.hs} is an interface to the CUDA API for operations on arrays
-    of primitive type, for example to initiate data transfers to and from the
-    device. Queries the memory table functions to retrieve the raw pointers for
-    device arrays.
-
-\item \texttt{Table.hs} defines a mapping from host arrays to the corresponding
-    array in device memory on the GPU\@. This module handles allocations, and
-    sets up finalisers so device arrays can be moved into the nursery when the
-    host array is garbage collected (or otherwise deallocate the memory).
-
-\item \texttt{Nursery.hs} manages unused blocks of memory that can be reused
-    instead of allocating fresh data.
-\end{itemize}
-
-Implementation of the Data and Prim modules is not extraordinary, but it is
-worthwhile mentioning that care should be taken with the implementation of
-transferring an array to the device via @use@. In particular, that the
-array data is only transferred on the first @use@ attempt, when a fresh
-device array was allocated. If the @use@ operation is separated into its
-constituent @malloc@ and @poke@ operations, this is easily overlooked,
-resulting in the array data being needlessly transferred every time @use@
-is called. As explained in Section~\ref{sec:host_device_transfers}, the mapping
-of host to device arrays ensures that the memory allocation will only ever be
-performed once, so we simply ensure that the data for a @use@ operation is
-only transferred to the device at the time of first allocation.
+The memory management system is implemented in several stages. The first step is
+to decompose operations on the surface @Array@ data type, into operations on
+each array of primitive type in the struct-of-array representation
+(\S\ref{sec:representing_tuples}).
+% in order to apply functions from the CUDA API.\footnote{\url{http://hackage.haskell.org/package/cuda}}
+%
+Implementation of this stage is mostly straightforward, however care should be
+taken with the handling of the @use@ operation. Since Accelerate is a pure
+language that does not allow mutation, the array data only needs to be
+transferred to the device on the first use of an array. If the @use@ operation
+is separated into its constituent @malloc@ and @poke@ (host to device transfer)
+operations, this is easily overlooked, resulting in the array data being
+needlessly copied every time @use@ is called. As explained in
+Section~\ref{sec:host_device_transfers}, the mapping of host to device arrays
+ensures that the memory allocation will only ever be performed once, so we
+simply ensure that the data for a @use@ operation is only transferred to the
+device at the time of first allocation.
 
 The \emph{memory table} records the association between host and device arrays.
 Implemented as a weak hash table~\cite{PeytonJones:2000ks}, the table can purge

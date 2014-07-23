@@ -2,6 +2,48 @@
 \chapter{Abstract}
 \markboth{Abstract}{}
 
+While it is well acknowledged that the dominant mechanism for scaling processor
+performance has become to increase the number of cores on a chip, rather than
+improve the performance of a single core, harnessing these extra cores to
+improve single application performance remains an extremely challenging task. A
+recent trend has been to use commodity graphics processing units to explore new
+algorithms and programming languages that can address the challenges of
+parallelism and scalability for devices containing hundreds or thousands of
+cores.
+
+The research documented in this dissertation builds upon the Accelerate
+language, an embedded domain specific language of purely functional collective
+operations over dense, multidimensional arrays. Overall, this dissertation
+explains how to efficiently implement such a language, ranging from
+optimisations to the input program and the generation of efficient target code,
+to optimisations in the runtime system which executes the resulting programs.
+
+In particular, this thesis adds backend-agnostic optimisations to the embedded
+array language, primarily in the form of a novel approach to array fusion.
+Furthermore, these optimisations are completely type preserving, which amounts
+to a partial proof of correctness of the optimisations, checked by the type
+checker at compilation time.
+
+In addition, significant extensions to the CUDA backend targeting parallel
+execution on multicore graphics processing units (GPUs) were developed. These
+additions include a dynamic quasi quotation-based code generation system for
+algorithmic skeletons that are instantiated at runtime. In order to minimise the
+overheads of runtime compilation, generated codes are compiled in parallel and
+asynchronously with other operations, and compiled binaries are cached for later
+reuse, including across program invocations. A significant overhead in GPU
+programs is the transfer of data to and from the device, so a garbage
+collection-based memory management system was implemented that minimises data
+transfers. Finally, I implement an execution engine that optimises the loading,
+configuration, and concurrent execution of the compiled GPU kernels.
+
+My results show that with these additions, programs written in Accelerate are
+now competitive in performance to programs written in the standard C-based
+programming language for graphics processors over a range of benchmarks, while
+enjoying a much higher level of abstraction.
+
+
+\endinput
+
 Computers are no longer getting faster. Instead, including multiple cores on a
 single chip has become the dominant mechanism for scaling processor performance,
 and the exponential growth in the number of cores on a single processor is

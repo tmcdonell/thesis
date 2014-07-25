@@ -35,10 +35,11 @@ simply a description of observed facts, rather than a principle driven by some
 fundamental controlling influence.} are simply not very productive in increasing
 the performance of single--threaded code.
 
-At the same time, the commodity \indexe{graphics processing unit} (GPU) has been
-able to use this ever increasing transistor budget effectively, geometrically
-increasing rendering performance, since rasterisation is an inherently parallel
-operation.
+At the same time, the commodity \emph{graphics processing unit} (GPU)\gpu{} has
+been able to use this ever increasing transistor budget effectively,
+geometrically increasing rendering performance, since \indext{rasterisation} is
+an inherently parallel operation.
+%
 % Historically fixed function pipelines, graphics architectures are
 % evolving to become increasingly flexible as well as powerful, consisting of an
 % expressive set of general purpose computation resources, with some fixed
@@ -48,20 +49,20 @@ Modern GPUs are massively parallel multicore processors, offering instruction
 throughput and memory bandwidth rates much higher than those found on
 traditional CPUs~\cite{NVIDIA:2012wf}. However, despite the advertised potential
 of $100\times$ speedups, development of high-performance \emph{general-purpose
-GPU} (GPGPU)\index{general-purpose computing on graphics processing units}
-programs requires highly idiomatic programs, whose development is work intensive
-and requires a substantial degree of expert knowledge.
+GPU} (GPGPU)\gpgpu{} programs requires highly idiomatic programs, whose
+development is work intensive and requires a substantial degree of expert
+knowledge.
 
 Several researchers have proposed methods to ameliorate the status quo by either
-using a library to compose GPU code or by compiling a subset of a high-level
-language to low-level GPU
+using a library to compose GPU\gpu{} code or by compiling a subset of a
+high-level language to low-level GPU
 code~\cite{McCool:2004,Bond:2010bd,ThrustAParallelT:ub,Catanzaro:2011cn,Mainland:2010vj,CLyther:EvXSiruK,Muranushi:2012eh}
 This work is in the same spirit: we propose a domain-specific high-level
 language of array computations, called \emph{Accelerate}, that captures
-appropriate GPGPU programming idioms in the form of parameterised, collective
-array operations. Our choice of operations was informed primarily by the
-\emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is suitable for a wide
-range of algorithms and can be efficiently implemented on modern
+appropriate GPGPU\gpgpu{} programming idioms in the form of parameterised,
+collective array operations. Our choice of operations was informed primarily by
+the \emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is suitable for a
+wide range of algorithms and can be efficiently implemented on modern
 GPUs~\cite{Sengupta:2007tc}.
 
 The beginning of the Accelerate project predates this thesis, and several
@@ -70,18 +71,20 @@ main areas I have contributed to, and I have explicitly noted which are my own
 individual work:
 %
 \begin{itemize}
-    \item We propose an embedded language, \emph{Accelerate}, of parameterised
-        collective array computations that is more expressive than previous
-        GPGPU proposals (Section~\ref{sec:accelerate}).
+    \item We have developed an embedded language, \emph{Accelerate}, of
+        parameterised collective array computations that is more expressive than
+        previous GPGPU\gpgpu{} proposals (Section~\ref{sec:accelerate}).
 
-    \item I implement a dynamic code generator based on CUDA skeletons of
+    \item I implement a dynamic code generator based on CUDA\cuda{} skeletons of
         collective array operations that are instantiated at runtime
-        (Sections \ref{sec:code_generation} \& \ref{sec:instantiating_skeletons}).
+        (Sections \ref{sec:code_generation} \&
+        \ref{sec:instantiating_skeletons}).
 
     \item I implement an execution engine that caches previously compiled
         skeleton instances and host-to-device data transfers, as well as
-        parallelises code generation, data transfer, and GPU kernel loading,
-        configuration, and execution (Sections~\ref{sec:dynamic_compilation},
+        parallelises code generation, data transfer, and GPU\gpu{} kernel
+        loading, configuration, and execution
+        (Sections~\ref{sec:dynamic_compilation},
         \ref{sec:memory_management}, \&
         \ref{sec:executing_programs}).
 
@@ -104,13 +107,13 @@ Although we motivate and evaluate our work in the context of the Accelerate
 language, our contributions are not limited to this context. Specifically, our
 sharing recovery algorithm applies to any embedded language based on the typed
 lambda calculus, and my approach to array fusion applies to any dynamic compiler
-targeting bulk-parallel SIMD hardware. The current implementation targets CUDA,
-but the same approach works for OpenCL, as well as traditional CPU programming
-languages such as C and LLVM.
+targeting bulk-parallel SIMD hardware. The current implementation targets
+CUDA\cuda{}, but the same approach works for OpenCL, as well as traditional CPU
+programming languages such as C and LLVM.
 
 Our results show that Accelerate programs can be competitive with programs
-hand-written in CUDA, while having a much higher level of abstraction. Because
-of the work undertaken in this thesis, we have seen Accelerate gain some
+hand-written in CUDA\cuda{}, while having a much higher level of abstraction.
+Because of the work undertaken in this thesis, we have seen Accelerate gain
 traction within academia and industry, including:
 
 \begin{itemize}
@@ -140,8 +143,8 @@ traction within academia and industry, including:
 
 \end{itemize}
 
-We discuss related work as each topic arises. The source code for Accelerate
-including all benchmark code is available from
+We will discuss related work as each topic arises. The source code for
+Accelerate including all benchmark code is available from
 \url{https://github.com/AccelerateHS}.
 
 

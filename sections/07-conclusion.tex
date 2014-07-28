@@ -150,9 +150,9 @@ intensive exercise that requires a substantial degree of expert knowledge.
 Several researchers have attempted to ameliorate the status quo, by either using
 a library to compose GPU code or by compiling a subset of a high-level language
 to low-level GPU code. However, no other proposal has offered a high-level
-interface with the breath and expressivity of operations as the Accelerate
-language together with an implementation whose performance is comparable to
-low-level programming languages.
+interface with the breath and expressivity of operations provide by the
+Accelerate language, together with an implementation whose performance is
+comparable to low-level programming languages.
 
 % no other high-level embedded language has provided either
 % the breath and expressivity of operations supported by Accelerate, nor the
@@ -170,7 +170,7 @@ compilation.
 \subsection{A fusion system for parallel array languages}
 
 Although the topic of fusion has received significant prior attention,
-particularly in the context functional programming languages, none of the
+particularly in the context of functional programming languages, none of the
 existing techniques are adequate for a type-preserving embedded language
 compiler targeting massively parallel SIMD hardware such as graphics processing
 units.
@@ -215,9 +215,8 @@ sparse and irregular problems~\cite{Prins:1999}.
 Blelloch's pioneering work on NESL showed that it was possible to combine the
 more flexible model of \emph{nested} data parallelism, where the computation of
 each element may spawn further parallel computations, with a flat data parallel
-execution model~\cite{Blelloch:1988iu}. Recent work has extend the flatting
-transformation to support richer data types and higher order
-functions~\cite{Jones:2008uu}.
+execution model~\cite{Blelloch:1988iu}. Recent work has extended flattening to
+support richer data types and higher order functions~\cite{Jones:2008uu}.
 
 Extending the Accelerate language to support the expression nested parallelism,
 and implementing the vectorisation transformation to convert this nested

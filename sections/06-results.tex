@@ -20,7 +20,7 @@
 
 The previous chapters discussed the design, implementation and optimisation of
 the Accelerate language and CUDA backend.%
-\footnote{Development version 0.15: \texttt{de156af5f6d839bc6e0597d33a7a151f0e492a66}}
+\footnote{Version 0.15 release candidate: \texttt{de156af5f6d839bc6e0597d33a7a151f0e492a66}}
 This chapter analyses the performance of the implementation. Benchmarks were
 conducted on a single Tesla T10 processor (compute capability 1.3, 30
 multiprocessors = 240 cores at 1.3GHz, 4GB RAM) backed by two quad core Xeon
@@ -228,10 +228,9 @@ dotp xs ys = A.fold (+) 0                       -- sum result of\ldots
 
 Figure~\ref{fig:dotp} show the result of running this code, compared to several
 other sequential and parallel implementations. The \texttt{Data.Vector} baseline
-is sequential code produced by \index{fusion!stream}stream
-fusion~\cite{Coutts:2007kp}, running on the host CPU. The \texttt{Repa} version
-runs in parallel on all eight cores of the host CPU, using the fusion method of
-\index{fusion!delayed arrays}delayed arrays~\cite{Keller:2010er}.
+is sequential code produced by stream fusion~\cite{Coutts:2007kp}, running on
+the host CPU. The \texttt{Repa} version runs in parallel on all eight cores of
+the host CPU, using the fusion method of delayed arrays~\cite{Keller:2010er}.
 % The \texttt{NDP2GPU}~\cite{Bergstrom:2012bi} version compiles NESL
 % code~\cite{Blelloch:1995ut} down to CUDA. The performance of NDP2GPU suffers
 % because it uses the legacy NESL compiler for the front-end, which introduces
@@ -544,12 +543,11 @@ work.
 
 The Black-Scholes algorithm is a partial differential equation for modelling the
 evolution of a European-style stock option price under certain assumptions. The
-corresponding Accelerate program is shown in Listing~\ref{lst:blackscholes}.
-Given a vector of triples of the underlying stock price, strike price, and time
-to maturity in years, the Black-Scholes formula computes the price of a call and
-put option. The function @callput@ evaluates the Black-Scholes formula for
-a single triple, and @blackscholes@ maps it over a vector of triples such
-that all individual applications of the formula are executed in parallel.
+corresponding Accelerate program was shown in Listing~\ref{lst:blackscholes}.
+The Black-Scholes formula computes the expected call and put price given the
+underlying stock price, strike price, and time to maturity of a stock. Many
+individual applications of the formula can be executed in parallel as @map@
+operation.
 
 % \begin{lstlisting}[style=haskell_float
 %     ,float
@@ -618,12 +616,12 @@ leads to a large penalty on the SIMD architecture of the GPU\@.
 Without sharing the generated code requires 5156 instructions to calculate 128
 options (2 thread blocks of 64 threads each) and results in significant warp
 divergence which serialises portions of the execution. With sharing recovery the
-generated code requires 628 instructions (one thread block of 128 threads) and
-is actually slightly faster than the reference CUDA version because the latter
-contains a common subexpression that was not spotted by the programmer and not
-eliminated by the CUDA compiler. The common subexpression performs a single
-multiplication. The CUDA version executes 652 instructions (128 threads per
-block).
+generated code requires 628 instructions (one thread block of 128 threads each)
+and is actually slightly faster than the reference CUDA version because the
+latter contains a common subexpression that was not spotted by the programmer,
+and not eliminated by the CUDA compiler. The common subexpression performs a
+single multiplication. The CUDA version executes 652 instructions (one thread
+block of 128 threads each).
 
 
 \section{Mandelbrot fractal}
@@ -1122,8 +1120,9 @@ calcAccels epsilon bodies
 \subsection{Use of shared memory}
 
 In CUDA, the memory hierarchy of the device is made explicit to the programmer,
-including a small on-chip shared memory region threads can use to share data,
-that is essentially a software managed cache~\cite{NVIDIA:2012wf}.
+including a small on-chip shared memory\cuda[shared memory]{} region threads can
+use to share data. The shared memory region is essentially a software managed
+cache~\cite{NVIDIA:2012wf}.
 
 The program shown in Listing~\ref{lst:nbody} uses the shared memory region to
 share computations while computing the parallel reduction. The second
@@ -1162,20 +1161,20 @@ problem~\cite{Ma:2010ft}.
 & \textbf{Description}
 & \textbf{Dimensions}
 & \textbf{Nonzeros (nnz/row)}
-& \multicolumn{1}{c}{\rotatebox{90}{\textbf{CUSP}}}
-& \multicolumn{1}{c}{\rotatebox{90}{\textbf{CUSPARSE}}}
 & \multicolumn{1}{c}{\rotatebox{90}{\textbf{Accelerate}}}
 & \multicolumn{1}{c}{\begin{sideways}%
     \parbox{\widthof{\bf Accelerate}}%
     {\centering\textbf{Accelerate no fusion}}%
     \end{sideways}}
+& \multicolumn{1}{c}{\rotatebox{90}{\textbf{CUSP}}}
+& \multicolumn{1}{c}{\rotatebox{90}{\textbf{CUSPARSE}}}
 \\ \midrule
 
 \spyplot{dense2} % Dense
 & Dense matrix in sparse format
 & 2K $\times$ 2K
 & 4.0M (2K)
-& 11.8 & 0.06 & 15.55 & 5.82
+& 15.55 & 5.82 & 11.8 & 0.06
 % & 14.48 & 14.62 & 3.41
 \\
 
@@ -1183,7 +1182,7 @@ problem~\cite{Ma:2010ft}.
 & Protein data bank 1HYS
 & 36K $\times$ 36K
 & 2.19M (60)
-& 4.16 & 0.03 & 7.59 & 3.89
+& 7.59 & 3.89 & 4.16 & 0.03
 % & 13.55 & 13.65 & 0.26
 \\
 
@@ -1191,7 +1190,7 @@ problem~\cite{Ma:2010ft}.
 & FEM/Concentric spheres
 & 83K $\times$ 83K
 & 3.05M (37)
-& 3.67 & 0.04 & 4.93 & 1.92
+& 4.93 & 1.92 & 3.67 & 0.04
 % & 12.63 & 9.03 & 4.70
 \\
 
@@ -1199,7 +1198,7 @@ problem~\cite{Ma:2010ft}.
 & FEM/Cantilever
 & 62K $\times$ 62K
 & 2.03M (33)
-& 3.37 & 0.94 & 4.46 & 2.37
+& 4.46 & 2.37 & 3.37 & 0.94
 % & 11.98 & 7.96 & 4.41
 \\
 
@@ -1207,7 +1206,7 @@ problem~\cite{Ma:2010ft}.
 & Pressurised wind tunnel
 & 128K $\times$ 128K
 & 5.93M (27)
-& 3.80 & 0.02 & 3.99 & 1.40
+& 3.99 & 1.40 & 3.80 & 0.02
 % & 11.98 & 7.33 & 4.62
 \\
 
@@ -1215,7 +1214,7 @@ problem~\cite{Ma:2010ft}.
 & FEM/Charleston harbour
 & 47K $\times$ 47K
 & 2.37M (50)
-& 7.03 & 0.02 & 6.70 & 3.60
+& 6.70 & 3.60 & 7.03 & 0.02
 % & 9.42 & 6.14 & 0.13
 \\
 
@@ -1223,7 +1222,7 @@ problem~\cite{Ma:2010ft}.
 & Quark propagators (QCD/LGT)
 & 49K $\times$ 49K
 & 1.92M (39)
-& 5.45 & 0.02 & 5.07 & 3.03
+& 5.07 & 3.03 & 5.45 & 0.02
 % & 7.79 & 4.66 & 0.13
 \\
 
@@ -1231,7 +1230,7 @@ problem~\cite{Ma:2010ft}.
 & FEM/Ship section detail
 & 141K $\times$ 141K
 & 3.98M (28)
-& 3.61 & 0.08 & 4.03 & 1.82
+& 4.03 & 1.82 & 3.61 & 0.08
 % & 12.28 & 6.60 & 4.47
 \\
 
@@ -1239,7 +1238,7 @@ problem~\cite{Ma:2010ft}.
 & Macroeconomics model
 & 207K $\times$ 207K
 & 1.27M (6)
-& 2.91 & 0.04 & 0.97 & 0.61
+& 0.97 & 0.61 & 2.91 & 0.04
 % & 4.59 & 0.90 & 1.06
 \\
 
@@ -1247,7 +1246,7 @@ problem~\cite{Ma:2010ft}.
 & 2D Markov epidemiology model
 & 526K $\times$ 526K
 & 2.10M (4)
-& 5.62 & 0.74 & 0.64 & 0.29
+& 0.64 & 0.29 & 5.62 & 0.74
 % & 6.42 & 0.59 & 0.91
 \\
 
@@ -1255,7 +1254,7 @@ problem~\cite{Ma:2010ft}.
 & FEM/Accelerator cavity design
 & 121K $\times$ 121K
 & 1.36M (11)
-& 2.12 & 0.04 & 1.72 & 1.20
+& 1.72 & 1.20 & 2.12 & 0.04
 % & 5.41 & 3.08 & 2.92
 \\
 
@@ -1263,7 +1262,7 @@ problem~\cite{Ma:2010ft}.
 & Circuit simulation
 & 171K $\times$ 171K
 & 959k (6)
-& 3.24 & 0.01 & 0.87 & 0.60
+& 0.87 & 0.60 & 3.24 & 0.01
 % & 3.56 & 0.82 & 1.08
 \\
 
@@ -1271,7 +1270,7 @@ problem~\cite{Ma:2010ft}.
 & Web connectivity matrix
 & 1M $\times$ 1M
 & 3.11M (3)
-& 2.01 & 0.01 & 0.50 & 0.20
+& 0.50 & 0.20 & 2.01 & 0.01
 % & 2.11 & 0.47 & 0.74
 \\
 
@@ -1279,7 +1278,7 @@ problem~\cite{Ma:2010ft}.
 & Railways set cover constraint matrix
 & 4K $\times$ 1.1M
 & 11.3M (2633)
-& 5.16 & 0.07 & 5.08 & 3.64
+& 5.08 & 3.64 & 5.16 & 0.07
 % & 5.22 & 5.04 & 2.41
 \\
 
@@ -1337,7 +1336,7 @@ CUSPARSE library is significantly slower on all test matrices.
 
 \subsection{Segment startup}
 
-To maximise global memory throughput the skeleton code ensures that the vector
+To maximise global memory throughput, the skeleton code ensures that the vector
 read of each matrix row is coalesced and aligned to the warp boundary. Combined
 with the behaviour that reduction operations in Accelerate do not require a
 neutral starting element, this means that there is significant overhead in
@@ -1415,11 +1414,12 @@ See Section~\ref{sec:dotp} for further discussion.
 % for the second cooperative tree-reduction phase of the algorithm, as it combines
 % values for indices $\left[0,n\right)$ into index zero.
 
-For matrices such as Dense, the increased memory bandwidth gained from aligning
-global memory reads to the warp boundary offsets the additional startup cost,
-and Accelerate exhibits higher performance than its competitors.
+For matrices such as Dense, the increase is memory bandwidth gained from
+aligning global memory reads in this way offsets the additional startup cost of
+doing so, and as a result Accelerate exhibits higher performance than its
+competitors.
 %
-However, matrices such as the FEM/Spheres, which contain only a few non-zero
+However, matrices such as the FEM/Spheres, which contain only a fewer non-zero
 elements per row ($\lesssim 2 \times \text{warp size} = 64$) exhibit a drop in
 performance, because this extra startup cost can not be amortised over the row
 length.

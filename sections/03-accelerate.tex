@@ -11,8 +11,8 @@
 Starting with Fortran, array-based code has played a central role in
 high-performance computing. Array-based programming has proved to be successful
 not only on data-parallel (SIMD) hardware such as the CM-2, vector computers,
-and modern graphics processing units (GPUs), but also on control parallel (MIMD)
-hardware such as distributed memory, symmetric multiprocessor (SMP), and
+and modern graphics processing units (GPUs\gpu{}), but also on control parallel
+(MIMD) hardware such as distributed memory, symmetric multiprocessor (SMP), and
 multicore machines.
 
 Recent work on stream fusion in the vector
@@ -22,11 +22,11 @@ that purely functional array code in Haskell (1) can be competitive with the
 performance of imperative array programs; and (2) lends itself to an efficient
 parallel implementation on control-parallel multicore CPUs.
 
-So far, less successful has been the use of purely functional array programs for
-programming data-parallel SIMD hardware. This chapter describes the Accelerate
-language, our purely functional language over regular, multidimensional arrays,
-which has been designed to allow efficient execution on massively data-parallel
-hardware such as GPUs.
+So far, the use of purely functional array programs for programming
+data-parallel SIMD hardware has been less successful. This chapter describes the
+Accelerate language, our purely functional language over regular,
+multidimensional arrays, which has been designed to allow efficient execution on
+massively data-parallel hardware such as GPUs.
 
 
 \section{The Accelerate EDSL}
@@ -43,7 +43,7 @@ is work intensive and requires a substantial degree of expert knowledge.
 
 Accelerate is our approach to reducing the complexity of GPU programming: a
 high-level, deeply embedded domain-specific language (\S\ref{sec:EDSLs}) of
-array computations that captures appropriate GPGPU idioms in the form of
+array computations that captures appropriate GPGPU\gpgpu{} idioms in the form of
 parameterised, \indexe{rank-polymorphic}~\cite{Keller:2010er}, collective
 operations on arrays~\cite{Chakravarty:2011fr}. Our choice of operations was
 informed by the \emph{scan-vector model}~\cite{Chatterjee:1990vj}, which is
@@ -51,27 +51,26 @@ suitable for a wide range of algorithms, and demonstrated that these operations
 can be efficiently implemented on modern GPUs~\cite{Sengupta:2007tc}.
 
 Accelerate's collective array operations are implemented as algorithmic
-skeletons~(\S\ref{sec:code_generation}) that capture appropriate GPU programming
-idioms. The dynamic code generator instantiates CUDA implementations of these
-skeletons~(\S\ref{sec:parallel_algorithms_in_cuda}) to implement embedded array
-programs~(\S\ref{sec:instantiating_skeletons}). Dynamic code generation exploits
-runtime information of the target hardware to optimise GPU code, and enables
-on-the-fly generation of embedded array programs by the host
-program~(\S\ref{sec:dynamic_compilation}). The evaluator minimises the overhead
-of dynamic code generation by caching binaries of previously compiled skeleton
-instantiations and by parallelising code generation, data
+skeletons~(\S\ref{sec:code_generation})\skeleton{} that capture appropriate
+GPU\gpu{} programming idioms. The dynamic code generator instantiates CUDA
+implementations of these skeletons~(\S\ref{sec:parallel_algorithms_in_cuda}) to
+implement embedded array programs~(\S\ref{sec:instantiating_skeletons}). Dynamic
+code generation exploits runtime information of the target hardware to optimise
+GPU code, and enables on-the-fly generation of embedded array programs by the
+host program~(\S\ref{sec:dynamic_compilation}). The evaluator minimises the
+overhead of dynamic code generation by caching binaries of previously compiled
+skeleton instantiations and by parallelising code generation, data
 transfer~(\S\ref{sec:memory_management}), and GPU kernel loading, configuration,
-and execution~(\S\ref{sec:executing_programs}).
+\& execution~(\S\ref{sec:executing_programs}).
 
 To achieve performance competitive with hand-written
-CUDA~\cite{McDonell:2013wi}, we implement two primary optimisation techniques:
-sharing recovery~(\S\ref{sec:sharing_recovery}) tackles code explosion due to
-the embedding in Haskell, while array
-fusion~(\S\ref{sec:array_fusion}) eliminates superfluous
-intermediate structures, which often arise due to the high-level nature of the
-language. Both of these techniques are well known from other contexts, but they
-present unique challenges for an embedded language compiled for execution on a
-GPU.
+CUDA~\cite{McDonell:2013wi}\cuda{}, we implement two primary optimisation
+techniques: sharing recovery~(\S\ref{sec:sharing_recovery}) tackles code
+explosion due to the embedding in Haskell, while array
+fusion~(\S\ref{sec:array_fusion})\fusion{} eliminates superfluous intermediate
+structures, which often arise due to the high-level nature of the language. Both
+of these techniques are well known from other contexts, but they present unique
+challenges for an embedded language compiled for execution on a \gpu{}GPU\@.
 
 \begin{figure}
     \centering
@@ -84,10 +83,12 @@ GPU.
 
 Figure~\ref{fig:outline} summarises the overall structure of Accelerate. It
 comprises a frontend and support for multiple backends that can target a variety
-of architectures. Here, we are only concerned with the CUDA generating GPU
-backend, but the approach is amenable to targeting multicore CPU backends
-exploiting SIMD instructions,\footnote{\url{https://github.com/AccelerateHS/accelerate-llvm}}
-backends for OpenCL,\footnote{\url{https://github.com/AccelerateHS/accelerate-backend-kit/tree/master/icc-opencl}}\footnote{\url{https://github.com/HIPERFIT/accelerate-opencl/}}
+of architectures. Here, we are only concerned with the CUDA\cuda{} generating
+GPU\gpu{} backend, but the approach is amenable to targeting multicore CPU
+backends exploiting SIMD
+instructions,\footnote{\url{https://github.com/AccelerateHS/accelerate-llvm}}
+backends for
+OpenCL,\footnote{\url{https://github.com/AccelerateHS/accelerate-backend-kit/tree/master/icc-opencl}}\footnote{\url{https://github.com/HIPERFIT/accelerate-opencl/}}
 and for reconfigurable hardware such as FPGAs. In the following, we briefly
 introduce some features of the design and use of Accelerate.
 
@@ -103,7 +104,7 @@ dotp_list xs ys = foldl (+) 0 (zipWith (*) xs ys)
 \end{lstlisting}
 %
 The two input vectors @xs@ and @ys@ are pointwise multiplied, and the resulting
-list of products is summed, yielding the scalar result.
+list of products are summed, yielding the scalar result.
 
 Using Accelerate, we implement this computation on arrays as follows:
 %
@@ -125,9 +126,9 @@ the list version in three main respects:
 \begin{enumerate}
     \item The result is an embedded Accelerate computation, indicated by the
         type constructor @Acc@. It will be evaluated in the \emph{target}
-        language\index{language!target} of dynamically generated parallel code,
-        rather than the \emph{meta} language\index{language!meta}, which is
-        vanilla Haskell (\S\ref{sec:EDSLs}).
+        language\lang[target]{} of dynamically generated parallel code, rather
+        than the \emph{meta} language\lang[object]{}, which is vanilla Haskell
+        (\S\ref{sec:EDSLs}).
 
     \item We lift the two plain vectors @xs@ and @ys@ into @Acc@ terms with
         @use@. This makes the arrays available to the embedded computation
@@ -155,7 +156,7 @@ Parallelism in Accelerate takes the form of collective operations such as
 the \emph{element type} of the array. Following the approach taken in
 Repa~\cite{Keller:2010er}, we represent both the shapes and indices of an array
 using an inductive notation of tuples as heterogeneous \emph{snoc} lists to
-enable rank-polymorphic definitions of array functions.
+enable \indext{rank-polymorphic} definitions of array functions.
 
 As shown in Listing~\ref{lst:shapes_and_indices}, on both the type and value
 level, the constructor @Z@ is used to represent the shape of a rank-0 array, and
@@ -195,19 +196,19 @@ array~\cite{Keller:2010er,Chakravarty:2011fr}.
 \subsection{Arrays on the host and device}
 \label{sec:arrays_on_the_host_and_device}
 
-Accelerate is an \emph{embedded language} (\S\ref{sec:EDSLs}) that distinguishes
-between vanilla Haskell arrays and arrays in the embedded language, as well as
-computations on both flavours of arrays. Embedded array computations are
-identified by types formed from the type constructor @Acc@, and must be
-explicitly executed before taking effect. To make these arguments available to
-the Accelerate computation they must be embedded with the @use@ function, which
-is overloaded so that it can accept tuples of arrays:
+Accelerate is an \emph{embedded language}\lang[embedded]{} (\S\ref{sec:EDSLs})
+that distinguishes between vanilla Haskell arrays and arrays in the embedded
+language, as well as computations on both flavours of arrays. Embedded array
+computations are identified by types formed from the type constructor @Acc@, and
+must be explicitly executed before taking effect. To make these arguments
+available to the Accelerate computation they must be embedded with the @use@
+function, which is overloaded so that it can accept tuples of arrays:
 %
 \begin{lstlisting}[style=haskell]
 use :: Arrays arrays => arrays -> Acc arrays
 \end{lstlisting}
 %
-In the context of GPU programming, GPUs typically have their own
+In the context of GPU\gpu{} programming, GPUs typically have their own
 high-performance memory which is separate from the host CPU's main memory, and
 data must be explicitly transferred to the GPU's memory before it can be used.
 The distinction between regular arrays of type @Array sh e@ and arrays of the
@@ -226,12 +227,13 @@ The signatures of the two operations @zipWith@ and @fold@, used in the
 definition of @dotp@, are shown in Listing~\ref{lst:acc_operations}. These
 operations are multidimensional variants of the corresponding list functions,
 but with arrays wrapped in @Acc@. In addition to @Acc@, which marks \emph{embedded
-array} computations, we also have @Exp@, which marks \emph{embedded scalar}
-computations: a term of type @Exp Int@ represents an embedded expression
-yielding a value of type @Int@, and similarly @Exp Float -> Exp (Float,Float)@
-characterises an embedded scalar function that takes an argument of type @Float@
-and yields a pair of @Float@s as the result. As with computations embedded in
-@Acc@, computations in @Exp@ are executed in the target language of GPU code.
+array}\lang[embedded]{} computations, we also have @Exp@, which marks
+\emph{embedded scalar} computations: a term of type @Exp Int@ represents an
+embedded expression yielding a value of type @Int@, and similarly
+@Exp Float -> Exp (Float,Float)@ characterises an embedded scalar function that
+takes an argument of type @Float@ and yields a pair of @Float@s as the result.
+As with computations embedded in @Acc@, computations in @Exp@ are executed in
+the target language of GPU\gpu{} code.
 
 \begin{lstlisting}[style=haskell_float,
     numbers=none,
@@ -276,14 +278,15 @@ stencil     :: Stencil sh a stencil => (stencil -> Exp b)             %\rm map a
 \end{lstlisting}
 
 Accelerate distinguishes the types of collective operations and scalar
-computations to achieve a stratified language. Collective operations in @Acc@
-consist of many scalar computations in @Exp@ that are executed in data-parallel.
-However, scalar computations \emph{can not} contain collective operations. This
-stratification excludes \emph{nested, irregular} data parallelism statically ---
-instead, Accelerate is restricted to only \emph{flat data-parallelism} involving
-regular, multi-dimensional arrays. This stratification, which restricts the
-Accelerate language to only flat data parallelism, ensures that computations can
-be efficiently mapped to the hardware.
+computations to achieve a stratified language\lang[stratified]{}\lang[embedded].
+Collective operations in @Acc@ consist of many scalar computations in @Exp@ that
+are executed in data-parallel. However, scalar computations \emph{can not}
+contain collective operations. This stratification excludes \emph{nested,
+irregular} data parallelism statically --- instead, Accelerate is restricted to
+only \emph{flat data-parallelism} involving regular, multi-dimensional arrays.
+This stratification, which restricts the Accelerate language to only flat data
+parallelism, ensures that computations can be efficiently mapped to the
+hardware.
 
 Compared to regular Haskell, @Exp@ computations are rather limited in order to
 meet the restrictions of what can be efficiently executed on GPUs\@. In
@@ -296,10 +299,10 @@ operators as well as logical connectives using the operators @(==*)@, @(/=*)@,
 @(<*)@, \lstinline[style=inline,literate=]{(<=*)},      % don't turn into (≤*)
 and so on. We also have conditional expressions in the form of @c ? (t, e)@,
 which evaluates to @t@ if @c@ yields @True@, otherwise to @e@. There are also
-scalar operations that take array valued arguments; namely, @arr!ix@ indexes an
-array and @shape@ queries the extent of an array. The argument to these
-operations is guaranteed to only be a previously let-bound variable, ensuring
-that each invocation of the scalar function can not initiate additional
+scalar operations that take array valued arguments; namely, @arr!ix@ which
+indexes an array and @shape@ which queries the extent of an array. The argument
+to these operations is guaranteed to only be a previously let-bound variable,
+ensuring that each invocation of the scalar function can not initiate additional
 parallel work. Finally, we have tupling and projection, and auxiliary functions
 for computing with indices.
 
@@ -307,10 +310,10 @@ for computing with indices.
 \subsection{Computing an $n$-body gravitational simulation}
 \label{sec:computing_nbody}
 
-At a second example, consider simulating the Newtonian gravitational forces on a
-set of massive bodies in 3D space, using a precise (but expensive) O($n^2$)
-algorithm. We use the following type synonyms to represent bodies in the
-simulation:
+As a second example, consider simulating the Newtonian gravitational forces on a
+set of massive bodies in 3D space, using a precise (but expensive)
+$\mathcal{O}(n^2)$ algorithm. We use the following type synonyms to represent
+bodies in the simulation:
 %
 \begin{lstlisting}[style=haskell]
 type Vec a      = (a, a, a)
@@ -363,22 +366,23 @@ calcAccels epsilon bodies
     the 3-vector.
 \end{enumerate}
 
-This is an example of using rank polymorphic operations in Accelerate. The
-function @fold@ requires an argument array of at least rank-1 (such as a
+This is an example of using \indext{rank-polymorphic} operations in Accelerate.
+The function @fold@ requires an argument array of at least rank-1 (such as a
 matrix), and the result is computed by reducing the array along the innermost
 dimension, reducing the rank of the array by one (in this case yielding a
-vector). The functions @replicate@ and @slice@ are rank polymorphic as well, but
+vector). The functions @replicate@ and @slice@ are rank-polymorphic as well, but
 require more complex shape constraints that we characterise with the type family
 @FullShape@ and @SliceShape@ that statically track changing array dimensions.
 For details on the various forms of shape polymorphism,
-see~\cite{Keller:2010er}. Overall, as shown in Listing~\ref{lst:acc_operations},
-the collective operations of Accelerate are a multi-dimensional variant of those
-underlying the scan-vector model~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
+see~\citet{Keller:2010er}. Overall, as shown in
+Listing~\ref{lst:acc_operations}, the collective operations of Accelerate are a
+multi-dimensional variant of those underlying the scan-vector
+model~\cite{Chatterjee:1990vj,Sengupta:2007tc}.
 
 
 \subsubsection{Computing gravitational potential}
 
-We briefly explain how to compute the gravitational potential between a pair of
+I briefly explain how to compute the gravitational potential between a pair of
 bodies. Given $n$ bodies with position $\mathbf{x}_i$ and velocity
 $\mathbf{v}_i$ for $i \in [1,n]$ (bold face indicates a 3-component vector), the
 force $\mathbf{f}_{ij}$ on a body $i$ caused by its gravitational attraction
@@ -472,17 +476,18 @@ characterises the types of values that can be used as array elements, and hence
 appear in scalar Accelerate expressions. The supported @Elt@ types are signed \&
 unsigned integers (8, 16, 32, and 64-bit wide), floating point numbers (single
 \& double precision), as well as @Char@, @Bool@, and array indices formed from
-@Z@ and @(:.)@. Furthermore, there are tuples of all of those, including nested
-tuples, as was seen in the $n$-body example
+@Z@ and @(:.)@. Furthermore, there are tuples\index{tuple} of all of those,
+including nested tuples, as was seen in the $n$-body example
 program~(\S\ref{sec:computing_nbody}).
 
 Accelerate arrays of primitive type, such as @Int@ and @Float@, are easily
 represented as unboxed arrays of the corresponding primitive type. More
-interesting is the case of arrays of tuples, where we use a non-parametric array
-representation so that arrays of tuples are represented in memory as a tuple of
-arrays, one array for each primitive type in the structure. By virtue of this
-representation, Accelerate is able to make optimal use of the available memory
-bandwidth. See Section~\ref{sec:representing_tuples} for details.
+interesting is the case of arrays of \index{tuple}tuples, where we use a
+non-parametric array representation\index{non-parametric representation} so that
+arrays of tuples are represented in memory as a tuple of arrays, one array for
+each primitive type in the structure. By virtue of this representation,
+Accelerate is able to make optimal use of the available memory bandwidth. See
+Section~\ref{sec:representing_tuples} for details.
 
 Moreover, consider the following types:
 %
@@ -518,8 +523,8 @@ type instance EltRepr (a, b, c) = (EltRepr (a, b), EltRepr' c)
 %
 The type @EltRepr'@ is similar, except that it uses a flattened representation
 for primitive types in order to avoid overly nested pairs, for example,
-@EltRepr' Int = Int@. Arrays of tuples have a similar mapping into nested tuples
-of arrays, with the @Arrays@ class acting analogously to @Elt@.
+@EltRepr' Int = Int@. Arrays of tuples\index{tuple} have a similar mapping into
+nested tuples of arrays, with the @Arrays@ class acting analogously to @Elt@.
 
 
 \subsection{Richly typed terms}
@@ -529,7 +534,7 @@ of arrays, with the @Arrays@ class acting analogously to @Elt@.
 As a deeply embedded language, the operations of both the array and scalar
 sub-language do not directly issue computations; instead, they build term trees
 to represent embedded computations (\S\ref{sec:EDSLs}). The terms in the surface
-language use \indexe{higher-order abstract syntax} (HOAS) to embed
+language use \emph{higher-order abstract syntax} (HOAS\HOAS{}) to embed
 function-valued scalar expressions as well as type class overloading to reflect
 arithmetic expressions. For example, the body of the @dotp@ function
 % @fold (+) 0 (zipWith (*) xs' ys')@
@@ -556,7 +561,7 @@ families~\cite{Chakravarty:2005dx,Schrijvers:2008ir} to preserve the embedded
 program's type information in the term tree (1), and use type-preserving
 transformations in the front end (\S\ref{sec:manipulating_embedded_programs}).
 
-The HOAS representation, while convenient for a human reader, is awkward
+The HOAS\HOAS{} representation, while convenient for a human reader, is awkward
 for program transformations as it complicates looking under lambdas;
 i.e.\ inspecting and manipulating the bodies of function abstractions. After the
 frontend reifies the embedded program written in HOAS, it recovers sharing
@@ -611,8 +616,8 @@ distinguished element in the list.
 
 As terms are pushed into the environment, the type of the new term becomes
 wrapped in the type of the environment; i.e.\ @t@ is existentially quantified in
-@Push@. Our de Bruijn indices recover the wrapped type of individual elements by
-projecting the index through the environment:
+@Push@. Our \indext{de Bruijn} indices recover the wrapped type of individual
+elements by projecting the index through the environment:
 %
 \begin{lstlisting}[style=haskell]
 prj :: Idx env t -> Val env -> t
@@ -633,6 +638,8 @@ the number of possible runtime errors in type-correct programs.
 \section{Manipulating embedded programs}
 \label{sec:manipulating_embedded_programs}
 
+\index{de Bruijn|(}
+
 The Accelerate core language is richly typed, maintaining full type information
 of the embedded language in the term tree. In order to apply transformations to
 these terms while maintaining the correctness of the program as encoded in its
@@ -645,6 +652,7 @@ optimisations discussed in the following chapters.
 \subsection{Typed equality}
 \label{sec:equality}
 
+\index{type!equality|(}
 If we want to test whether two Accelerate terms are equal --- for example, to
 determine whether the subexpressions can be shared --- we immediately run into
 the problem that terms in the core Accelerate language are existentially typed.
@@ -666,8 +674,8 @@ instance Eq (PreOpenExp acc env aenv t) where
 \end{lstlisting}
 %
 where we do not care about the result type of each expression, and only require
-that the environment type, re size, of free scalar and array variables are the
-same so that we can test equality of \indext{de Bruijn} indices.
+that the environment type (regarding size) of free scalar and array variables
+are the same so that we can test equality of \indext{de Bruijn} indices.
 
 However, we often \emph{do} care about the specific types of our existentially
 quantified terms. Consider the case of defining equality for let-bindings.
@@ -773,12 +781,12 @@ commutes f x = case f of
       , hashPreOpenExp a > hashPreOpenExp b     = Tuple (NilTup `SnocTup` b `SnocTup` a)
       | otherwise                               = exp
 \end{lstlisting}
-
+\index{type!equality|)}
 
 \subsection{Simultaneous substitution}
 \label{sec:substitution}
 
-In order to do things like renaming and substitution we require a value-level
+In order to do things like renaming and substitution, we require a value-level
 substitution algorithm for the richly typed terms. The implementation follows
 the method of \citet{McBride:2006up,McBride:2005jv}, where it is seen that
 renaming and substitution are both instances of a \emph{single} traversal
@@ -804,14 +812,15 @@ rebuild :: Syntactic f
         -> Term env' t
 \end{lstlisting}
 
-The @Syntactic@ class\footnote{Since Accelerate is a stratified language
-there are separate implementations of this toolkit on syntactic elements for the
-scalar and collective operations, but the details are identical. The discussion
-uses the generic \footcode{Term} to mean either of these operations.} tells us
-everything we need to know about @f@ --- our notion of ``stuff'' --- in
-order to rebuild terms: a mapping in from variables, a mapping out to terms, and
-a weakening map which extends the context. Renaming will instantiate @f@
-with @Idx@, whereas for substitutions we may choose @Term@ instead.
+The @Syntactic@ class\footnote{Since Accelerate is a stratified
+language\lang[stratified]{} there are separate implementations of this toolkit
+on syntactic elements for the scalar and collective operations, but the details
+are identical. The discussion uses the generic \footcode{Term} to mean either of
+these operations.} tells us everything we need to know about @f@ --- our notion
+of ``stuff'' --- in order to rebuild terms: a mapping in from variables, a
+mapping out to terms, and a weakening map which extends the context. Renaming
+will instantiate @f@ with @Idx@, whereas for substitutions we may choose @Term@
+instead.
 %
 \begin{lstlisting}[style=haskell]
 class Syntactic f where
@@ -829,9 +838,8 @@ make sense; if a conclusion is justified by a hypothesis, it is still justified
 if we add more hypotheses; a term remains in scope if we bind new (fresh)
 variables. Weakening is the process of shifting things from one scope to a
 larger scope in which new things have become meaningful, but no old things have
-vanished. When we use a named representation (or HOAS\index{higher-order
-abstract syntax}\index{HOAS|see{higher-order abstract syntax}}) we get weakening
-for free, but in the de Bruijn\index{de Bruijn} representation weakening takes
+vanished. When we use a named representation (or HOAS\HOAS{}) we get weakening
+for free, but in the \indext{de Bruijn} representation weakening takes
 work: we need to shift all the variable references to make room for new
 bindings. To do this we need to explain how to shift the @v@ operation into
 an extended environment; saying what to do with the new variable and how to
@@ -869,7 +877,7 @@ is the point of having a simultaneous substitution algorithm if we can't
 specialise it to one-at-a-time substitution.
 
 The function @subTop@ in Listing~\ref{lst:inlining} takes a replacement for the
-top variable and returns a simultaneous substitution which eliminates @ZeroIdx@.
+top variable and returns a simultaneous substitution which eliminates @ZeroIdx@.\index{de Bruijn}
 If we have a term with one free variable, we can use this to replace that
 variable with a term. That is, @inline@ a term into all use sites of the free
 variable.
@@ -877,7 +885,7 @@ variable.
 The demonic $\forall$ --- which is to say that the quantifier is in a position
 which gives us obligation, not opportunity --- of the operator @v@ forces
 us to respect type: when pattern matching detects the variable we care about,
-happily we discover that it has the type we must respect. The demon is not so
+we happily discover that it has the type we must respect. The demon is not so
 free to mess with us as one might at first fear.
 
 % Typing rules; each rule types the general usage of a symbol, below the
@@ -914,7 +922,7 @@ free variable @a@ to appear in the resultant @Term@, as the first index will be
 bound to the result of the first expression @g@.
 
 The function @compose@ finally lifts this to function terms by unwrapping the
-lambda abstractions. Annoyingly, GHC's type checker can not determine that the
+lambda abstractions. Unfortunately, GHC's type checker can not determine that the
 function type prohibits any valid term except those with a single lambda, so we
 need a second catch-all case to suppress a compilation warning. In the remainder
 of the text, we elide the impossible cases for brevity.
@@ -927,9 +935,9 @@ As part of the fusion transformation~(\S\ref{sec:array_fusion}) we often need to
 lift array valued inputs to be let-bound at higher points in the term tree, but
 at the same time we can not immediately add these bindings to the output term
 because they will interfere with further fusion steps. Instead, we collect these
-extra bindings separately from the main term, and splice them back in to the
-output term at some later point, ensuring that we correctly track the types of
-the environments between the fused terms and the collected let-bindings.
+extra bindings separately from the main term, and splice them back into the
+output term at some later point. This ensures that we correctly track the types
+of the environments between the fused terms and the collected let-bindings.
 
 Listing~\ref{lst:Extend} defines a heterogeneous snoc-list of array terms that
 witnesses how an array environment is extended by the application of these
@@ -991,7 +999,7 @@ We define \emph{sinking} as the operation of shifting a term from one (array)
 environment into another, where new things have come into scope according to
 some witness, and no old things have disappeared.
 
-Listing~\ref{lst:sinking} generalises @weaken@ from
+Listing~\ref{lst:sinking} generalises @weaken@\index{weakening} from
 Section~\ref{sec:substitution} to increase the environment of an object @f@
 based on some function on indices rather than shifting by a single de Bruijn
 index. Thus we only need to traverse a term once no matter how many positions
@@ -999,16 +1007,16 @@ the variable indices shift by. Using @sink@, we can weaken terms based on the
 witness provided by @Extend@.
 
 
-
 \section{Related work}
 
 This section compares several Haskell-based domain specific embedded languages,
-in particular focusing on the expressivity of the object language.
+particularly focusing on the expressivity of the object language.
+\lang[embedded]{}\lang[object]{}
 
 Vertigo~\cite{Elliott:2004hh} is an embedded language in Haskell that exposes a
 functional language for 3D graphics, together with an optimising compiler that
-generates DirectX shader code for the graphics processor. Vertigo is a first
-order language, so does not provide higher-order combinators such as @map@ and
+generates DirectX shader code for the graphics processor. As Vertigo is a first
+order language, it does not provide higher-order combinators such as @map@ and
 @fold@.
 
 Paraiso~\cite{Muranushi:2012eh} is a deeply embedded language in Haskell for
@@ -1033,6 +1041,7 @@ of the target hardware.
 None of these embedded languages encode the types of the source program into the
 embedded language terms to the degree with which Accelerate does.
 
+\index{de Bruijn|)}
 
 \section{Discussion}
 

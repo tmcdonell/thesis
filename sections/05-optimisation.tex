@@ -79,7 +79,7 @@ blackscholes = map callput . use
 
 Accelerate is a \emph{deeply embedded} language, meaning that evaluating an
 Accelerate program does not directly issue computations; instead, it builds an
-\indexe{abstract syntax tree} (AST) that represent the embedded computation
+\emph{abstract syntax tree} (AST\AST{}) that represent the embedded computation
 (\S\ref{sec:EDSLs}). This AST is later executed by an Accelerate backend to
 compute the result on a given backend target (\S\ref{sec:executing_programs}).
 
@@ -90,7 +90,7 @@ Haskell. However, a straightforward reification of the surface language program
 results in each occurrence of a let-bound variable in the source program
 creating a separate unfolding of the bound expression in the compiled code.
 
-At an example, consider the pricing of European-style options using the
+As an example, consider the pricing of European-style options using the
 Black-Scholes formula, the Accelerate program for which is shown in
 Listing~\ref{lst:blackscholes}. Given a vector with triples of underlying stock
 price, strike price, and time to maturity (in years), the Black-Scholes formula
@@ -134,6 +134,7 @@ Accelerate~\cite{Chakravarty:2011fr}.
 
 
 \subsection{Our approach to sharing recovery}
+\index{sharing!recovery|(}
 
 This problem was solved elegantly by \citet{Gill:2009dx} who proposed the use
 of \index{stable name}\emph{stable names}~\cite{PeytonJones:2000ks} to recover
@@ -144,21 +145,20 @@ technique that instead preserves types and produces a tree with minimal
 flattening, which is able to recover exactly those let bindings which appear in
 the source program~\cite{McDonell:2013wi}.
 
-The higher-order abstract syntax\index{higher-order abstract syntax}
-representation of the surface language, while convenient for the human reader,
-is awkward for program transformations as it complicates looking under lambdas.
-We convert the source representation to a type-safe internal representation
-based on nameless \indext{de Bruijn} indices in the style of
-\citet{Altenkirch:2003kz}, using GADTs \cite{Jones:2006eh} and type families
+The higher-order abstract syntax (HOAS\HOAS{}) representation of the surface
+language, while convenient for the human reader, is awkward for program
+transformations as it complicates looking under lambdas. We convert the source
+representation to a type-safe internal representation based on nameless de
+Bruijn indices in the style of \citet{Altenkirch:2003kz}, using GADTs
+\cite{Jones:2006eh} and type families
 \cite{Chakravarty:2005dx,Schrijvers:2008ir} to preserve the embedded program's
 type information. While developed independently
 \cite{McDonell:2013wi,Chakravarty:2009uo}, this conversion is similar to the
 \emph{unembedding} of \citet{Atkey:2009dj}. Unembedding and sharing recovery are
 necessarily intertwined. Sharing recovery must be performed on the source
 representation, otherwise sharing will have already been lost, but we can not
-perform sharing recovery on higher-order abstract syntax\index{higher-order
-abstract syntax} (HOAS) as we need to traverse below the lambda abstractions.
-Hence, both operations go hand in hand.
+perform sharing recovery on higher-order abstract syntax as we need to traverse
+below the lambda abstractions. Hence, both operations go hand in hand.
 
 \begin{figure}
 \centering
@@ -192,28 +192,28 @@ stages:
 
 \subsubsection*{Phase 1: Prune shared terms:}
 
-A depth-first traversal of the AST\index{abstract syntax tree} annotates each node
-with its unique stable name\index{stable name}, and builds an occurrence map for
-the number of times we see each node in the overall program. The stable names of
-two Haskell terms are equal only when the terms are represented by the same heap
-structure in memory. Likewise, when the abstract syntax tree of two terms of an
-embedded language program have the same stable name, we know that they represent
-the same value. If we encounter a node already in the occurrence map, it
-represents a previously visited node and is thus a \emph{shared subterm}. We
-replace the entire subterm at that node with a placeholder containing its stable
-name. The second diagram in Figure~\ref{fig:sharing_recovery} shows the outcome
-of this stage. Each node is labelled by a number that represents its stable name,
-and the dotted edges indicate where we encountered a previously visited, shared
-node. The placeholders are indicated by underlined stable names. In this way all
-but the first occurrence of a shared subterm are pruned
+Phase one is a depth-first traversal of the AST which annotates each node with
+its unique \indext{stable name}, and builds an occurrence map for the number of
+times each node is seen in the overall program. The stable names of two Haskell
+terms are equal only when the terms are represented by the same heap structure
+in memory. Likewise, when the AST of two terms of an embedded language program
+have the same stable name, we know that they represent the same term. If we
+encounter a node already in the occurrence map, it represents a previously
+visited node and is thus a \emph{shared subterm}. We replace the entire subterm
+at that node with a placeholder containing its stable name. The second diagram
+in Figure~\ref{fig:sharing_recovery} shows the outcome of this stage. Each node
+is labelled by a number that represents its stable name, and the dotted edges
+indicate where we encountered a previously visited, shared node. The
+placeholders are indicated by underlined stable names. In this way all but the
+first occurrence of a shared subterm are pruned,
 %and replaced with variable bindings,
-so that we do not descend into terms that have been previously encountered. This
+and we do not descend into terms that have been previously encountered. This
 avoids completely unfolding the embedded expression, so the complexity of
 sharing observation is proportional to the number of nodes in the tree
 \emph{with} sharing.
 
 As the stable name of an expression is an intensional property, it can only be
-determined in Haskell's @IO@ monad, and strictly speaking because of this
+determined in Haskell's @IO@ monad, and strictly speaking, because of this
 it is not deterministic. The stable name API does not guarantee completeness:
 for two stable names @sn1@ and @sn2@, if @sn1 == sn2@ then the
 two stable names were created from the same heap object. However, the reverse is
@@ -228,13 +228,13 @@ denotational correctness.
 
 \subsubsection*{Phase 2: Float shared terms:}
 
-A bottom-up traversal that determines the scope for every binding to be
-introduced to share a subterm. It uses the occurrence map to determine, for
-every shared subterm, the meet of all the shared subterm occurrences --- the
-lowest AST node at which the binding for the subterm can be placed. This is why
-the occurrence map generated in the previous phase can not be simplified to a
-set of occurring names: we need the actual occurrence count to determine where
-shared subterms should be let-bound.
+The second phase is a bottom-up traversal of the AST that determines the scope
+for every shared binding that will be introduced. It uses the occurrence map to
+determine, for every shared subterm, the meet of all the shared subterm
+occurrences --- the lowest AST node at which the binding for the subterm can be
+placed. This is why the occurrence map generated in the previous phase can not
+be simplified to a set of occurring names: we need the actual occurrence count
+to determine where shared subterms should be let-bound.
 
 The third diagram of Figure~\ref{fig:sharing_recovery} shows the result of this
 process. Floated subterms are referenced by circled stable names located
@@ -248,9 +248,10 @@ other floated subterms; here, 8 stays inside the subterm rooted at 5.
 
 Finally, each floated subterm gets let-bound right above the node it floated to,
 as shown in the rightmost diagram of Figure~\ref{fig:sharing_recovery}. At the
-same time, the AST is converted into nameless \indext{de Bruijn} form by
-introducing de Bruijn indices at the same time as introducing the lets.
+same time, the AST is converted into nameless de Bruijn form by introducing de
+Bruijn indices at the same time as introducing the lets.
 
+\index{sharing!recovery|)}
 
 \section{Array fusion}
 \label{sec:array_fusion}
@@ -309,34 +310,31 @@ Section~\ref{sec:fusion_related_work}.
 
 While fusing parallel collective operations, we must be careful not to lose
 information essential to parallel execution. For example,
-@foldr/build@\index{fusion!foldr/build}~\cite{Gill:1993de} and
-stream\index{fusion!stream}~\cite{Coutts:2007kp} fusion are not applicable,
-because they produce sequential tail-recursive loops rather than massively
-parallel GPU kernels. Similarly the
-@split/join@\index{fusion!split/join}~\cite{Keller:1999ic} approach used by
-DPH\index{data-parallel Haskell} is not helpful. Although fused operations are
-split into sequential and parallel subcomputations, the granularity of the
-parallel operations is rather coarse and the sequential component again consists
-of tail-recursive loops, both of which are ill suited for a massively parallel
-target such as GPUs. Accelerate compiles massively parallel array combinators to
-CUDA code via template skeleton instantiation~(\S\ref{sec:code_generation}), so
-any fusion system must preserve the combinator representation of the
-intermediate code.
+@foldr/build@~\cite{Gill:1993de} and stream~\cite{Coutts:2007kp} fusion are not
+applicable, because they produce sequential tail-recursive loops rather than
+massively parallel GPU kernels. Similarly, the @split/join@~\cite{Keller:1999ic}
+approach used by data-parallel Haskell (DPH) is not helpful. Although fused
+operations are split into sequential and parallel subcomputations, the
+granularity of the parallel operations is rather coarse and the sequential
+component again consists of tail-recursive loops, both of which are ill suited
+for a massively parallel target such as GPUs. Accelerate compiles massively
+parallel array combinators to CUDA code via template skeleton
+instantiation~(\S\ref{sec:code_generation}), so any fusion system must preserve
+the combinator representation of the intermediate code.
 
 
 \subsubsection{Sharing}
 
-\index{fusion!short-cut}Short-cut fusion transforms rely on inlining to move
-producer and consumer expressions next to each other, which allows adjacent
-constructor/destructor pairs to be detected and eliminated. When let-bound
-variables are used multiple times in the body of an expression, unrestrained
-inlining can lead to duplication of work. Compilers such as GHC handle this
-situation by inlining the definitions of let-bound variables that have a single
-use site, or by relying on some heuristic about the size of the resulting code
-to decide what to inline~\cite{PeytonJones:2003gb}. In typical Accelerate
-programs, each array is used at least twice: once to access the shape
-information and once to access the array data, so we must handle at least this
-case specially.
+Short-cut fusion transforms rely on inlining to move producer and consumer
+expressions next to each other, which allows adjacent constructor/destructor
+pairs to be detected and eliminated. When let-bound variables are used multiple
+times in the body of an expression, unrestrained inlining can lead to
+duplication of work. Compilers such as GHC handle this situation by inlining the
+definitions of let-bound variables that have a single use site, or by relying on
+some heuristic about the size of the resulting code to decide what to
+inline~\cite{PeytonJones:2003gb}. In typical Accelerate programs, each array is
+used at least twice: once to access the shape information and once to access the
+array data, so we must handle at least this case specially.
 
 \subsubsection{Fusion at runtime}
 
@@ -353,12 +351,12 @@ instructions based on the capabilities of the target hardware.
 
 General array fusion transformations must deal with filter-like operations, for
 which the size of the result structure depends on the \emph{values} of the input
-array, as well as its size. For example \index{fusion!stream}stream fusion
-includes the @Skip@ constructor in order to support filtering operations (among
-other uses). Although easily implementable as a combination of the core
-primitives (Listing~\ref{lst:filter}), filtering is difficult to
-implement as a single-step parallel operation. Since filter-like operations are
-not part of the core language, we do not need to consider them further.
+array, as well as its size. For example stream fusion includes the @Skip@
+constructor in order to support filtering operations (among other uses).
+Although easily implementable as a combination of the core primitives
+(Listing~\ref{lst:filter}), filtering is difficult to implement as a single-step
+parallel operation. Since filter-like operations are not part of the core
+language, we do not need to consider them further.
 
 % Today I did some of my thesis. I wrote LOOOOOTS of pages of words and thingies.
 % I think I should get to have ALLLLL the plays and ALLLLLL the rests now. Thesis,
@@ -371,7 +369,7 @@ not part of the core language, we do not need to consider them further.
 
 \subsubsection{Fusion on typed de Bruijn indices}
 
-We fuse Accelerate programs by rewriting typed \indext{de Bruijn} terms in a
+We fuse Accelerate programs by rewriting typed de Bruijn terms in a
 type preserving manner. Maintaining type information adds complexity to the
 definitions and rules, but amounts to a partial proof of correctness checked by
 the type checker (\S\ref{sec:richly_typed_terms}).
@@ -388,13 +386,13 @@ operations into two categories:
 \begin{enumerate}
     \item Operations where each element of the output array can be computed
         independently of all others. We refer to these operations as
-        \index{producer}\emph{producers}.
+        \fusion[producer]{}\emph{producers}.
 
     \item Operations where each array element can not be computed independently,
         or requires traversal over multiple array elements rather than access to
         a single element. We call these operations
-        \index{consumer}\emph{consumers}, in spite of the fact that, as with all
-        collective operations in Accelerate, they also produce an array as
+        \fusion[consumer]{}\emph{consumers}, in spite of the fact that, as with
+        all collective operations in Accelerate, they also produce an array as
         output.
 
 \end{enumerate}
@@ -444,11 +442,11 @@ stencil     :: Stencil sh a stencil => (stencil -> Exp b)             %\rm map a
 Listing~\ref{lst:producer_consumer_operations} summarises the collective array operations that we
 support. In a parallel context, producers are much more pleasant to deal with
 because independent element-wise operations have an obvious mapping to massively
-parallel processors such as GPUs\index{graphics processing unit}. Consumers are
-a different story, as we need to know exactly how the elements depend on each
-other in order to implement them efficiently in parallel. For example, a
-reduction (with associative operator) can be implemented efficiently in parallel
-as a recursive tree reduction, but a parallel scan requires two distinct phases
+parallel processors such as GPUs. Consumers are a different story, as we need to
+know exactly how the elements depend on each other in order to implement them
+efficiently in parallel. For example, a reduction (with associative operator)
+can be implemented efficiently in parallel as a recursive tree reduction, but a
+parallel scan requires two distinct phases
 (\S\ref{sec:parallel_algorithms_in_cuda}). Unfortunately, this is the sort of
 information that is obfuscated by most fusion techniques. To support the
 different properties of producers and consumers, the fusion transform is split
@@ -457,8 +455,7 @@ into two distinct phases:
 \begin{enumerate}
     \item \emph{Producer/producer:} A bottom-up contraction of the AST that
         fuses sequences of producers into a single producer. This is implemented
-        as a source-to-source transformation on the \index{abstract syntax
-        tree}AST\@.
+        as a source-to-source transformation on the AST\@.
 
     \item \emph{Producer/consumer:} A top-down transformation that annotates the
         AST as to which nodes should be computed to manifest data and which
@@ -484,7 +481,7 @@ into two distinct phases:
 \end{figure}
 
 Figure~\ref{fig:fusion} shows how the fusion technique affects the
-AST\index{abstract syntax tree}: blue boxes labelled $p_1$ to $p_7$ represent
+AST: blue boxes labelled $p_1$ to $p_7$ represent
 producers, where $p_5$ is a producer like @zipWith@ that takes two arrays as
 input. The consumers are labelled $c_1$ and $c_2$. Each box represents an
 operation that will be computed to memory, so the goal is to combine the boxes
@@ -510,14 +507,12 @@ memory traffic, this is not always advantageous, so the current implementation
 is conservative and never duplicates work. Since Accelerate is a restricted,
 deeply embedded language, we can compute accurate cost estimates and make an
 informed decision, but this is left for future work. Moreover, this is an
-instance of a fundamental limitation with \index{fusion!short-cut}short-cut
-fusion techniques such as
-\index{fusion!foldr/build}@foldr/build@~\cite{Gill:1993de} and
-\index{fusion!stream}stream~\cite{Coutts:2007kp} fusion. Since short-cut fusion
-is a local transformation that depends on inlining, it is applicable only to
-fusing operations which have a single use site. To implement fusion where an
-array is efficiently consumed by multiple operations without work duplication
-would require fundamental changes to the algorithm.
+instance of a fundamental limitation with short-cut fusion techniques such as
+@foldr/build@~\cite{Gill:1993de} and stream~\cite{Coutts:2007kp} fusion. Since
+short-cut fusion is a local transformation that depends on inlining, it is
+applicable only to fusing operations which have a single use site. To implement
+fusion where an array is efficiently consumed by multiple operations without
+work duplication would require fundamental changes to the algorithm.
 %
 Consumer/producer fusion of $c_1$ into $p_4$, or $c_2$ into $p_6$, would also
 require substantial changes to the fusion implementation, and is only applicable
@@ -540,7 +535,7 @@ rules quadratic in the number of operations that are to be fused. This was the
 problem with Wadler's original deforestation
 algorithm~\cite{Wadler:1981hy,Wadler:1990ix}. The representation must also be
 sufficiently expressive to represent all operations we want to fuse, which was a
-limitation of \index{fusion!foldr/build}@foldr/build@ fusion~\cite{Gill:1993de}.
+limitation of @foldr/build@ fusion~\cite{Gill:1993de}.
 
 
 \subsection{Representing Producers}
@@ -549,8 +544,8 @@ limitation of \index{fusion!foldr/build}@foldr/build@ fusion~\cite{Gill:1993de}.
 The basic idea behind the representation of producer arrays in Accelerate is
 well known: simply represent an array by its size and a function mapping array
 indices to their corresponding values. This method has been used successfully to
-optimise purely functional array programs in \index{fusion!delayed
-arrays}Repa~\cite{Keller:2010er}, and has also been used by
+optimise purely functional array programs in \fusion[delayed array]{}
+Repa~\cite{Keller:2010er}, and has also been used by
 others~\cite{Claessen:2012hl}.
 
 % The use of delayed arrays in Repa was originally motived by the desire to avoid
@@ -586,13 +581,14 @@ The other consideration is \emph{efficiency}. Since we are targeting a massively
 parallel architecture designed for performance, it is better to use more
 specific operations whenever possible. An opaque indexing function is too
 general, conveying no information about the pattern in which the underlying
-array is accessed, and hence no opportunities for optimisation.
+array is accessed, and hence provides no opportunities for optimisation.
 
-Listing~\ref{lst:Cunctation} describes the ways in which the fusion
-transformation represents intermediate arrays. The fusion process operates by
-recasting producer array computations in terms of a set of scalar functions used
-to construct an element at each index, % encoded by this data structure, and
-fusing successive producers by combining these scalar functions.
+Listing~\ref{lst:Cunctation} shows the ways in which the fusion transformation
+represents intermediate arrays. The fusion proceeds by recasting producer array
+computations in terms of a set of scalar functions used to construct an element
+at each index,
+% encoded by this data structure,
+and fusing successive producers by combining these scalar functions.
 %
 \begin{lstlisting}[style=haskell_float
     ,label=lst:Cunctation
@@ -624,7 +620,7 @@ k\textipa{`}NGk\textquotesingle t\={a}SH\textipa{`}n \enspace\textipa{k@Nk}\text
 |} (n) the action or an instance of delaying; tardy action.}
 \makeatcode
 %
-is parameterised by the recursive closure of array computations @acc@, the
+is parameterised by the recursive closure of array computations @acc@ and the
 array environment @aenv@, and has three constructors:
 %
 \begin{enumerate}
@@ -668,14 +664,14 @@ data Embed acc aenv a where
 
 Note the types of the array environments in Listing~\ref{lst:Embed}. The @Embed@
 type is expressed in relation to the type @aenv@, which represents all
-let-bindings currently in scope at this point of the AST\index{abstract syntax
-tree} that we are analysing. The data constructor contains an
-existentially typed @aenv'@. This existential is witnessed by the first argument
-@Extend@, that contains any additional array terms collected during the fusion
-process (\S\ref{sec:environment_manipulation}). The delayed array representation
-in the second argument is expressed in terms of this extended environment, so
-has access to any terms from the AST (@aenv@) as well as those additional
-bindings introduced by @Extend@ (@aenv'@).
+let-bindings currently in scope at this point of the AST that we are analysing.
+The data constructor contains an existentially typed @aenv'@. This existential
+is witnessed by the first argument @Extend@, that contains any additional array
+terms collected during the fusion process
+(\S\ref{sec:environment_manipulation}). The delayed array representation in the
+second argument is expressed in terms of this extended environment, so has
+access to any terms from the AST (@aenv@) as well as those additional bindings
+introduced by @Extend@ (@aenv'@).
 
 Why do we separate the auxiliary bindings from the representation of fused
 producers? The constructors of @Cunctation@ could carry this information,
@@ -690,21 +686,20 @@ following is a valid alternative definition for the @Yield@ constructor:
          -> Cunctation acc aenv       (Array sh e)
 \end{lstlisting}
 
-To create a real AST\index{abstract syntax tree} node from the @Embed@
-representation, we need both the environment bindings as well as the array
-description. However, analysis of how to fuse terms requires only the array
-description. If the additional bindings are bundled as part of the array
-representation, as in @Yield'@, the existentially quantified environment
-type is only available after we pattern match on the constructor. This is
-problematic because to inspect terms and do things like function composition
-(\S\ref{sec:function_composition}) the types of the environments of the two
-terms must be the same, so after we pattern match on the constructor we must
-@sink@ (\S\ref{sec:sinking}) the second term into @aenv'@. Even worse,
-for terms in the delayed state the only way to do this sinking is to first
-convert them into a real AST node and then back into the delayed state. If for
-some reason we can not fuse into this representation --- for example we do not
-meet the requirements for the more restrictive @Step@ --- then this
-additional work is wasted.
+To create a real AST node from the @Embed@ representation, we need both the
+environment bindings as well as the array description. However, analysis of how
+to fuse terms requires only the array description. If the additional bindings
+are bundled as part of the array representation, as in @Yield'@, the
+existentially quantified environment type is only available after we pattern
+match on the constructor. This is problematic because to inspect terms and do
+things like function composition (\S\ref{sec:function_composition}), the types of
+the environments of the two terms must be the same. Therefore, after we pattern
+match on the constructor we must @sink@ (\S\ref{sec:sinking}) the second term
+into @aenv'@. Even worse, for terms in the delayed state the only way to do this
+sinking is to first convert them into a real AST node and then back into the
+delayed state. If for some reason we can not fuse into this representation ---
+for example we do not meet the requirements for the more restrictive @Step@ ---
+then this additional work is wasted.
 
 Why can we not analyse terms with respect to the exposed environment type
 @aenv@? At some point we will need to merge the extended environments. What
@@ -719,9 +714,9 @@ Because of the limited scope in which the existential type is available in the
 @Yield'@ style representation, we ultimately perform this process of converting
 terms and sinking into a suitable type many times. If the extended environments
 are placed on the constructors of the delayed representations, the complexity of
-the fusion algorithm for an AST of $n$ nodes scales as $O(r^n)$, where $r$ is
-the number of different rules we have for combining delayed terms. While the
-semantics of the algorithm are the same, for performance this separation is
+the fusion algorithm for an AST of $n$ nodes scales as $\mathcal{O}(r^n)$, where
+$r$ is the number of different rules we have for combining delayed terms. While
+the semantics of the algorithm are the same, for performance this separation is
 critical.
 
 \begin{lstlisting}[style=haskell_float
@@ -758,8 +753,10 @@ to inject information on the positive case to both the type and value level. For
 example, @isIdentity@ checks whether a function corresponds to the term $\lambda
 x.x$, and in the positive case witnesses that its type must be @a -> a@.
 
+
 \subsection{Producer/Producer Fusion}
 \label{sec:producer_producer_fusion}
+\fusion[producer|(]{}
 
 The first phase of the fusion transformation is to merge sequences of producer
 functions. Consider the canonical example of map/map fusion, where we would like
@@ -824,7 +821,7 @@ representation (ignoring the impossible unmatched cases).
 The only producer case that must be handled specially is  that of @zipWith@, as
 this is the only producer which consumes multiple arrays (see
 Listing~\ref{lst:producer_consumer_operations}). In contrast to, for example,
-@foldr/build@\index{fusion!foldr/build}, we are able to fuse the operation in
+@foldr/build@, we are able to fuse the operation in
 both of the input arguments. The @zipWith@ smart constructor is shown in
 Listing~\ref{lst:zipWithD}. We note the following characteristics:
 %
@@ -881,10 +878,10 @@ zipWithD f cc1 cc0
 \end{lstlisting}
 
 The first phase of fusion can now be completed via bottom-up tree contraction of
-the AST\index{abstract syntax tree}. Smart constructors for each of the producer
-functions are used to convert terms into the intermediate representation, and
-adjacent producer/producer terms are merged. Listing~\ref{lst:embedPreAcc}
-demonstrates the procedure.
+the AST\@. Smart constructors for each of the producer functions are used to
+convert terms into the intermediate representation, and adjacent
+producer/producer terms are merged. Listing~\ref{lst:embedPreAcc} demonstrates
+the procedure.
 %
 \begin{lstlisting}[style=haskell_float
     ,label=lst:embedPreAcc
@@ -946,17 +943,18 @@ embedAcc  :: Arrays arrs => acc aenv arrs -> Embed acc aenv arrs
     single @Array@, whereas @Done@ is generalised to the @Arrays@ class.
 
 \item Producer terms such as @map@ and @zipWith@ are converted into the internal
-    representation using their smart constructors. In order to do this, all
-    terms must be defined with respect to the same environment type. The helper
-    function @fuse@ encodes the bottom-up traversal by first converting the
-    argument array @a@ into the @Embed@ representation. The extended environment
-    type and delayed representation are then passed to the continuation function
-    @into@, which sinks (\S\ref{sec:environment_manipulation}) the argument @f@
-    into the extended environment type of the delayed representation, before
-    applying the smart constructor @mapD@ (Listing~\ref{lst:mapD}). This results
-    into a new delayed representation that can be further fused into later
-    terms. At the @zipWith@ case @fuse2@ acts analogously, but must ensure that
-    the two input array terms are lowered into the same extended environment.
+    representation (Listing~\ref{lst:Cunctation}) using their smart
+    constructors. In order to do this, all terms must be defined with respect to
+    the same environment type. The helper function @fuse@ encodes the bottom-up
+    traversal by first converting the argument array @a@ into the @Embed@
+    representation. The extended environment type and delayed representation are
+    then passed to the continuation function @into@, which sinks
+    (\S\ref{sec:environment_manipulation}) the argument @f@ into the extended
+    environment type of the delayed representation, before applying the smart
+    constructor @mapD@ (Listing~\ref{lst:mapD}). This results into a new delayed
+    representation that can be further fused into later terms. At the @zipWith@
+    case @fuse2@ acts analogously, but must ensure that the two input array
+    terms are lowered into the same extended environment.
 
 \item Consumer operations such as @fold@ force the operation to be evaluated to
     a manifest array at this point in the program, by converting the @Embed@
@@ -972,9 +970,11 @@ The result of this process is an AST where all adjacent producer/producer
 operations have been combined into a single producer. The next step of the
 fusion pipeline is to fuse producers into consumers.
 
+\fusion[producer|)]{}
 
 \subsection{Producer/Consumer Fusion}
 \label{sec:producer_consumer_fusion}
+\fusion[consumer|(]{}
 
 Now that we have a story for producer/producer fusion, we discuss how to deal
 with consumers. Recall the classic array fusion example that is vector dot
@@ -1117,6 +1117,7 @@ Overall, adjacent producer/producer pairs have been merged, and consumers can
 integrate directly into the skeleton the code for on-the-fly producing each
 element so that no intermediate array needs to be created.
 
+\fusion[consumer|)]{}
 
 \subsection{Exploiting all opportunities for fusion}
 \label{sec:binder_elimination}
@@ -1301,7 +1302,7 @@ sink1   :: Sink f => Extend acc env env' -> f (env, s) t -> f (env', s) t
     (1) can only be applied to \emph{concrete} AST terms, not to the delayed
     @Embed@ representation. Only if the binding is not a manifest term do we
     convert the body to the delayed representation in order to analyse it. This
-    means ensure the body is only traversed once, maintaining complexity of the
+    ensures the body is only traversed once, maintaining complexity of the
     algorithm. The subsequent cases, where we wish to analyse both the binding
     and body expressions in delayed form, is handled by the auxiliary function
     @aletD'@.
@@ -1341,7 +1342,7 @@ in %$\langle$ body term $\rangle$%
 
 \item If the let binding can be eliminated, the delayed representation for the
     binding is passed to the auxiliary function @eliminate@. This separation is
-    once again important to avoid excessively sinking and delaying of terms, as
+    once again important to avoid excessive sinking and delaying of terms, as
     well as to expose the (existential) type of the extended environment.
     Pattern matching on @cc1@ is necessary to convince the type checker that the
     type @arrs@ is actually restricted to a single @Array@.
@@ -1406,7 +1407,7 @@ elimOpenAcc bnd body
     number of uses of the data component at the bound variable, while ignoring
     uses of the array shape.
 
-\item At a special case, the function looks for the definition of @unzip@
+\item As a special case, the function looks for the definition of @unzip@
     applied to manifest array data, which is defined by the Accelerate prelude
     as a @map@ projecting out the appropriate element of the tuple.
 
@@ -1428,6 +1429,7 @@ lead to code blowup or non-terminating compilation.
 
 \subsection{Shrinking}
 \label{sec:shrinking}
+\index{shrinking}
 
 The \emph{shrinking reduction} arises as a restriction of $\beta$-reduction to
 cases where the bound variable is used zero (dead-code elimination) or one
@@ -1813,11 +1815,13 @@ This section briefly summarises some of the related work in this area.
 
 \subsection{Short-cut fusion}
 
-Most practically successful fusions systems are \emph{short-cut fusion}
-\index{fusion!short-cut} methods that rely on local program transformations, and
-are implemented as simple but specific rewrite rules combined with general
-purpose program transformations. The fusion system described in this work and
-implemented in Accelerate is in this vein.
+\fusion[short-cut|(]{}
+
+Most practically successful fusions systems are \emph{short-cut fusion} methods
+that rely on local program transformations, and are implemented as simple but
+specific rewrite rules combined with general purpose program transformations.
+The fusion system described in this work and implemented in Accelerate is in
+this vein.
 
 % Inspired by earlier work in @fold/unfold@ methods~\cite{Burstall:1977kl},
 % deforestation~\cite{Wadler:1981hy,Wadler:1990ix} applies a set of rewrite rules
@@ -1825,19 +1829,18 @@ implemented in Accelerate is in this vein.
 % order to remove intermediate data structures. While simple, each optimisation
 % requires a separate transformation rule for every combination of operators.
 
-@foldr/build@ fusion~\cite{Gill:1996tf,Gill:1993de}\index{fusion!foldr/build}
+@foldr/build@ fusion~\cite{Gill:1996tf,Gill:1993de}
 implements library operations out of two basic functions: @build@
 constructs a list while @foldr@ consumes it, and a single rewrite rule suffices
 to remove intermediate structures. However, not all operations can be expressed
 in terms of these two operations, and the transformation does not handle
 functions with accumulators or that consume multiple inputs.
 
-Stream fusion~\cite{Coutts:2007kp}\index{fusion!stream} addresses the
-shortcomings of @foldr/build@ fusion, while remaining simple and useful in
-practice. Operations in the library are written in terms of the @Stream@ data
-type, which consists of some abstract state and a stepper function that advances
-the stream to the next state. A single rule eliminates matching pairs of
-constructor and destructor.
+Stream fusion~\cite{Coutts:2007kp} addresses the shortcomings of @foldr/build@
+fusion, while remaining simple and useful in practice. Operations in the library
+are written in terms of the @Stream@ data type, which consists of some abstract
+state and a stepper function that advances the stream to the next state. A
+single rule eliminates matching pairs of constructor and destructor.
 
 Short-cut fusion systems typically only function when there is a single use site
 of the data structure. Work in the intersection of data flow languages and array
@@ -1856,6 +1859,7 @@ arrays and values as output~\cite{Lippmeier:2013vz,Robinson:2014ve}.
 % aim to fuse the data flow network into a form that does not require unbounded
 % buffers of intermediate signal data.
 
+\fusion[short-cut|)]{}
 
 \subsection{Loop fusion in imperative languages}
 
@@ -1883,7 +1887,7 @@ than short-cut fusion techniques.
 \subsection{Fusion in a parallel context}
 
 Repa~\cite{Keller:2010er} is a Haskell library for parallel array programming on
-shared-memory multicore machines. Repa\index{fusion!delayed array} uses a split
+shared-memory multicore machines. Repa\fusion[delayed array]{} uses a split
 representation of arrays as either \emph{delayed} or \emph{manifest}, on which
 the @DelayedOpenAcc@ type is based (\S\ref{sec:array_fusion}). Representing
 arrays as functions avoids creating unnecessary intermediate structures, rather
@@ -1898,12 +1902,10 @@ are never recomputed.
 Obsidian~\cite{Svensson:2008a} is an EDSL in Haskell for GPGPU programming,
 where more details of the GPU hardware are exposed to the programmer. Recent
 versions of Obsidian~\cite{Claessen:2012hl} implement Repa-style delayed
-\emph{pull arrays}\index{fusion!pull array} as well as \emph{push
-arrays}\index{fusion!push array}. Whereas a pull array represents a general
-producer, a push array represents a general consumer. Push arrays allow
-intermediate programs to be written in continuation passing style
-(CPS)\index{continuation passing style}\index{CPS|see{continuation passing
-style}}, and helps to compile and fuse append-like operations.
+\emph{pull arrays} as well as \emph{push arrays}. Whereas a pull array
+represents a general producer, a push array represents a general consumer. Push
+arrays allow intermediate programs to be written in continuation passing style
+(CPS), and helps to compile and fuse append-like operations.
 Baracuda~\cite{Larsen:2011fa} is another Haskell EDSL that produces CUDA kernels
 but is intended to be used offline. The paper mentions a fusion system that
 appears to be based on pull arrays, but the mechanism is not discussed in
@@ -2214,9 +2216,9 @@ sure that the left and right hand sides of the rewrite are equivalences.
 In particular, we are concerned as to whether:
 %
 \begin{itemize}
-    \item Can a safely terminating program be transformed into a failing one?
-    \item Can a safely terminating program be transformed into another safely
-        terminating program that gives a different value as the result?
+    \item A safely terminating program can be transformed into a failing one.
+    \item A safely terminating program can be transformed into another safely
+        terminating program that gives a different value as the result.
 \end{itemize}
 
 For \texttt{foldr/build} fusion applied to regular Haskell lists, it is possible
@@ -2225,7 +2227,7 @@ equivalent. Breaking semantic equivalence for \texttt{foldr/build} requires the
 use of the special operator @seq@, which evaluates its first argument to head
 normal form.%
 \footnote{Recall that Haskell has non-strict evaluation semantics. This means,
-for example, that it is possibly to evaluate the length of the following list,
+for example, that it is possible to evaluate the length of the following list,
 even though the second list element raises an error, because the individual list
 elements are never demanded: \footcode{length [1, error "boom!", 3]} $\mapsto$
 \footcode{3}. However, if we were to first apply \footcode{seq} to each list
@@ -2333,7 +2335,7 @@ is expensive or @sh@ is large, even though there is a single use site for the
 source array @xs@, it might still be beneficial to not fuse these terms.
 
 The second source of work duplication can arise through the use of array
-indexing. At an example, consider the following function, where each element of
+indexing. As an example, consider the following function, where each element of
 the array @xs@ is repeated four times sequentially in the result, i.e.
 @[a,b,c]@ $\mapsto$ @[a,a,a,a,b,b,b,b,c,c,c,c]@:
 %
@@ -2370,10 +2372,11 @@ the body, then the new redex must be re-traversed. For the fusion
 transformation, let-elimination is the only reason a term might be inspected
 more than once.
 
-On the other hand, scalar expressions must alternate between the simplification
-and shrinking steps. Thus, we must decide in which order to apply the two
-operations. Because the shrinking step changes the structure of the AST by
-removing let bindings, which might be useful for the simplification analysis,%
+On the other hand, simplification of scalar expressions alternates between the
+simplification and shrinking steps. Thus, we must decide in which order to apply
+the two operations. Because the shrinking step changes the structure of the AST
+by removing let bindings, which might be useful for the simplification
+analysis,%
 \footnote{In particular, before the introduction of an explicit value recursion
 term into the source language, uses encoded iteration by defining a single step
 of the loop body as a collective operation, and used Haskell to repeatedly

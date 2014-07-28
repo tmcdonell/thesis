@@ -8,7 +8,7 @@
 % \usepackage[T1]{fontenc}
 \usepackage{ifpdf}
 \ifpdf
-\RequirePackage{hyperref}
+\usepackage{hyperref}
 \hypersetup{%
     pdftitle={\doctitle},
     pdfsubject={\docsubtitle},
@@ -58,6 +58,8 @@
 \usepackage{upquote}
 \usepackage{xfrac}
 \usepackage[multiple]{footmisc}
+% \usepackage{imakeidx}
+
 
 \onehalfspacing
 %\doublespacing
@@ -316,9 +318,16 @@
 \providecommand{\indexe}[1]{\index{#1}\emph{#1}}
 \providecommand{\indext}[1]{\index{#1}#1}
 
-\newcommand{\gpu}[1][]{\index{graphics processing unit!#1}}
-\newcommand{\gpgpu}[1][]{\index{general-purpose computing on graphics processing units}}
-\newcommand{\cuda}[1][]{\index{CUDA!#1}}
+\providecommand{\AST}[1][]{\index{abstract syntax tree!#1}}
+\providecommand{\cuda}[1][]{\index{CUDA!#1}}
+\providecommand{\fusion}[1][]{\index{fusion!#1}}
+\providecommand{\gpu}[1][]{\index{graphics processing unit!#1}}
+\providecommand{\gpgpu}[1][]{\index{general-purpose computing on graphics processing units}}
+\providecommand{\lang}[1][]{\index{language!#1}}
 
+\index{AST|see {abstract syntax tree}}
+\index{DSL|see {language: domain-specific}}
+\index{EDSL|see {language: embedded}}
 \index{GPU|see {graphics processing unit}}
 \index{GPGPU|see {general-purpose computing on graphics processing units}}
+

@@ -23,11 +23,11 @@
 The major processor manufacturers and architectures have long since run out of
 room with most of the traditional approaches to boosting CPU performance.
 Instead of driving clock speed and straight-line instruction throughput,
-including multiple cores on a single chip has become the dominant mechanism for
-scaling processor performance. Despite this trend being apparent for a number of
-years, programming parallel computers remains an extremely challenging task ---
-even for expert computer programmers, let alone for scientists in other
-disciplines.
+the inclusion of multiple cores on a single chip has become the dominant
+mechanism for scaling processor performance. Despite this trend being apparent
+for a number of years, programming parallel computers still remains an extremely
+challenging task --- even for expert computer programmers, let alone for
+scientists in other disciplines.
 
 One programming model that has shown to make good use of parallel hardware is
 \indexe{data parallelism}.
@@ -41,7 +41,7 @@ In addition to its simplicity, the data parallel approach to programming
 parallel computers has several advantages:
 %
 \begin{enumerate}
-\item The model is independent of the number of processors, so scales to any
+\item The model is independent of the number of processors, so it scales to any
     number of processors by decomposing data into the appropriate number of
     chunks.
 
@@ -58,28 +58,26 @@ data parallelism is the well established, demonstrably successful brand leader.
 Examples of data parallel programming environments include High Performance
 Fortran (HPF)~\cite{HPF:1997}, the collective operations of the Message Passing
 Interface (MPI)~\cite{MPI:2012}, Google's Map/Reduce
-framework~\cite{Dean:2008fi}, and NVIDIA's CUDA API for graphics
+framework~\cite{Dean:2008fi}, and NVIDIA's CUDA\cuda{} API for graphics
 processors~\cite{NVIDIA:2012wf}.
 
 
 \section{GPU computing} % {GPGPU programming is data parallel programming}
 \label{sec:gpu_computing}
 
-General-purpose computing on graphics processing units
-\index{general-purpose computing on graphics processing units}
-(\indext{GPGPU}\index{GPGPU|see {general-purpose computing on graphics
-processing units}}) is the utilisation of a graphics processing unit (GPU) ---
+General-purpose computing on graphics processing units (GPGPU\gpgpu)
+is the utilisation of a graphics processing unit (GPU\gpu) ---
 which typically handles the computations for computer graphics --- to perform
 computations in applications typically handled by the central processing unit
 (CPU). Since general purpose CPUs are designed to optimise the performance of a
 single thread of execution, much of the processor's resources (die area and
 power) are dedicated to non-computational tasks such as caching and branch
 prediction. Conversely, the highly parallel nature of graphics processing
-(rasterisation) means the GPU architecture can instead use these resources to
-execute many tasks in parallel, improving the computational throughput for
-parallel workloads at the expense of decreased single threaded performance. This
-difference in architectures between the CPU and GPU is illustrated in
-Figure~\ref{fig:cpu_gpu_block_diagram}.
+(\indext{rasterisation}) means the GPU architecture can instead use these
+resources to execute many tasks in parallel, improving the computational
+throughput for parallel workloads at the expense of decreased single threaded
+performance. This difference in architectures between the CPU and GPU is
+illustrated in Figure~\ref{fig:cpu_gpu_block_diagram}.
 
 \begin{figure}[tbp]
     \centering
@@ -94,12 +92,12 @@ Figure~\ref{fig:cpu_gpu_block_diagram}.
     \label{fig:cpu_gpu_block_diagram}
 \end{figure}
 
-More specifically, the GPU is especially well suited to expressing problems that
-can be expressed as data parallel computations, where the same program is
-executed by many processors on many different data elements in parallel
-(\S\ref{sec:data_parallelism}). Because the same program is executed by many
-processors, there is no need for sophisticated control flow, and because it is
-executed on many data elements, memory access latency can be hidden with
+More specifically, the GPU\gpu{} is especially well suited to expressing
+problems that can be expressed as data parallel computations, where the same
+program is executed by many processors on many different data elements in
+parallel (\S\ref{sec:data_parallelism}). Because the same program is executed by
+many processors, there is no need for sophisticated control flow, and because it
+is executed on many data elements, memory access latency can be hidden with
 calculations rather than by big caches. Many applications that process large
 data sets can use the data parallel programming model to speed up calculations,
 and these applications can often be coded to execute on the GPU\@.
@@ -108,37 +106,36 @@ and these applications can often be coded to execute on the GPU\@.
 \section{CUDA}
 \label{sec:cuda}
 
-The \indext{CUDA} architecture is the parallel computing platform and
+The CUDA\cuda{} architecture is the parallel computing platform and
 programming model created by NVIDIA and implemented by the graphics processing
-units (GPUs)\index{GPU|see {graphics processing unit}}\index{graphics processing
-unit} that they produce. Using CUDA, programmers gain direct access to the
-memory and massively parallel multicore architecture of the GPU, which can then
-be used for general purpose computing applications, not just graphics.
+units (GPUs\gpu) that they produce. Using CUDA, programmers gain direct access
+to the memory and massively parallel multicore architecture of the GPU, which
+can then be used for general purpose computing applications, not just graphics.
 
-CUDA extends the C programming language by allowing the programmer to define
-functions, called \emph{kernels}\index{GPU!kernel}, that, when called, are
+CUDA\cuda{} extends the C programming language by allowing the programmer to define
+functions, called \emph{kernels}\cuda[kernel]{}, that, when called, are
 executed $n$ times in $n$ data parallel threads on the available processing
 elements, rather than only once like regular C functions. These functions are
-executed by threads arranged in a multidimensional structure of \emph{thread
-blocks}\index{GPU!thread block}. Threads within a block can cooperate by sharing
-data through some \emph{shared memory}\index{GPU!shared memory} and by
-synchronising their execution to coordinate memory access. More precisely, the
-programmer can specify synchronisation points in the kernel by calling
-@__syncthreads()@\index{GPU!\code{__syncthreads()}}, which acts as a barrier at
-which all threads in the block must wait before any are allowed to proceed. Each
-thread block executes independently of each other, so a GPU with a higher number
-of CUDA cores --- or \emph{streaming multiprocessors}\index{GPU!streaming
-multiprocessor} (SM) --- will execute the program in less time than a GPU with
-fewer multiprocessors.
+executed by threads in SIMD groups called \emph{warps}\cuda[warp]{} arranged in
+a multidimensional structure of \emph{thread blocks}\cuda[thread block]{}.
+Threads within a block can cooperate by sharing data through some \emph{shared
+memory}\cuda[shared memory]{} and by synchronising their execution to coordinate
+memory access. More precisely, the programmer can specify synchronisation points
+in the kernel by calling @__syncthreads()@\cuda[\code{__syncthreads()}]{}, which
+acts as a barrier at which all threads in the block must wait before any are
+allowed to proceed. Each thread block executes independently of each other, so a
+GPU with a higher number of CUDA cores --- or \emph{streaming
+multiprocessors}\cuda[streaming multiprocessor]{} (SM) --- will execute the
+program in less time than a GPU with fewer multiprocessors.
 
 \begin{lstlisting}[style=cuda_float
     ,label=lst:cuda_vecadd
     ,caption={[CUDA kernel for pair wise addition of two vectors]A CUDA kernel
         that illustrates pair wise addition of two vectors. The
-        \code{__global__} keyword marks a function as a kernel that should be
-        executed on the GPU in data parallel. The execution configuration syntax
-        \code{<<<...>>>} specifies the number of threads that will each execute
-        the function in data parallel.}]
+        \code{__global__}\cuda[\code{__global__}]{} keyword marks a function as
+        a kernel that should be executed on the GPU in data parallel. The
+        execution configuration syntax \code{<<<...>>>} specifies the number of
+        threads that will each execute the function in data parallel.}]
 // Kernel definition
 __global__ void VecAdd(float *A, float *B, float *C, int N)
 {
@@ -160,23 +157,25 @@ int main()
 }
 \end{lstlisting}
 
-At an example, Listing~\ref{lst:cuda_vecadd} illustrates the pair wise addition
+As an example, Listing~\ref{lst:cuda_vecadd} illustrates the pair wise addition
 of two vectors $A$ and $B$ of size $N$ each, and stores the result in a vector
-$C$. The kernel is defined with the @__global__@ declaration specifier. The
-number of CUDA thread blocks and the number of threads in each block that
-execute the kernel, at this invocation, is specified in the @<<<...>>>@ syntax.
-Moreover, Listing~\ref{lst:cuda_vecadd} demonstrates that the GPU programming
-model as exposed by CUDA is a data parallel programming model --- $N$ threads
-execute $N$ individual instances of the kernel function @VecAdd@, and each
-thread operates on a single element of each input array to create a single value
-in the result. See the CUDA C programming guide for details~\cite{NVIDIA:2012wf}.
+$C$. The kernel is defined with the @__global__@\cuda[\code{__global__}]{}
+declaration specifier. The number of CUDA\cuda{} thread blocks and the number of
+threads in each block that execute the kernel, at this invocation, is specified
+in the @<<<...>>>@ syntax. Moreover, Listing~\ref{lst:cuda_vecadd} demonstrates
+that the GPU\gpu{} programming model as exposed by CUDA is a data parallel
+programming model --- $N$ threads execute $N$ individual instances of the kernel
+function @VecAdd@, and each thread operates on a single element of each input
+array to create a single value in the result. See the CUDA\cuda{} C programming
+guide for details~\cite{NVIDIA:2012wf}.
+
 
 \section{Data parallel algorithms in CUDA}
 \label{sec:parallel_algorithms_in_cuda}
 
-\indext{CUDA} is a parallel computing platform for programming NVIDIA GPUs.
-Using CUDA, the GPU becomes accessible not just for graphics applications, but
-for computational tasks much like a CPU\@. Unlike CPUs, however, GPUs have a
+CUDA\cuda{} is a parallel computing platform for programming NVIDIA GPUs.
+Using CUDA, the GPU\gpu{} becomes accessible not just for graphics applications,
+but for computational tasks much like a CPU\@. Unlike CPUs, however, GPUs have a
 parallel throughput architecture that emphasises executing many concurrent
 threads slowly, rather than executing a single thread very quickly.
 % Unlike CPU cores, instructions are issued in order and there is no
@@ -225,13 +224,12 @@ the basic strategy for reducing an array in parallel. Within each thread block a
 tree-based approach is used to reduce elements to a single value, and multiple
 thread blocks each process a portion of the array in parallel. However, there is
 no global synchronisation primitive in CUDA that can be used to combine the
-partial results. This is because global synchronisation (a) would be expensive
-to build in hardware for large numbers of multiprocessors, and (b) would be
-difficult for programmers to use without introducing sources of deadlock.
-Instead, kernel launches serve as a global synchronisation point, so thread
-blocks instead communicate their partial results by committing them to memory,
-and the kernel is launched recursively until the final reduction value is
-computed.
+partial results. This is because global synchronisation would be (a) expensive
+to build in hardware for large numbers of multiprocessors, and (b) difficult for
+programmers to use without introducing sources of deadlock. Instead, kernel
+launches serve as a global synchronisation point, so thread blocks instead
+communicate their partial results by committing them to memory, and the kernel
+is launched recursively until the final reduction value is computed.
 
 \begin{figure}
     \begin{center}
@@ -245,8 +243,8 @@ computed.
     \label{fig:tree_reduction}
 \end{figure}
 
-Note that if we wish to fuse other operations into the fold kernel, only the
-first line of reductions at level zero perform the fused operation. All
+Note that if we wish to fuse\fusion{} other operations into the fold kernel,
+only the first line of reductions at level zero perform the fused operation. All
 subsequent reductions in that kernel, as well as the recursive steps at level
 one and beyond, are pure reductions. We discuss fusion further in
 Section~\ref{sec:array_fusion}.
@@ -270,8 +268,8 @@ the algorithm is:
 \[
 \mathcal{O}\left( N \right)
 \]
-and so does not perform more work than a sequential algorithm. For $P$ threads
-running physically in parallel on $P$ processors, the \emph{time
+and therefore does not perform more work than a sequential algorithm. For $P$
+threads running physically in parallel on $P$ processors, the \emph{time
 complexity}\index{complexity!time} is $\mathcal{O}\left( \sfrac{N}{P} + \log N
 \right)$. In a thread block $N = P$, so the time complexity is:
 \[
@@ -307,19 +305,19 @@ hiding by minimising the number of thread blocks launched.
 
 \subsubsection{Mapping to CUDA Threads}
 
-Reduction of a one dimensional array uses multiple thread blocks to
-cooperatively reduce the array, as described above. The number of thread blocks
-is limited to the maximum number of blocks that can be simultaneously resident
-on the current device, which requires that blocks each do a larger amount of
-sequential work before beginning the cooperative reduction phase. This limits
-the total kernel startup cost associated with launching thread blocks. Since the
-maximum number of resident blocks is typically much less than the number of
-threads in a block, the reduction will typically require at most two kernel
-invocations.\footnote{Accelerate selects the thread block size in order to
-maximise thread occupancy. As this depends on both the specific GPU being used
-as well as the user function the array is reduced with, an upper bound of two
-parallel steps can not be guaranteed. See Section~\ref{sec:launch_configuration}
-for more information.}
+Reduction of a one dimensional array uses multiple thread blocks\cuda[thread
+block]{} to cooperatively reduce the array, as described above. The number of
+thread blocks used is limited to the maximum number which can be simultaneously
+resident on the current device. This requires that each thread individually does
+a larger amount of sequential work before beginning the cooperative reduction
+phase, but limits the total kernel startup cost associated with launching thread
+blocks. Since the maximum number of resident thread blocks is typically much
+less than the number of threads in a block, the reduction will require at most
+two kernel invocations.\footnote{Accelerate selects the thread block size in
+order to maximise thread occupancy. As this depends on both the specific GPU
+being used as well as the user function the array is reduced with, an upper
+bound of two parallel steps can not be guaranteed. See
+Section~\ref{sec:launch_configuration} for more information.}
 
 Higher-dimensional reductions reduce the array along the innermost dimension
 only. This is similar to a segmented fold, except that the segment descriptor is
@@ -340,10 +338,11 @@ have the same number of cores per multiprocessor, and lower performance
 processors in a generation are produced by incorporating (or activating) fewer
 multiprocessors, thereby reducing the total core count.}
 
-In the current implementation, a segmented reduction uses a single warp (SIMD
-group) to reduce each segment, although it would also be possible to use the
-entire thread block, as is done for regular multidimensional reductions. It
-remains to fully investigate which mapping is more efficient.
+In the current implementation, a segmented reduction uses a single
+warp\cuda[warp]{} (SIMD group) to reduce each segment, although it would also be
+possible to use the entire thread block, as is done for regular multidimensional
+reductions. It remains to fully investigate which mapping is more efficient.
+
 
 \subsection{Scan}
 \label{sec:parallel_scan}
@@ -353,7 +352,7 @@ great many data-parallel algorithms~\cite{Blelloch:1990ts,Chatterjee:1990vj}.
 They also form the basis for efficiently mapping nested data-parallel languages
 such as NESL~\cite{Blelloch:1995ut,Blelloch:1996jx} on to flat data-parallel
 machines. Because of their fundamental importance to many algorithms,
-implementing efficient scan operations in CUDA has received much
+implementing efficient scan operations in CUDA\cuda{} has received much
 attention~\cite{Sengupta:2007tc,Sengupta:2008ut,Dotsenko:2008fo,Harris:2012fy}.
 
 \begin{figure}
@@ -370,24 +369,25 @@ attention~\cite{Sengupta:2007tc,Sengupta:2008ut,Dotsenko:2008fo,Harris:2012fy}.
     \label{fig:fast_scan}
 \end{figure}
 
-The basic binary-tree based scan algorithm proceeds in $\log N$ stages.
+The basic binary-tree based scan algorithm proceeds in $\log
+N$\index{complexity!step} stages.
 % As shown in Figure~\ref{fig:fast_scan}, the binary operator is applied to two
 % distinct elements of the input array and the output is stored into a new array.
-In order to compute scans efficiently on the GPU, the input array is decomposed
-into a number of blocks of size $B$, such that an inclusive scan of $B$ elements
-can be computed by an individual thread block, locally in shared memory. The
-inclusive scan algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in
-three phases:
+In order to compute scans efficiently on the GPU\gpu{}, the input array is
+decomposed into a number of blocks of size $B$, such that an inclusive scan of
+$B$ elements can be computed by an individual thread block\cuda[thread block]{},
+locally in shared memory\cuda[shared memory]{}\cuda{}. The inclusive scan algorithm
+depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
 %
 \begin{enumerate}
 \item The input array is divided into chunks of size $B$ elements and
-    distributed to the thread blocks, which each scan their portion of the array
-    in parallel. The final scan value (partial result) from each thread block
-    @i@ is stored into an intermediate array @block_results[i]@. Note that even
-    though we require only the final value, since scans are directional ---
-    either to the left or right --- we must compute the entire scan and return
-    only the last value, to ensure that elements are processed in the correct
-    left-to-right or right-to-left order.
+    distributed to the thread blocks\cuda[thread block]{}, which each scan their
+    portion of the array in parallel. The final scan value (partial result) from
+    each thread block @i@ is stored into an intermediate array
+    @block_results[i]@. Note that even though we require only the final value,
+    since scans are directional --- either to the left or right --- we must
+    compute the entire scan and return only the last value, to ensure that
+    elements are processed in the correct left-to-right or right-to-left order.
 
 \item A single thread block performs a scan of the helper array @block_results@.
     Accelerate is set up such that the number of blocks in the first step is
@@ -428,19 +428,19 @@ rather than by operator transformation, will improve performance.
 In the scan algorithm described above, the input array to be scanned is read
 twice: once when computing the partial block results, and a second time when
 computing the final scanned array. If the input does not refer to manifest array
-data, but instead an array in a symbolic form resulting from array fusion
-(\S\ref{sec:array_fusion}), then the elements of the delayed array --- which
-might contain arbitrarily expensive computations --- will be computed twice
-also.
+data, but instead an array in a symbolic form resulting from array
+fusion\fusion{} (\S\ref{sec:array_fusion}), then the elements of the delayed
+array --- which might contain arbitrarily expensive computations --- will be
+computed twice also.
 
 In order to avoid this, in some circumstances it might be beneficial for either
 (a) the first phase of the scan to store the entire partial scan result, rather
 than just the final element; or (b) to always read in manifest data, effectively
-disallowing producer/consumer fusion (\S\ref{sec:array_fusion}) for
-scans in the CUDA backend. The latter option is undesirable, and the former may
-not work for non-commutative operators, such as the one we used in the
-operator-transformation-based definition of segmented scan. Currently the user
-has no control as to whether the input array is manifest or delayed, and no
+disallowing producer/consumer fusion\fusion{} (\S\ref{sec:array_fusion}) for
+scans in the CUDA\cuda{} backend. The latter option is undesirable, and the
+former may not work for non-commutative operators, such as the one we used in
+the operator-transformation-based definition of segmented scan. Currently the
+user has no control as to whether the input array is manifest or delayed, and no
 special action is taken on the part of the backend in its current
 implementation, although both alternatives are possible.
 
@@ -468,19 +468,19 @@ is complicated because we have not placed any particular restrictions on $f$,
 namely:
 %
 \begin{enumerate}
-    \item $f$ is not surjective: the range of $f$ may not cover the codomain
-        $Y$. For every $x$ in $X$, $f\left( x \right)$ need not yield every
-        index $y$ in $Y$. This means that the result array must first be
+    \item $f$ is not \indext{surjective}: the range of $f$ may not cover the
+        codomain $Y$. For every $x$ in $X$, $f\left( x \right)$ need not yield
+        every index $y$ in $Y$. This means that the result array must first be
         initialised with a set of default values.
 
-    \item $f$ is not injective: distinct elements of the domain may
-        map to the same element in the codomain. For all $x$ and $x'$ in $X$, if
+    \item $f$ is not \indext{injective}: distinct elements of the domain may map
+        to the same element in the codomain. For all $x$ and $x'$ in $X$, if
         $f\left( x \right) = f\left( x' \right)$, we may have that $x \ne x'$.
         This means we require an associative combination function to combine
         elements from the domain that map to the same index in the codomain.
 
-    \item $f$ is partial: elements of the domain may be ignored, and thus do
-        not map to elements in the codomain.
+    \item $f$ is \indext{partial}: elements of the domain may be ignored, and
+        thus do not map to elements in the codomain.
 \end{enumerate}
 
 That the permutation function admits partial functions in the index mapping is
@@ -503,21 +503,21 @@ filter p vec
     permute const defaults (\ix -> flags!ix ==* 0 ? (ignore, index1 $ targetIdx!ix)) vec
 \end{lstlisting}
 
-On the other hand, because we can not prove that @filter@ is surjective, we
-require the result vector to be first initialised with default values. Since we
-do not know anything about the element type @a@, the only recourse is to
-copy elements from the input array @vec@. This is doubly wasteful, because
-we must first execute the @backpermute@ kernel to compute the
+On the other hand, because we can not prove that @filter@ is
+\indext{surjective}, we require the result vector to be first initialised with
+default values. Since we do not know anything about the element type @a@, the
+only recourse is to copy elements from the input array @vec@. This is doubly
+wasteful, because we must first execute the @backpermute@ kernel to compute the
 @defaults@ array, and then copy those values into the results vector before
 executing the @permute@ kernel, even though we know the initialised values
 will be completely overwritten.
 
-At a second example, Listing~\ref{lst:histogram} demonstrates the computation of
+As a second example, Listing~\ref{lst:histogram} demonstrates the computation of
 a simple ten bin histogram from a vector of floating point elements in the range
 $\left[ 0, 100 \right)$. In this case the permutation function is neither
-surjective nor injective, as some bins may contain no elements and thus take the
-default value, while other bins may contain multiple elements which need to be
-combined (accumulated) correctly.
+\indext{surjective} nor \indext{injective}, as some bins may contain no elements
+and thus take the default value, while other bins may contain multiple elements
+which need to be combined (accumulated) correctly.
 %
 \begin{lstlisting}[style=haskell_float
     ,label=lst:histogram
@@ -534,10 +534,10 @@ histogram vec
 \end{lstlisting}
 
 The semantics of the operation is that every permutation from source to result
-array is applied at the same time in a single parallel step. If multiple CUDA
-threads attempt a non-atomic write to the same memory location at the same time,
-the writes will be serialised but the thread which performs the final write is
-undefined, and so the final value at that memory slot is also
+array is applied at the same time in a single parallel step. If multiple
+CUDA\cuda{} threads attempt a non-atomic write to the same memory location at
+the same time, the writes will be serialised but the thread which performs the
+final write is undefined, and so the final value at that memory slot is also
 undefined~\cite{NVIDIA:2012wf}. To support non-injective permutation functions,
 which are required to evaluate the histogram program correctly, the atomic
 compare-and-swap operation is used to implement write combining.\footnote{The
@@ -558,7 +558,7 @@ from the source array @x@ with the value of the result array @y@:
 %
 Any atomic operation on simple types can be implemented in terms of
 compare-and-swap in this manner, although it would also be possible to use more
-specific atomic operations such as @atomicAdd@ in special cases.
+specific atomic operations such as @atomicAdd@\cuda{} in special cases.
 
 
 \subsubsection{Implementation using explicit locking}
@@ -598,15 +598,15 @@ Implementing a spin-lock can be done similarly to the following:
         element @i@ of the output array, we atomically store 1 into the @lock@
         slot for this element, returning the @old@ state of the lock.
 
-    \item If the @old@ state of the lock was unlocked (0) then we just acquired
-        the lock. Otherwise it was already locked, so we must retry.
+    \item If the @old@ state of the lock was unlocked (0) then we have just
+        acquired the lock. Otherwise, it was already locked, so we must retry.
 
     \item Once the lock is acquired, the atomic section can be computed.
 
     \item To release the lock, write zero back into the lock slot for this
         element. A memory barrier or atomic operation, as used here, is required
         for this step to ensure memory consistency on architectures which do not
-        have a strong memory model, such as CUDA devices.
+        have a strong memory model, such as CUDA\cuda{} devices.
         % (later x86 architectures can safely use an unlocked @MOV@ instruction).
 
 \end{enumerate}
@@ -621,15 +621,15 @@ alternative strategy for combining complex types in the permute operation.
 Stencil operations are a fundamental building block of many scientific and image
 processing algorithms. A stencil computation is similar to a @map@, that has
 access to the elements in the local neighbourhood surrounding the element. For
-example, at the core of many image processing algorithms is the convolution
-operator $*$, whose definition is as follows:
+example, at the core of many image processing algorithms is the
+\indext{convolution} operator $*$, whose definition is as follows:
 
 \begin{equation*}
     (A * K)(x, y) = \sum_i \sum_j A(x+i, y+j) K(i,j)
 \end{equation*}
 %
 Here $A$ is the image being processed and $K$ is the \emph{convolution kernel}
-or \emph{stencil}. A \emph{stencil} is a small matrix that defines a
+or \indexe{stencil}. A \emph{stencil} is a small matrix that defines a
 transformation on the image. Typical transformations include Gaussian blur and
 the Sobel differentiation operator, both of which are used in the Canny edge
 detection algorithm (\S\ref{sec:canny}).
@@ -639,11 +639,11 @@ detection algorithm (\S\ref{sec:canny}).
 
 Since the stencil has access to elements in the surrounding neighbourhood, an
 immediate concern is what to do when the stencil ``falls off'' the edge of the
-array. Figure~\ref{fig:stencil3x3} shows the application of a $3\times3$ stencil
-in this circumstance. The white squares indicate the \emph{internal} region
-where the stencil is entirely within the array, and the grey squares indicate
-the \emph{border} region, where part of the stencil lies outside of the array
-boundary.
+array. Figure~\ref{fig:stencil3x3} shows the application of a $3\times3$
+\indext{stencil} in this circumstance. The white squares indicate the
+\emph{internal} region where the stencil is entirely within the array, and the
+grey squares indicate the \emph{border} region, where part of the stencil lies
+outside of the array boundary.
 
 \begin{figure}[tbp]
     \begin{center}
@@ -660,13 +660,14 @@ boundary.
 
 Boundary conditions determine how to handle out-of-bounds neighbours, by
 specifying either a constant value to use instead, or by reading the source
-array at a different index. However, with the array sizes typical of GPU
-programs, the border region represents only a tiny fraction of the entire array.
-For example, a 512-pixel square image has less than one percent of its pixels
-along the edge. This fact implies that for optimal performance, we should avoid
-testing of the boundary each time we read an element from the source array. For
-simple convolutions such as those used by Canny (\S\ref{sec:canny}), this adds
-significant overhead~\cite{Lippmeier:2011cd}.
+array at a different index. However, with the array sizes typical of
+GPU\gpu{} programs, the border region represents only a tiny fraction of the
+entire array. For example, a 512-pixel square image has less than one percent of
+its pixels along the edge. This fact implies that for optimal performance, we
+should avoid testing of the boundary each time we read an element from the
+source array. For simple convolutions\index{convolution} such as those used by
+Canny (\S\ref{sec:canny}), this adds significant
+overhead~\cite{Lippmeier:2011cd}.
 %
 The current implementation does not separate computation of the border and
 internal regions.
@@ -676,10 +677,10 @@ internal regions.
 
 \subsubsection{Overlapping elements}
 
-Suppose we wish to apply a dense $3\times3$ stencil to a single internal point
-in the array, where every element of the stencil is utilised. Application of the
-stencil requires at least nine elements of the array to be loaded, and one store
-for the result.
+Suppose we wish to apply a dense $3\times3$ \indext{stencil} to a single
+internal point in the array, where every element of the stencil is utilised.
+Application of the stencil requires at least nine elements of the array to be
+loaded, and one store for the result.
 
 \begin{figure}[tbp]
     \begin{center}
@@ -701,11 +702,11 @@ share loads from the source array into a local temporary array, this would
 requires only $3 \times 6 = 18$ loads, plus the four stores. Sharing of stencil
 elements can thus significantly reduce memory bandwidth requirements.
 
-Sharing of stencil elements in CUDA can be achieved by having the thread block
-first cooperatively read the stencil elements into \indexe{shared
-memory}~\cite{NVIDIA:2012wf}, and each thread then computes its stencil function
-using these shared values. In Accelerate, sharing of stencil elements is
-complicated by two main factors:
+Sharing of stencil elements in CUDA\cuda{} can be achieved by having the thread
+block\cuda[thread block]{} first cooperatively read the \indext{stencil}
+elements into \cuda[shared memory]{} shared memory~\cite{NVIDIA:2012wf}, and
+each thread then computes its stencil function using these shared values. In
+Accelerate, sharing of stencil elements is complicated by two main factors:
 %
 \begin{enumerate}
     \item Stencil patterns can be large: up to 9 elements in each dimension.
@@ -722,41 +723,41 @@ complicated by two main factors:
 \end{enumerate}
 
 The implementation currently ignores this issue and does not explicitly share
-elements between threads, instead relying on the cache. For older (compute 1.x)
-devices that lack a traditional cache mechanism to global memory, we read the
-source array using the texture cache.\footnote{A holdover from the graphical
-heritage of the GPU.} It is left to future work to investigate sharing of stencil
-elements between threads, either in general or specialised for certain cases
-such as dense stencils or those commonly used for convolutions.
+elements between threads, and instead, relies on the hardware cache. For older
+(compute 1.x) devices that lack a traditional cache mechanism to global memory,
+we read the source array using the texture cache.\footnote{A holdover from the
+graphical heritage of the GPU\gpu{}.} It is left to future work to investigate sharing
+of stencil elements between threads, either in general or specialised for
+certain cases such as dense stencils or those commonly used for
+convolutions\index{convolution}.
 
 
 \subsubsection{Interaction with array fusion}
 
-Since the stencil operation has access to the elements surrounding the focal
-point of the stencil, if the input is represented by a symbolic array resulting
-from array fusion (\S\ref{sec:array_fusion}), rather than manifest array data,
-accessing these neighbouring elements implies recomputing the symbolic
-computations on every element access. For some operation @stencil s . map f@, if
-the results of @f@ can be shared between threads of the stencil (previous
-section), or if @f@ is cheap, then the duplicate computations required to fuse
-the two operations might be preferable to the extra memory bandwidth required to
-store the result of @map f@ to memory. A full exploration of stencil-aware array
-fusion is left to future work.
-
-
+Since the \indext{stencil} operation has access to the elements surrounding the
+focal point of the stencil, if the input is represented by a symbolic array
+resulting from array fusion\fusion{} (\S\ref{sec:array_fusion}), rather than
+manifest array data, accessing these neighbouring elements implies recomputing
+the symbolic computations on every element access. For some operation
+@stencil s . map f@, if the results of @f@ can be shared between threads of the
+stencil (previous section), or if @f@ is cheap, then the duplicate computations
+required to fuse the two operations might be preferable to the extra memory
+bandwidth required to store the result of @map f@ to memory. A full exploration
+of stencil-aware array fusion is left to future work.
 
 \section{Embedded domain-specific languages}
 \label{sec:EDSLs}
 
-A \emph{domain-specific language}\index{language!domain-specific} (DSL) is a
-computer language specialised to a specific problem domain. The DOT
+A \emph{domain-specific language}\lang[domain-specific]{} (DSL) is a computer
+language specialised to a specific problem domain. The DOT
 language~\cite{Graphviz:1998ui,Ellson:2001wf} is an example of a DSL for
 describing graphs. This is in contrast to a general purpose language such as
-Haskell~\cite{Haskell:1998}, which is broadly applicable across domains but may
-lack specialised features for a particular domain. A domain specific language is
-created to solve problems in a particular domain, and is not intended to solve
-problems outside it although this may be technically possible, for example, the
-PostScript~\cite{AdobeSystemsIncorporated:1999ue} page description language.
+Haskell~\cite{Haskell:1998}, which is broadly applicable across many domains but
+may lack specialised features for a particular domain. A domain specific
+language is created to solve problems in a particular domain, and is not
+intended to solve problems outside it (although this may be technically
+possible, for example, the PostScript~\cite{AdobeSystemsIncorporated:1999ue}
+page description language).
 % for creating vector graphics
 % and is used in printers and desktop publishing applications, but is also a
 % Turing complete language in its own right.
@@ -765,13 +766,14 @@ more optimisations during compilation, or increased expressivity when
 representing problems or defining solutions in that domain.
 
 An \emph{embedded} (or \emph{internal}) \emph{domain-specific
-language}\index{language!domain-specific!embedded} (EDSL) is a domain-specific
-language that is designed to be used from within another host
-language~\cite{Hudak:1996}. The embedded language is implemented as a library,
-so is able to reuse the syntax and features of the general purpose host language
-compiler, including compilation phases such as lexing, parsing, and semantic
-analyses such as type checking, while adding domain specific elements such as
-data types, or domain specific optimisations and code generation.
+language}\lang[embedded]{}\lang[internal|see {language: embedded}]{} (EDSL) is a
+domain-specific language\lang[domain-specific]{} that is designed to be used
+from within another host language~\cite{Hudak:1996}\lang[host]{}. The embedded
+language is implemented as a library, so is able to reuse the syntax and
+features of the general purpose host language compiler, including compilation
+phases such as lexing, parsing, and semantic analyses such as type checking,
+while adding domain specific elements such as data types, or domain specific
+optimisations and code generation.
 
 There are two major degrees in which an embedded language can be implemented; as
 either a \emph{shallow} or \emph{deep} embedding.
@@ -790,9 +792,9 @@ bindings.
 \subsection{Deep embedding}
 
 A deep embedding captures the semantics of the domain by reflecting the
-operations of the \emph{object language}\index{language!object} (or \emph{meta
-language}\index{language!meta|see {object}}) into a data structure. This data
-structure --- an \indexe{abstract syntax tree} (AST) --- then permits
+operations of the \emph{object language}\lang[object]{} (or \emph{meta
+language}\lang[meta|see {language: object}]{}) into a data structure. This data
+structure --- an \emph{abstract syntax tree} (AST\AST) --- then permits
 transformations, such as optimisations, before being translated into the
 \emph{target} language. Deeply embedded languages therefore enable a
 \emph{variable} interpretation of operations in the domain. This makes it is
@@ -802,10 +804,9 @@ extending the AST data type, and the implementation must deal explicitly with
 binding of variables. Sharing and recursion are common problems when
 implementing deeply embedded languages~\cite{Gill:2009dx}.
 
-As the deeply embedded language runs inside of the \emph{host
-language}\index{language!host}, reflecting operations into an AST, an
-interpreter for the embedded language must be embedded within the host
-application.
+As the deeply embedded language\lang[embedded]{} runs inside of the \emph{host
+language}\lang[host]{}, reflecting operations into an AST\AST{}, an interpreter
+for the embedded language must be embedded within the host application.
 % This interpreter may execute instructions in the internal language directly,
 % or it may generate code that is compiled into machine language instructions to
 % be executed.
@@ -823,9 +824,9 @@ implementation of our embedded language Accelerate. We have introduced the
 concept of data parallelism, a programming model that is simple to reason about
 yet can efficiently make use of large numbers of processors. We introduced the
 idea of using graphics processors for general purpose computing tasks, and show
-that GPU computing, and CUDA in particular, are data-parallel programming
-models. Finally, we have introduced the idea of embedded domain-specific
-languages.
+that GPU\gpu{} computing, and CUDA\cuda{} in particular, are data-parallel
+programming models. Finally, we have introduced the idea of embedded
+domain-specific languages\lang[domain-specific]{}\lang[embedded]{}.
 
 The next chapter ties these ideas together to introduce Accelerate: an embedded
 language of array computations that has been designed with massive data parallel

@@ -22,7 +22,7 @@ The beginning of the twenty first century has seen an interesting trend in
 computing emerge. General purpose CPUs, such as those provided by Intel, IBM and
 AMD, have increased performance substantially, but with nowhere near the
 increases seen in the late 1980's and early 1990's. To a large extent, single
-threaded performance increases have tapered off due to the low level of
+threaded performance increases have tapered off, due to the low level of
 inter-process communication in general purpose workloads, and the physical
 limitations of power dissipation for integrated circuits. The additional
 millions and billions of transistors afforded by Moore's rule\footnote{Moore's
@@ -37,7 +37,7 @@ the performance of single--threaded code.
 
 At the same time, the commodity \emph{graphics processing unit} (GPU)\gpu{} has
 been able to use this ever increasing transistor budget effectively,
-geometrically increasing rendering performance, since \indext{rasterisation} is
+geometrically increasing rendering performance, as \indext{rasterisation} is
 an inherently parallel operation.
 %
 % Historically fixed function pipelines, graphics architectures are
@@ -56,8 +56,8 @@ knowledge.
 Several researchers have proposed methods to ameliorate the status quo by either
 using a library to compose GPU\gpu{} code or by compiling a subset of a
 high-level language to low-level GPU
-code~\cite{McCool:2004,Bond:2010bd,ThrustAParallelT:ub,Catanzaro:2011cn,Mainland:2010vj,CLyther:EvXSiruK,Muranushi:2012eh}
-This work is in the same spirit: we propose a domain-specific high-level
+code~\cite{McCool:2004,Bond:2010bd,ThrustAParallelT:ub,Catanzaro:2011cn,Mainland:2010vj,CLyther:EvXSiruK,Muranushi:2012eh}.
+This thesis is in the same spirit: we propose a domain-specific high-level
 language of array computations, called \emph{Accelerate}, that captures
 appropriate GPGPU\gpgpu{} programming idioms in the form of parameterised,
 collective array operations. Our choice of operations was informed primarily by

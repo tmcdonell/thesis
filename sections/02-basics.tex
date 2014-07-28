@@ -65,6 +65,9 @@ processors~\cite{NVIDIA:2012wf}.
 \section{GPU computing} % {GPGPU programming is data parallel programming}
 \label{sec:gpu_computing}
 
+\cuda[|(]{}
+\gpu[|(]{}
+
 General-purpose computing on graphics processing units (GPGPU\gpgpu)
 is the utilisation of a graphics processing unit (GPU\gpu) ---
 which typically handles the computations for computer graphics --- to perform
@@ -296,7 +299,7 @@ $\mathcal{O}\left( \sfrac{N}{\log N} \log N \right)$, or rather:
 while keeping the work complexity $\mathcal{O}\left( N \right)$ and step
 complexity $\mathcal{O}\left( \log N \right)$.
 
-At an example, this result implies that each block of 256 threads should sum a
+As an example, this result implies that each block of 256 threads should sum a
 total of $256 \times \log_2 \left( 256 \right) = 2048$ elements. In practice it
 is beneficial to do even more sequential work per thread, as this will reduce
 the number of levels in the recursive tree reduction, and provide better latency
@@ -745,6 +748,10 @@ required to fuse the two operations might be preferable to the extra memory
 bandwidth required to store the result of @map f@ to memory. A full exploration
 of stencil-aware array fusion is left to future work.
 
+\cuda[|)]{}
+\gpu[|)]{}
+
+
 \section{Embedded domain-specific languages}
 \label{sec:EDSLs}
 
@@ -824,9 +831,9 @@ implementation of our embedded language Accelerate. We have introduced the
 concept of data parallelism, a programming model that is simple to reason about
 yet can efficiently make use of large numbers of processors. We introduced the
 idea of using graphics processors for general purpose computing tasks, and show
-that GPU\gpu{} computing, and CUDA\cuda{} in particular, are data-parallel
-programming models. Finally, we have introduced the idea of embedded
-domain-specific languages\lang[domain-specific]{}\lang[embedded]{}.
+that GPU computing, and CUDA in particular, are data-parallel programming
+models. Finally, we have introduced the idea of embedded domain-specific
+languages.
 
 The next chapter ties these ideas together to introduce Accelerate: an embedded
 language of array computations that has been designed with massive data parallel

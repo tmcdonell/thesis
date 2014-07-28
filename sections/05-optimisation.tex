@@ -325,7 +325,7 @@ the combinator representation of the intermediate code.
 
 \subsubsection{Sharing}
 
-Short-cut fusion transforms rely on inlining to move producer and consumer
+Shortcut fusion transforms rely on inlining to move producer and consumer
 expressions next to each other, which allows adjacent constructor/destructor
 pairs to be detected and eliminated. When let-bound variables are used multiple
 times in the body of an expression, unrestrained inlining can lead to
@@ -507,9 +507,9 @@ memory traffic, this is not always advantageous, so the current implementation
 is conservative and never duplicates work. Since Accelerate is a restricted,
 deeply embedded language, we can compute accurate cost estimates and make an
 informed decision, but this is left for future work. Moreover, this is an
-instance of a fundamental limitation with short-cut fusion techniques such as
+instance of a fundamental limitation with shortcut fusion techniques such as
 @foldr/build@~\cite{Gill:1993de} and stream~\cite{Coutts:2007kp} fusion. Since
-short-cut fusion is a local transformation that depends on inlining, it is
+shortcut fusion is a local transformation that depends on inlining, it is
 applicable only to fusing operations which have a single use site. To implement
 fusion where an array is efficiently consumed by multiple operations without
 work duplication would require fundamental changes to the algorithm.
@@ -1813,11 +1813,11 @@ to arrays~\cite{Chakravarty:2001dt,Claessen:2012hl,Grelck:2006ci,Keller:2010er}.
 This section briefly summarises some of the related work in this area.
 
 
-\subsection{Short-cut fusion}
+\subsection{Shortcut fusion}
 
-\fusion[short-cut|(]{}
+\fusion[shortcut|(]{}
 
-Most practically successful fusions systems are \emph{short-cut fusion} methods
+Most practically successful fusions systems are \emph{shortcut fusion} methods
 that rely on local program transformations, and are implemented as simple but
 specific rewrite rules combined with general purpose program transformations.
 The fusion system described in this work and implemented in Accelerate is in
@@ -1842,7 +1842,7 @@ are written in terms of the @Stream@ data type, which consists of some abstract
 state and a stepper function that advances the stream to the next state. A
 single rule eliminates matching pairs of constructor and destructor.
 
-Short-cut fusion systems typically only function when there is a single use site
+Shortcut fusion systems typically only function when there is a single use site
 of the data structure. Work in the intersection of data flow languages and array
 fusion has yielded systems that do not have this restriction. Tupling
 transformations~\cite{Hu:1997tk,Grelck:2006ci} can fuse a restricted form of
@@ -1859,7 +1859,7 @@ arrays and values as output~\cite{Lippmeier:2013vz,Robinson:2014ve}.
 % aim to fuse the data flow network into a form that does not require unbounded
 % buffers of intermediate signal data.
 
-\fusion[short-cut|)]{}
+\fusion[shortcut|)]{}
 
 \subsection{Loop fusion in imperative languages}
 
@@ -1881,7 +1881,7 @@ indices~\cite{Benabderrahmane:2010vc}. However, the indices used to write into
 the destination array must still be computed with affine functions.
 
 These systems require fusion-specific compiler support and more global reasoning
-than short-cut fusion techniques.
+than shortcut fusion techniques.
 
 
 \subsection{Fusion in a parallel context}

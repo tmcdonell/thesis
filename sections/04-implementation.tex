@@ -229,7 +229,7 @@ efficient to inline the @zipWith@ computation into the kernel of the
 @fold@. This strategy eliminates one GPU kernel, as well as one
 intermediate array that is of the same extent as the [intersection of the] two
 input arrays. To achieve the same performance as handwritten CUDA code, we
-developed the short-cut fusion technique described in
+developed the shortcut fusion technique described in
 chapter~\ref{ch:optimising}, and which appeared in \cite{McDonell:2013wi}.
 
 The fusion system distinguishes producer-producer and consumer-producer fusion.

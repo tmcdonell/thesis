@@ -20,7 +20,6 @@
 
 \frontmatter
 \include{title}
-\include{sections/i-disclaimer}
 \include{sections/ii-declaration}
 
 % Contents pages (only in book mode)
@@ -91,7 +90,13 @@
 \cleardoublepage
 \phantomsection
 \addcontentsline{toc}{chapter}{Index}
-\printindex\markboth{Index}{Index}
+\markboth{Index}{Index}
+\printindex
+
+\markboth{}{}
+\cleardoublepage
+\phantomsection
+\include{sections/v-lastpage}
 
 \end{document}
 

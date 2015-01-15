@@ -325,9 +325,11 @@ bound of two parallel steps can not be guaranteed. See
 Section~\ref{sec:launch_configuration} for more information.}
 
 Higher-dimensional reductions reduce the array along the innermost dimension
-only. This is similar to a segmented fold, except that the segment descriptor is
-not necessary since the length of every segment is the same and can be
-determined directly from the extent of the input array. Instead of thread blocks
+only.
+% This is similar to a segmented fold, except that the segment descriptor is
+% not necessary since the length of every segment is the same and can be
+% determined directly from the extent of the input array.
+Instead of all thread blocks
 cooperatively reducing each segment sequentially, each segment is reduced by a
 single thread block which operates independently of all other thread blocks. A
 consequence of this is that proper device utilisation depends on the shape of
@@ -343,11 +345,6 @@ cores split over only 14 multiprocessors. A given architecture generation will
 have the same number of cores per multiprocessor, and lower performance
 processors in a generation are produced by incorporating (or activating) fewer
 multiprocessors, thereby reducing the total core count.}
-
-In the current implementation, a segmented reduction uses a single
-warp\cuda[warp]{} (SIMD group) to reduce each segment, although it would also be
-possible to use the entire thread block, as is done for regular multidimensional
-reductions. It remains to fully investigate which mapping is more efficient.
 
 
 \subsection{Scan}
@@ -408,25 +405,6 @@ depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
 
 For an exclusive scan, it is also necessary to ensure that the computation of
 the partial block sums includes the seed element.
-
-
-\subsubsection{Segmented scan}
-
-Segmented scans are not implemented as primitive operations in Accelerate.
-Instead, segmented scans are implemented in terms of unsegmented scans by
-operator transformation~\cite{Schwartz:1980cy,Blelloch:1990ts}. Given the
-operator $\oplus$ we can construct a new operator $\oplus^s$ that operators on a
-flag-value pairs $\left( f_x, x \right)$ as follows:
-%
-\begin{equation*}
-    \left( f_x, x \right) \oplus^s \left( f_y, y \right)
-        = \left( f_x | f_y,\:\mathrm{if}\;f_y\;\mathrm{then}\;y\;\mathrm{else}\;x\oplus y \right)
-\end{equation*}
-
-Segmented operations often arise when dealing with nested parallelism and the
-flattening transformation~\cite{Blelloch:1995ut}. It is expected that
-implementing segmented scans directly~\cite{Sengupta:2008ut,Dotsenko:2008fo},
-rather than by operator transformation, will improve performance.
 
 
 \subsubsection{Interaction with array fusion}
@@ -750,6 +728,91 @@ stencil (previous section), or if @f@ is cheap, then the duplicate computations
 required to fuse the two operations might be preferable to the extra memory
 bandwidth required to store the result of @map f@ to memory. A full exploration
 of stencil-aware array fusion is left to future work.
+
+
+\subsection{Nested Parallelism}
+\label{sec:nested_parallelism}
+
+The Accelerate language is restricted to programs which express only \emph{flat}
+data parallelism. In this model, the computation executed in parallel on each
+data element must itself be sequential. Although this model admits an efficient
+implementation on highly parallel architectures and is ideally suited for
+computations on dense, regular arrays, flat data parallelism is not as well
+suited for algorithms that operate over \emph{irregular} structures, such as
+sparse matrices, graphs, or trees.
+
+On the other hand, \emph{nested data-parallel}
+languages~\cite{Blelloch:1995ut,Levin:1994uu} allowing recursive data structures
+and the application of parallel functions in data-parallel. The key insight is
+that because the nested calls are to the same function, the \emph{flattening
+transformation}~\cite{Blelloch:1988iu} can convert this nested data-parallelism
+into an equivalent flat data-parallel program. An essential part of the
+flattening transformation is the introduction of \emph{segmented} operations,
+which apply a primitive operation in parallel to subcomponents of a nested
+structure.
+
+At an example, consider the following nested list of floating-point numbers:
+%
+\begin{lstlisting}[style=haskell]
+  xss :: [ [ Float ] ]
+  xss = [ [1,2], [3,4,5], [], [6] ]
+\end{lstlisting}
+%
+The insight of the flattening transformation is to instead view this data
+structure as a flat array of values, coupled with a \emph{segment descriptor}
+encoding the length of each of the subsequences:
+%
+\begin{lstlisting}[style=haskell]
+  xss' :: [ Float ]
+  xss' = [ 1, 2, 3, 4, 5, 6 ]
+
+  seg :: [ Int  ]
+  seg = [ 2, 3, 0, 1 ]
+\end{lstlisting}
+%
+Operations on the nested data structure can then be transformed into segmented
+operations over the flattened data:
+%
+\begin{lstlisting}[style=haskell,mathescape]
+  map (fold f z xss) $\mapsto$ foldSeg f z xss' seg
+\end{lstlisting}
+
+Although we include support for several segmented operations in Accelerate, it
+is left for significant future work to add support for the expression of nested
+parallelism.
+
+
+\subsubsection{Segmented Reduction}
+
+Segmented reduction is a primitive operations in Accelerate. Is is conceptually
+similar to the multidimensional reduction, except that the length of each
+segment is provided by the segment descriptor, rather than determined from the
+extent of the input array.
+
+In the current implementation, a segmented reduction uses a single
+warp\cuda[warp]{} (SIMD group) to reduce each segment, although it would also be
+possible to use the entire thread block, as is done for regular multidimensional
+reductions. It remains to fully investigate which mapping is more efficient.
+
+
+\subsubsection{Segmented scan}
+
+Segmented scans are not implemented as primitive operations in Accelerate.
+Instead, segmented scans are implemented in terms of unsegmented scans by
+operator transformation~\cite{Schwartz:1980cy,Blelloch:1990ts}. Given the
+operator $\oplus$ we can construct a new operator $\oplus^s$ that operators on a
+flag-value pairs $\left( f_x, x \right)$ as follows:
+%
+\begin{equation*}
+    \left( f_x, x \right) \oplus^s \left( f_y, y \right)
+        = \left( f_x | f_y,\:\mathrm{if}\;f_y\;\mathrm{then}\;y\;\mathrm{else}\;x\oplus y \right)
+\end{equation*}
+
+% Segmented operations often arise when dealing with nested parallelism and the
+% flattening transformation~\cite{Blelloch:1995ut}.
+It is expected that implementing segmented scans
+directly~\cite{Sengupta:2008ut,Dotsenko:2008fo}, rather than by operator
+transformation, will improve performance.
 
 \cuda[|)]{}
 \gpu[|)]{}

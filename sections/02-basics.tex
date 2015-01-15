@@ -332,7 +332,8 @@ cooperatively reducing each segment sequentially, each segment is reduced by a
 single thread block which operates independently of all other thread blocks. A
 consequence of this is that proper device utilisation depends on the shape of
 the array and not simply the total number of elements in the array. For example,
-reduction of an array with shape @(Z :. 1 :. n)@ will use a single thread block,
+reduction of an array stored as a $1 \times n$ matrix will use one thread
+block to reduce the single matrix row,
 no matter how large @n@ is. This simplifies the implementation but is clearly
 not always ideal.\footnote{The number of multiprocessors on a device various
 between architecture generation and performance of a given card. For example, a

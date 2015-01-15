@@ -334,7 +334,7 @@ consequence of this is that proper device utilisation depends on the shape of
 the array and not simply the total number of elements in the array. For example,
 reduction of an array stored as a $1 \times n$ matrix will use one thread
 block to reduce the single matrix row,
-no matter how large @n@ is. This simplifies the implementation but is clearly
+no matter how large $n$ is. This simplifies the implementation but is clearly
 not always ideal.\footnote{The number of multiprocessors on a device various
 between architecture generation and performance of a given card. For example, a
 Tesla T10 processor (compute capability 1.3) has 240 cores split over 30

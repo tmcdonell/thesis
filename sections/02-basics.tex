@@ -313,9 +313,9 @@ hiding by minimising the number of thread blocks launched.
 Reduction of a one dimensional array uses multiple thread blocks\cuda[thread
 block]{} to cooperatively reduce the array, as described above. The number of
 thread blocks used is limited to the maximum number which can be simultaneously
-resident on the current device. This requires that each thread individually does
-a larger amount of sequential work before beginning the cooperative reduction
-phase, but limits the total kernel startup cost associated with launching thread
+resident on the current device. This may require each thread to do more
+sequential work than that indicated by the algorithm cascading analysis,
+but limits the total kernel startup cost associated with launching thread
 blocks. Since the maximum number of resident thread blocks is typically much
 less than the number of threads in a block, the reduction will require at most
 two kernel invocations.\footnote{Accelerate selects the thread block size in

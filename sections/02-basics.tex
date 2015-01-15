@@ -121,6 +121,8 @@ executed $n$ times in $n$ data parallel threads on the available processing
 elements, rather than only once like regular C functions. These functions are
 executed by threads in SIMD groups called \emph{warps}\cuda[warp]{} arranged in
 a multidimensional structure of \emph{thread blocks}\cuda[thread block]{}.
+Within a warp, all threads execute the same instructions in lock-step, so
+divergent control flow must be handled via predicated execution.
 Threads within a block can cooperate by sharing data through some \emph{shared
 memory}\cuda[shared memory]{} and by synchronising their execution to coordinate
 memory access. More precisely, the programmer can specify synchronisation points

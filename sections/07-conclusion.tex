@@ -269,37 +269,13 @@ compiler to generate rules internally to propagate information obtained from
 automated analyses, this would allow library authors to express domain specific
 knowledge that the compiler can not discover for itself. For example, the author
 of a library of linear algebra routines might like to express the equivalence
-that $x^{-1}x \mapsto 1$, or the less obvious $\left( 1 - x y \right)^{1}x
-\mapsto x \left( 1 - y x \right)^{-1}$. While a programmer may be unlikely to
+that $x^{-1}x \mapsto 1$.
+%, or the less obvious $\left( 1 - x y \right)^{1}x \mapsto x \left( 1 - y x \right)^{-1}$.
+While a programmer may be unlikely to
 write such expressions themselves, they can easily appear when aggressive
 inlining brings together code that was written separately. Adding the ability to
 add rewrite rules to the program could be a very powerful feature, but raises
 questions such as verifying whether the programmer-specified rules are
 consistent with the underlying function definitions that they purport to
 describe, or that the set of rules are confluent or even terminating.
-
-
-% \begin{itemize}
-% \item conclusion / summary discussion (2 days)
-%
-% \item future work
-%     \begin{itemize}
-%     \item frontend
-%         \begin{itemize}
-%             \item fusion cost analysis (1 day)
-%             \item user controllable fusion (e.g. inline/noinline annotations) (1 day)
-%             \item used definable rewrite rules (1 day)
-%         \end{itemize}
-%     \item backend
-%         \begin{itemize}
-%             \item type-preserving code generation (1 day)
-%         \end{itemize}
-%     \item language
-%         \begin{itemize}
-%             \item first order flattening: naturally nested algorithms
-%                 (barns-hutt) as well as convenience of expression
-%                 (matrix-vector) (2 days)
-%         \end{itemize}
-%     \end{itemize}
-% \end{itemize}
 

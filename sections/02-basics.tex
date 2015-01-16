@@ -379,8 +379,10 @@ N$\index{complexity!step} stages.
 In order to compute scans efficiently on the GPU\gpu{}, the input array is
 decomposed into a number of blocks of size $B$, such that an inclusive scan of
 $B$ elements can be computed by an individual thread block\cuda[thread block]{},
-locally in shared memory\cuda[shared memory]{}\cuda{}. The inclusive scan algorithm
-depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
+locally in shared memory\cuda[shared memory]{}\cuda{}. The inclusive
+scan\footnote{In Haskell, inclusive scan is known as \footcode{scanl1} and
+\footcode{scanr1}.} algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in
+three phases:
 %
 \begin{enumerate}
 \item The input array is divided into chunks of size $B$ elements and
@@ -403,8 +405,16 @@ depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
 
 \end{enumerate}
 
-For an exclusive scan, it is also necessary to ensure that the computation of
-the partial block sums includes the seed element.
+For an exclusive scan,\footnote{In Haskell, exclusive scan is known as
+\footcode{scanl} and \footcode{scanr}.} it is also necessary to ensure that the
+computation of the partial block sums includes the seed element.
+
+% \begin{lstlisting}[style=haskell]
+%   xs = [1, 2, 3, 4, 5]
+% 
+%   scanl (+) 0 xs = [0, 1, 3, 6,  10, 15]        -- exclusive scan
+%   scanl1 (+) xs  = [1, 3, 6, 10, 15]            -- inclusive scan
+% \end{lstlisting}
 
 
 \subsubsection{Interaction with array fusion}

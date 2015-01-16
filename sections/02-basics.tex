@@ -379,10 +379,8 @@ N$\index{complexity!step} stages.
 In order to compute scans efficiently on the GPU\gpu{}, the input array is
 decomposed into a number of blocks of size $B$, such that an inclusive scan of
 $B$ elements can be computed by an individual thread block\cuda[thread block]{},
-locally in shared memory\cuda[shared memory]{}\cuda{}. The inclusive
-scan\footnote{In Haskell, inclusive scan is known as \footcode{scanl1} and
-\footcode{scanr1}.} algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in
-three phases:
+locally in shared memory\cuda[shared memory]{}\cuda{}. The inclusive scan
+algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
 %
 \begin{enumerate}
 \item The input array is divided into chunks of size $B$ elements and
@@ -405,16 +403,32 @@ three phases:
 
 \end{enumerate}
 
-For an exclusive scan,\footnote{In Haskell, exclusive scan is known as
-\footcode{scanl} and \footcode{scanr}.} it is also necessary to ensure that the
-computation of the partial block sums includes the seed element.
+For an exclusive scan, it is also necessary to ensure that the computation of
+the partial block sums includes the seed element.
 
-% \begin{lstlisting}[style=haskell]
-%   xs = [1, 2, 3, 4, 5]
-% 
-%   scanl (+) 0 xs = [0, 1, 3, 6,  10, 15]        -- exclusive scan
-%   scanl1 (+) xs  = [1, 3, 6, 10, 15]            -- inclusive scan
-% \end{lstlisting}
+
+\subsubsection{Inclusive vs. Exclusive scan}
+
+The above description mentions two different flavours of scans. The output of an
+exclusive scan at each location is a function of all the elements that came
+before it, but does \emph{not} include the current element. On the other hand,
+the inclusive scan is a function of all elements up to and \emph{including} the
+current element. At an example, the two methods produce the following output for
+a left-to-right prefix sum:
+%
+\begin{lstlisting}[style=haskell]
+  input          = [ 13,  7, 16, 21,  8, 20, 13,  12 ]
+  exclusive scan = [  0, 13, 20, 36, 57, 65, 85,  98 ]
+  inclusive scan = [ 13, 20, 36, 57, 65, 85, 98, 110 ]
+\end{lstlisting}
+
+These methods are well known in data-parallel programming, and some algorithms
+are best expressed in terms of one or the other.
+% Accelerate supports both of these styles of scan
+% In Accelerate, we follow the behaviour of the standard Haskell @scan@ family
+% of functions. Namely, @scan*1@ is an inclusive scan, while @scan*@ is an
+% exclusive scan but also includes the final element, thus increasing the size
+% of the output array by one.
 
 
 \subsubsection{Interaction with array fusion}

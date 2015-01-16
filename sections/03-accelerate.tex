@@ -11,11 +11,11 @@
 Starting with Fortran, array-based code has played a central role in
 high-performance computing. Array-based programming has proved to be successful
 not only on data-parallel (SIMD) hardware such as the CM-2, vector computers,
-and modern graphics processing units (GPUs\gpu{}), but also on control parallel
+and modern graphics processing units (GPUs\gpu{}), but also on task parallel
 (MIMD) hardware such as distributed memory, symmetric multiprocessor (SMP), and
 multicore machines.
 
-Recent work on stream fusion in the vector
+Recent work on stream fusion in the Haskell vector
 library~\cite{Coutts:2007kp,Mainland:2013ez} and the parallel array library
 Repa~\cite{Keller:2010er,Lippmeier:2011cd,Lippmeier:2012gx} have demonstrated
 that purely functional array code in Haskell (1) can be competitive with the
@@ -142,7 +142,7 @@ language (\S\ref{sec:EDSLs}), effectively delaying the computation. Concerning
 the final point, the list traversal function @foldl@ guarantees a left-to-right
 traversal of the elements, whereas @fold@ leaves the order in which the elements
 are combined unspecified. This requires that the binary operator supplied to
-@fold@ is associative and commutative,\footnote{Although floating-point
+@fold@ is associative,\footnote{Although floating-point
 arithmetic is not strictly associative, it is common to accept the resulting
 error in parallel applications.} but allows for an implementation using a
 parallel tree reduction~\cite{Chatterjee:1990vj,Sengupta:2007tc}.

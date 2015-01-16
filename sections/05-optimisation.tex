@@ -1083,7 +1083,7 @@ convertOpenAcc = manifest . computeOpenAcc . embedOpenAcc                       
 \item Similarly, let bindings compute both the binding and body to manifest
     arrays. The smart constructor @alet@ flattens needless let bindings of the
     form @let var = x in var@ to @x@. This form is common, as the delayed array
-    constructors always refers to manifest data via de Bruijn indices (see
+    constructors always refer to manifest data via de Bruijn indices (see
     Listing~\ref{lst:Cunctation}), meaning that all manifest terms will be let
     bound regardless of the number of use sites.
 
@@ -1133,7 +1133,7 @@ beneficial, but excessive recomputation quickly ruins performance.
 
 However, since Accelerate has explicit sharing information encoded in the term
 tree as let bindings, we can avoid the problem of unrestrained inlining that can
-be a problem with when using Repa. While we want to be careful about fusing
+be a problem when using Repa. While we want to be careful about fusing
 shared array computations to avoid duplicating work, \emph{scalar} Accelerate
 computations that manipulate \emph{array shapes}, as opposed to the bulk array
 data, can lead to terms that employ sharing but can never duplicate work. Such
@@ -1403,7 +1403,7 @@ elimOpenAcc bnd body
     memory traffic in exchange for increased computation, the current version of
     Accelerate is conservative and never duplicates work. The bound expression
     is only eliminated when there is a single use of the array data component of
-    the bound array. The function @count@ traverses the term and return the
+    the bound array. The function @count@ traverses the term and returns the
     number of uses of the data component at the bound variable, while ignoring
     uses of the array shape.
 
@@ -1546,7 +1546,7 @@ denormalised values --- all of which should be taken into account.
 
 The current implementation performs constant folding of scalar expressions for
 all primitive functions and all element types. However, no explicit checks for
-underflow or overflow is made, nor for invalid or exceptional values. For
+underflow or overflow are made, nor for invalid or exceptional values. For
 example, the following rewrite is always applied:
 %
 % As Accelerate programs are just-in-time compiled and thus the optimisation is
@@ -1905,7 +1905,7 @@ versions of Obsidian~\cite{Claessen:2012hl} implement Repa-style delayed
 \emph{pull arrays} as well as \emph{push arrays}. Whereas a pull array
 represents a general producer, a push array represents a general consumer. Push
 arrays allow intermediate programs to be written in continuation passing style
-(CPS), and helps to compile and fuse append-like operations.
+(CPS), and help to compile and fuse append-like operations.
 Baracuda~\cite{Larsen:2011fa} is another Haskell EDSL that produces CUDA kernels
 but is intended to be used offline. The paper mentions a fusion system that
 appears to be based on pull arrays, but the mechanism is not discussed in
@@ -1916,7 +1916,7 @@ that uses library-based multi-pass staging to specify complex optimisations in a
 modular manner. Delite supports loop fusion for DSLs targeting GPUs using
 rewrite rules on the graph-based intermediate language.
 
-NDP2GPU~\cite{Bergstrom:2012bi} compiles NESL code to CUDA. NDP2GPU performs
+Nesl/GPU~\cite{Bergstrom:2012bi} compiles NESL code to CUDA. Nesl/GPU performs
 @map/map@ fusion, but can not fuse any other operations.
 NOVA~\cite{Collins:2013wn} is a high-level lisp-like functional language and
 compiler for nested data-parallel array operations. It has a fusion system based
@@ -2167,7 +2167,7 @@ construction of iterators.
 \section{Discussion}
 
 This chapter has detailed our approach to optimising programs written in
-Accelerate, a language of parallel array operations suitable execution on
+Accelerate, a language of parallel array operations suitable for execution on
 bulk-parallel SIMD architectures such as GPUs and multicore CPUs. Our previous
 work identified sharing and array fusion as the key bottlenecks to achieving
 high performance. This chapter discussed our novel approaches that tackle these

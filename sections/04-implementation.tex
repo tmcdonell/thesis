@@ -922,7 +922,7 @@ reference]{}, a CUDA feature that comes from its graphics heritage, to define
 what are essentially read-only arrays as global tables on a per skeleton
 instantiation basis. The use of texture references also had another happy
 consequence: skeletons such as @backpermute@ allow unconstrained indexing
-patters, which may not follow the strict requirements for coalesced and aligned
+patterns, which may not follow the strict requirements for coalesced and aligned
 access to global memory. Not following these memory access rules can incur a
 severe performance penalty~\cite{NVIDIA:2012wf}, but since texture memory access
 is cached, it may be more efficient in these circumstances.
@@ -2345,7 +2345,7 @@ which are executed more than once, this means that the costly front-end analysis
 and code generation steps of program execution can be skipped on the second and
 subsequent invocations of the program, and kernels can begin executing
 immediately. This process happens automatically, and almost\footnote{The user
-user must express their program in the form of a function of one array argument,
+must express their program in the form of a function of one array argument,
 and use the corresponding \code{run1} function to execute the program. This is
 not so onerous, as any operation that the user intends to execute multiple times
 is likely to be easily written in the form of a function from arrays to arrays.}
@@ -2472,8 +2472,9 @@ Delite/LMS~\cite{Rompf:2013er} is a compiler framework for writing parallel doma
 specific languages in Scala. It includes several backend code generation targets
 including C++ and CUDA\@.
 
-NDP2GPU~\cite{Bergstrom:2012bi} compiles NESL~\cite{Blelloch:1995ut} code to
-CUDA. Performance suffers because the implementation relies on the legacy NESL
+Nesl/GPU~\cite{Bergstrom:2012bi} compiles NESL~\cite{Blelloch:1995ut} code to
+CUDA, a system which was independently developed as CuNesl~\cite{Zhang:2012jl}.
+Performance suffers because the implementation relies on the legacy NESL
 compiler, which produces a significant number of intermediate computations.
 
 NOVA~\cite{Collins:2013wn} is a high-level lisp-like functional language and
@@ -2511,7 +2512,7 @@ the two most pressing performance limitations.
 % \item SkeTo \cite{Matsuzaki:2011ew} (C++)
 % \item list homomorphism based \cite{Sato:2009cq} (C++)
 % \item Delite/LMS \cite{Rompf:2013er} (Scala)
-% \item NDP2GPU \cite{Bergstrom:2012bi} (Haskell)
+% \item Nesl/GPU \cite{Bergstrom:2012bi} (Haskell)
 % \item Nikola \cite{Mainland:2010vj} (Haskell)
 % \item Obsidian \cite{Svensson:2008a,Claessen:2012hl} (Haskell)
 % \item Baracuda \cite{Larsen:2011fa} (Haskell)

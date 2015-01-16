@@ -31,8 +31,8 @@ ghc-7.8.2,%
 CUDA 6.0, gcc-4.6.3 and llvm-3.4. Parallel CPU programs are run on all eight
 cores.
 
-Haskell programs are compiled with the following options, which is the recommend
-set to use when compiling Repa programs:
+Haskell programs are compiled with the following options, which is the
+recommended set to use when compiling Repa programs:
 %
 \begin{lstlisting}
 -Wall -threaded -rtsopts -fllvm -optlo-O3 -Odph -fno-liberate-case
@@ -63,7 +63,7 @@ The Floyd-Warshall algorithm for finding the shortest paths in a directed graph,
 discussed in Section~\ref{sec:floyd_warshall}, was found to cause serious
 problems with the original implementation of the optimisations discussed in this
 thesis. Thus, changes were made to ensure that the complexity of the
-optimisations are not exponential in the number of terms in the program. In
+optimisations is not exponential in the number of terms in the program. In
 particular, the reified program consists of a sequence of let bindings to
 producer operations, so the handling of let bindings
 (\S\ref{sec:binder_elimination}) and the representation of producers that
@@ -546,7 +546,7 @@ evolution of a European-style stock option price under certain assumptions. The
 corresponding Accelerate program was shown in Listing~\ref{lst:blackscholes}.
 The Black-Scholes formula computes the expected call and put price given the
 underlying stock price, strike price, and time to maturity of a stock. Many
-individual applications of the formula can be executed in parallel as @map@
+individual applications of the formula can be executed in parallel using the @map@
 operation.
 
 % \begin{lstlisting}[style=haskell_float

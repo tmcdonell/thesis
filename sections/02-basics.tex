@@ -636,18 +636,29 @@ while the second thread spins attempting to grab a lock that will never be
 released, because the first thread can not progress. The system is deadlocked.
 
 In order to solve this problem, we must ensure that threads always make progress
-between acquiring and releasing the lock:
+once they have acquired the lock:
 %
 \begin{lstlisting}[style=cuda]
   done = 0;
   do {
-      if (atomicExch(&lock[i], 1) == 0) {
+      if (atomicExch(&lock[i], 1) == 0) {                                          // (2)
           /* atomic section */
           done = 1;
           atomicExch(&lock[i], 0);
       }
-  } while (done == 0);
+  } while (done == 0);                                                             // (1)
 \end{lstlisting}
+%
+\begin{enumerate}
+    \item The key change is that threads loop repeatedly until they have
+        executed the entire critical section, rather than looping only to
+        acquire the lock.
+
+    \item If a thread fails to acquire the lock, it is disabled until the end of
+        the branch. Threads that successfully acquire the lock enter the body of
+        the conditional, where they execute the critical section and finally
+        release the lock.
+\end{enumerate}
 
 
 \subsection{Stencil}

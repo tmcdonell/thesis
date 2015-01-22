@@ -541,7 +541,9 @@ histogram vec
     permute (+) zeros (\ix -> index1 (A.floor ((vec ! ix) / P.fromIntegral bins))) ones
 \end{lstlisting}
 
-The semantics of the operation is that every permutation from source to result
+\subsubsection{Implementation using compare-and-swap}
+
+The semantics of the @permute@ operation is that every permutation from source to result
 array is applied at the same time in a single parallel step. If multiple
 CUDA\cuda{} threads attempt a non-atomic write to the same memory location at
 the same time, the writes will be serialised but the thread which performs the
@@ -579,17 +581,18 @@ critical section does not apply to all components of the tuple at once, this can
 lead to inconsistencies in the
 result.\footnote{\url{https://github.com/AccelerateHS/accelerate/issues/137}}
 
-One alternative would be to explicitly lock each element of the output array
-before threads can access it, and then for each thread to commit all components
-of the array as a single atomic operation. A straightforward method to implement
-this is via a \emph{spin lock}, where threads trying to acquire the lock simply
-wait in a loop (``spin''), repeatedly checking whether the lock is available.
-Since the thread remains active but is not performing any useful work, the use
-of this kind of busy waiting is inefficient if threads are blocked for an
-extended period of time (because the lock is contended by many threads, or the
-atomic section executed while the lock is held is lengthy).
+One alternative for combining complex types is to explicitly lock each element
+of the output array before threads can access it. Once a thread acquires the
+lock on a particular element, it commits all components of the array as a single
+atomic operation. A straightforward method to implement this is via a \emph{spin
+lock}, where threads trying to acquire the lock simply wait in a loop
+(``spin''), repeatedly checking whether the lock is available. Since the thread
+remains active but is not performing any useful work, the use of this kind of
+busy waiting is inefficient if threads are blocked for an extended period of
+time --- for example, because the lock is contended by many threads, or the
+atomic section executed while the lock is held is lengthy.
 
-Implementing a spin-lock can be done similarly to the following:
+Implementing a standard spin-lock can be done as follows:
 %
 \begin{lstlisting}[style=cuda]
   do {
@@ -619,8 +622,32 @@ Implementing a spin-lock can be done similarly to the following:
 
 \end{enumerate}
 
-The current implementation does not use spin locking, but this is a possible
-alternative strategy for combining complex types in the permute operation.
+% The current implementation does not use spin locking, but this is a possible
+% alternative strategy for combining complex types in the permute operation.
+
+However, a subtle problem emerges when we attempt to use the above algorithm. In
+a CUDA device, all threads within a warp execute instructions in lockstep, and
+divergent control flow is handled via predicated execution~(\S\ref{sec:cuda}).
+Once a thread acquires a lock and exits the loop (2), it must wait for all other
+threads in the warp to reach the same point, before execution of the critical
+section (3) can begin. If two threads in a warp are attempting to acquire the
+same lock, once the lock is acquired by one thread, that thread will sit idle
+while the second thread spins attempting to grab a lock that will never be
+released, because the first thread can not progress. The system is deadlocked.
+
+In order to solve this problem, we must ensure that threads always make progress
+between acquiring and releasing the lock:
+%
+\begin{lstlisting}[style=cuda]
+  done = 0;
+  do {
+      if (atomicExch(&lock[i], 1) == 0) {
+          /* atomic section */
+          done = 1;
+          atomicExch(&lock[i], 0);
+      }
+  } while (done == 0);
+\end{lstlisting}
 
 
 \subsection{Stencil}

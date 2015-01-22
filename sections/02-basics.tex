@@ -661,6 +661,17 @@ once they have acquired the lock:
 \end{enumerate}
 
 
+\subsection{Backpermute}
+\label{sec:backpermute}
+
+The @backpermute@ collective operation is specified by a backwards permutation
+$f$ as an index mapping from the result array $Y$ into a source array $X$, which
+we can write as $f : X \leftarrow Y$. That is, for every index $y$ in $Y$, the
+value at index $y$ is taken from $x = f (y)$ in $X$. Although this operation is
+not difficult to implement, it is worth mentioning since it is not commonly
+found outside of data parallel programming.
+
+
 \subsection{Stencil}
 \label{sec:parallel_stencil}
 

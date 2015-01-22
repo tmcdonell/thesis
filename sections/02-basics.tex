@@ -754,8 +754,8 @@ bandwidth required to store the result of @map f@ to memory. A full exploration
 of stencil-aware array fusion is left to future work.
 
 
-\subsection{Nested Parallelism}
-\label{sec:nested_parallelism}
+\subsection{Segmented operations}
+\label{sec:segmented_operations}
 
 The Accelerate language is restricted to programs which express only \emph{flat}
 data parallelism. In this model, the computation executed in parallel on each
@@ -790,7 +790,7 @@ encoding the length of each of the subsequences:
   xss' :: [ Float ]
   xss' = [ 1, 2, 3, 4, 5, 6 ]
 
-  seg :: [ Int  ]
+  seg :: [ Int ]
   seg = [ 2, 3, 0, 1 ]
 \end{lstlisting}
 %

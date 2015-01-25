@@ -437,7 +437,7 @@ In the scan algorithm described above, the input array to be scanned is read
 twice: once when computing the partial block results, and a second time when
 computing the final scanned array. If the input does not refer to manifest array
 data, but instead an array in a symbolic form resulting from array
-fusion\fusion{} (\S\ref{sec:array_fusion}), then the elements of the delayed
+fusion\fusion{} (\S\ref{sec:array_fusion}), then the elements of the symbolic
 array --- which might contain arbitrarily expensive computations --- will be
 computed twice also.
 
@@ -447,14 +447,17 @@ than just the final element; or (b) to always read in manifest data, effectively
 disallowing producer/consumer fusion\fusion{} (\S\ref{sec:array_fusion}) for
 scans in the CUDA\cuda{} backend. The latter option is undesirable, and the
 former may not work for non-commutative operators, such as the one we used in
-the operator-transformation-based definition of segmented scan. Currently the
-user has no control as to whether the input array is manifest or delayed, and no
-special action is taken on the part of the backend in its current
-implementation, although both alternatives are possible.
+the operator-transformation-based definition of segmented scan
+(\S\ref{sec:segmented_operations}).
+%
+It is left to future work to fully investigate this interaction between array
+fusion and operations such as @scan@, where the underlying implementation
+requires multiple passes over the input data.
 
-% It is left to future work to fully investigate this interaction between array
-% fusion and operations such as scan, where the underlying implementation requires
-% multiple passes over the input data.
+% the user has no control as to whether the input array is manifest or symbolic,
+% and no special action is taken on the part of the backend in its current
+% implementation, although both alternatives are possible avenues of future
+% work.
 
 % In order to avoid this, it might seem that one approach could be for each thread
 % block in the first phase to write its entire partial scan result to memory,

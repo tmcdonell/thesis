@@ -589,9 +589,19 @@ The @Lam@ constructor introduces nameless abstractions and @Var@ wraps a de
 Bruijn index. At this point, the program is further optimised by the frontend,
 for example by applying the fusion transformation~(\S\ref{sec:array_fusion}).
 
-Finally, we represent the environment as a heterogenous snoc-list, encoded on
-the type level as nested pairs and building this list on the value level with
-the two constructors:
+Nameless terms in Accelerate are encoded by GADTs using open recursion (@acc@,
+see Section~\ref{sec:knot_tying}) and parameterised over the surface type of the
+return value (@a@, @t@) and the type of the environment (@env@ and @aenv@, for
+scalar and array valued free variables, respectively):
+%
+\begin{lstlisting}[style=haskell]
+data PreOpenAcc acc aenv a              -- collective operations
+data PreOpenExp acc env aenv t          -- scalar operations
+\end{lstlisting}
+
+We represent the environment as a heterogenous snoc-list, encoded on the type
+level as nested pairs and building this list on the value level with the two
+constructors:
 %
 \begin{lstlisting}[style=haskell]
 data Val env where

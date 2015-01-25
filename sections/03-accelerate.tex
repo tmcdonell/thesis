@@ -589,8 +589,8 @@ The @Lam@ constructor introduces nameless abstractions and @Var@ wraps a de
 Bruijn index. At this point, the program is further optimised by the frontend,
 for example by applying the fusion transformation~(\S\ref{sec:array_fusion}).
 
-Nameless terms in Accelerate are encoded by GADTs using open recursion (@acc@,
-see Section~\ref{sec:knot_tying}) and parameterised over the surface type of the
+Terms in the nameless Accelerate AST are encoded by GADTs using open recursion
+(@acc@, \S\ref{sec:knot_tying}) and parameterised over the surface type of the
 return value (@a@, @t@) and the type of the environment (@env@ and @aenv@, for
 scalar and array valued free variables, respectively):
 %
@@ -643,6 +643,54 @@ case the type and scope of bound variables. Since an embedded Accelerate program
 constructed and evaluated at program \emph{runtime}, encoding properties in the
 type means that these invariants are checked at \emph{compile} time, reducing
 the number of possible runtime errors in type-correct programs.
+
+
+\subsection{Tying the recursive knot}
+\label{sec:knot_tying}
+
+As mentioned in the previous section, terms in the Accelerate language are
+defined using open recursion. That is, the GADT used to represent nodes of the
+program AST is defined non-recursively, and instead is parameterised by the
+recursive knot.
+
+Consider the following definition of a binary tree, which stores all data at the
+leaves of the tree and is parameterised by the type of the leaf element:
+%
+\begin{lstlisting}[style=haskell]
+data Tree a
+    = Leaf a                            -- Leaves of the tree hold the data
+    | Node (Tree a) (Tree a)            -- Internal nodes record only left and right branches
+\end{lstlisting}
+%
+Note that the internal @Node@s of the @Tree@ are defined in terms of
+itself --- that is, @Tree@ is a recursively defined data type.
+Alternatively, the tree can be defined non-recursively, by parameterising the
+definition by the recursive step:
+%
+\begin{lstlisting}[style=haskell]
+data PreTree tree a
+    | Leaf a
+    | Node (tree a) (tree a)
+\end{lstlisting}
+%
+A recursive tree type can be recovered from this definition. This however
+introduces an additional step of needing to unwrap the @Tree@ constructor before
+exposing the @Leaf@ and @Node@ constructors of the @PreTree@ itself:
+%
+\begin{lstlisting}[style=haskell,firstnumber=4]
+data Tree a = Tree (PreTree Tree a)
+\end{lstlisting}
+
+This distinction between the recursive step and the tree constructors is
+important because it allows us to use the same basic tree definition, but
+include additional information as part of each recursive step. For example, we
+can define a new binary tree type that records the size of the subtree at each
+point, and any existing functions operating over the basic @PreTree@ structure
+can still be used:
+%
+\begin{lstlisting}[style=haskell,firstnumber=5]
+data SizedTree a = SizedTree Int (PreTree SizedTree a)
+\end{lstlisting}
 
 
 \section{Manipulating embedded programs}

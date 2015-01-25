@@ -1862,54 +1862,11 @@ denotational semantics of any Accelerate backend, and can be used to verify
 accelerated backends.
 
 
-\subsection{Aside: Tying the recursive knot}
-\label{sec:knot_tying}
-
-Consider the following definition of a binary tree, which stores all data at the
-leaves of the tree and is parameterised by the type of the leaf element:
-%
-\begin{lstlisting}[style=haskell]
-data Tree a
-    = Leaf a                            -- Leaves of the tree hold the data
-    | Node (Tree a) (Tree a)            -- Internal nodes record only left and right branches
-\end{lstlisting}
-%
-Note that the internal @Node@s of the @Tree@ are defined in terms of
-itself --- that is, @Tree@ is a recursively defined data type.
-Alternatively, the tree can be defined non-recursively, by parameterising the
-definition by the recursive step:
-%
-\begin{lstlisting}[style=haskell]
-data PreTree tree a
-    | Leaf a
-    | Node (tree a) (tree a)
-\end{lstlisting}
-%
-A recursive tree type can be recovered from this definition. This however
-introduces an additional step of needing to unwrap the @Tree@ constructor before
-exposing the @Leaf@ and @Node@ constructors of the @PreTree@ itself:
-%
-\begin{lstlisting}[style=haskell,firstnumber=4]
-data Tree a = Tree (PreTree Tree a)
-\end{lstlisting}
-
-This distinction between the recursive step and the tree constructors is
-important because it allows us to use the same basic tree definition, but
-include additional information as part of each recursive step. For example, we
-can define a new binary tree type that records the size of the subtree at each
-point, and any existing functions operating over the basic @PreTree@ structure
-can still be used:
-%
-\begin{lstlisting}[style=haskell,firstnumber=5]
-data SizedTree a = SizedTree Int (PreTree SizedTree a)
-\end{lstlisting}
-
-
 \subsection{Annotating array programs}
 \label{sec:annotating_array_programs}
 
-In the manner described in the previous section, terms in the Accelerate
-language are defined non-recursively. That is, the GADT used to represent nodes
+Terms in the Accelerate language are defined non-recursively
+(\S\ref{sec:richly_typed_terms}). That is, the GADT used to represent nodes
 of the program AST are parameterised by the recursive knot
 (\S\ref{sec:knot_tying}):
 %

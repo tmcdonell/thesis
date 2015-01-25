@@ -791,6 +791,11 @@ commutes f x = case f of
       , hashPreOpenExp a > hashPreOpenExp b     = Tuple (NilTup `SnocTup` b `SnocTup` a)
       | otherwise                               = exp
 \end{lstlisting}
+%
+Future work on the term matching system could look into the work of rewriting
+modulo associative and commutative (AC)
+theories~\cite{Kirchner:2001ww,Eker:1995ts,Eker:2002vd,Eker:2003ef,Belkhir:2011dd}.
+
 \index{type!equality|)}
 
 \subsection{Simultaneous substitution}

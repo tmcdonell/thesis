@@ -876,7 +876,7 @@ Accelerate includes two scalar operations that receive an array-valued argument,
 namely array indexing (@!@) and determining the @shape@
 of an array. These are, for example, used in the sparse-matrix vector
 multiplication operation shown in Listing~\ref{lst:smvm}. Specifically, this
-code includes the following use of @backpermute@ to extract the values of
+code includes the following use of @backpermute@ (\S\ref{sec:backpermute}) to extract the values of
 the vector that are to be multiplied with the non-zero elements of the sparse
 matrix:
 %

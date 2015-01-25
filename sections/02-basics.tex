@@ -423,7 +423,10 @@ a left-to-right prefix sum:
 \end{lstlisting}
 
 These methods are well known in data-parallel programming, and some algorithms
-are best expressed in terms of one or the other.
+are best expressed in terms of one or the other. Accelerate supports both of
+these flavours of @scan@, as well as others that follow the behaviour of the
+standard Haskell family of @scan@ operations.
+
 % Accelerate supports both of these styles of scan
 % In Accelerate, we follow the behaviour of the standard Haskell @scan@ family
 % of functions. Namely, @scan*1@ is an inclusive scan, while @scan*@ is an

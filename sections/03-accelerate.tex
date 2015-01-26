@@ -1102,7 +1102,11 @@ operations such as @scan@ because its lower level interface exposes more details
 of the target hardware.
 
 None of these embedded languages encode the types of the source program into the
-embedded language terms to the degree with which Accelerate does.
+embedded language terms to the degree with which Accelerate does. Encoding
+properties of the source language in types means that these invariants are
+checked at compile time, % rather than at runtime of the embedded program,
+reducing the number of possible runtime errors in type-correct programs
+(\S\ref{sec:richly_typed_terms}).
 
 \index{de Bruijn|)}
 

@@ -929,7 +929,13 @@ while adding domain specific elements such as data types, or domain specific
 optimisations and code generation.
 
 There are two major degrees in which an embedded language can be implemented; as
-either a \emph{shallow} or \emph{deep} embedding.
+either a \emph{shallow} or \emph{deep} embedding.%
+\footnote{One might further categorise \emph{combinations} of shallow and deep
+embeddings~\cite{Svenningsson:2013kb}. This amounts to a shallow embedding which
+targets operations in a deeply embedded core language, and is equivalent to, for
+example, the definition of \footcode{filter} (Listing~\ref{lst:filter}) being a
+composition of several operations, rather than a core language primitive.}
+
 
 \subsection{Shallow embedding}
 

@@ -1514,6 +1514,14 @@ reused, otherwise fresh memory is allocated.
 % type Nursery    = Nursery NRS (Weak NRS)
 % \end{lstlisting}
 
+Finally, we note that since garbage collection efficiency often requires
+postponing the identification of dead objects, relying on finalisation for
+timely resource recovery is known to be problematic. Accelerate also supports
+explicit deallocation, which simply forces the finalisers attached to an array
+to be run immediately.
+% This allows the user to release the device memory associated with arrays which
+% remains live on the host, but are no longer required on the device.
+
 \subsection{Memory manager implementation}
 \label{sec:memory_manager_implementation}
 

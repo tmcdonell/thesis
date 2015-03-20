@@ -387,10 +387,13 @@ algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
     distributed to the thread blocks\cuda[thread block]{}, which each scan their
     portion of the array in parallel. The final scan value (partial result) from
     each thread block @i@ is stored into an intermediate array
-    @block_results[i]@. Note that even though we require only the final value,
-    since scans are directional --- either to the left or right --- we must
-    compute the entire scan and return only the last value, to ensure that
-    elements are processed in the correct left-to-right or right-to-left order.
+    @block_results[i]@.\footnote{We note that computation of the final value
+    requires that elements are processed in the correct left-to-right or
+    right-to-left order. For simplicity, the current implementation reuses the
+    block scan kernel implemented here, and therefore, as described, all but the
+    final result of the scan is discarded. Replacing this step with a
+    directional reduce operation would likely improve performance, but this
+    investigation is left to future work.}
 
 \item A single thread block performs a scan of the helper array @block_results@.
     Accelerate is set up such that the number of blocks in the first step is
@@ -404,11 +407,11 @@ algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
 \end{enumerate}
 
 For an exclusive scan, it is also necessary to ensure that the computation of
-the partial block sums includes the seed element. We note that, although the
-current implementation discards all but the last element of each of the
-sub-arrays in step 1, this behaviour may not be necessary. A critical
-performance evaluation of Accelerate's scan implementation would be valuable
-future work.
+the partial block sums includes the seed element.
+% Although the current implementation discards all but the last element of each of
+% the sub-arrays in step 1, this behaviour may not be necessary. A critical
+% performance evaluation of Accelerate's scan implementation would be valuable
+% future work.
 
 
 \subsubsection{Inclusive vs. Exclusive scan}
@@ -441,12 +444,12 @@ standard Haskell family of @scan@ operations.
 \subsubsection{Interaction with array fusion}
 
 In the scan algorithm described above, the input array to be scanned is read
-twice: once when computing the partial block results, and a second time when
-computing the final scanned array. If the input does not refer to manifest array
-data, but instead an array in a symbolic form resulting from array
-fusion\fusion{} (\S\ref{sec:array_fusion}), then the elements of the symbolic
-array --- which might contain arbitrarily expensive computations --- will be
-computed twice also.
+twice: once when computing the partial block results (step 1), and a second time
+when computing the final scanned array (step 3). If the input does not refer to
+manifest array data, but instead an array in a symbolic form resulting from
+array fusion\fusion{} (\S\ref{sec:array_fusion}), then the elements of the
+symbolic array --- which might contain arbitrarily expensive computations ---
+will be computed twice also.
 
 In order to avoid this, in some circumstances it might be beneficial for either
 (a) the first phase of the scan to store the entire partial scan result, rather

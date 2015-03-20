@@ -2381,6 +2381,15 @@ Baracuda~\cite{Larsen:2011fa} is a Haskell EDSL producing CUDA GPU kernels,
 though it is intended to be used offline, with the kernels called directly from
 a C++ application. It supports only @map@ and @fold@ over vectors.
 
+RapidMind~\cite{LinXu:2008ig}, which targets the GPU using OpenCL, and its
+predecessor Sh~\cite{McCool:2004,McCool:2004un} which used pixel shaders of the
+graphics API, are C++ meta programming libraries for data parallel programming.
+RapidMind was merged into Intel's Ct compiler to create the Array Building
+Blocks (ArBB) library. However, the ArBB project was retired before support for
+GPUs was integrated. GPU++~\cite{Jansen:2008vw} is an embedded language in C++
+using similar techniques to RapidMind and Sh, but provides a more abstract
+interface than the other C++ based methods listed here.
+
 
 \subsection{Parallel libraries}
 
@@ -2393,15 +2402,6 @@ multiple architectures, namely GPUs, FPGAs, and multicore CPUs. However, the
 code generated for GPUs uses the DirectX 9 API, which does not provide access to
 several modern GPU features, negatively impacting performance and preventing
 some operations such as scatted writes.
-
-RapidMind~\cite{LinXu:2008ig}, which targets the GPU using OpenCL, and its
-predecessor Sh~\cite{McCool:2004,McCool:2004un} which used pixel shaders of the
-graphics API, are C++ meta programming libraries for data parallel programming.
-RapidMind was merged into Intel's Ct compiler to create the Array Building
-Blocks (ArBB) library. However, the ArBB project was retired before support for
-GPUs was integrated. GPU++~\cite{Jansen:2008vw} is an embedded language in C++
-using similar techniques to RapidMind and Sh, but provides a more abstract
-interface than the other C++ based methods listed here.
 
 Thrust~\cite{ThrustAParallelT:ub} is a library of algorithms written in CUDA,
 with an interface similar to the C++ Standard Template Library.

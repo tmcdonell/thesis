@@ -210,7 +210,9 @@ first occurrence of a shared subterm are pruned,
 and we do not descend into terms that have been previously encountered. This
 avoids completely unfolding the embedded expression, so the complexity of
 sharing observation is proportional to the number of nodes in the tree
-\emph{with} sharing.
+\emph{with} sharing.\footnote{Since computing stable names requires the use of
+Haskell's \footcode{IO} monad, we can use a hash table to store the occurrence
+counts and thereby keep the complexity of Phase 1 as $\mathcal{O}\left(n\right)$.}
 
 As the stable name of an expression is an intensional property, it can only be
 determined in Haskell's @IO@ monad, and strictly speaking, because of this

@@ -2426,7 +2426,9 @@ provide a higher level of abstraction to compile, link, cache, and execute CUDA
 code. Both Parakeet~\cite{Rubinsteyn:2012ve} and Anaconda
 Accelerate~\cite{AnacondaAccelerate:2013vn} are Python libraries that attempt to
 just-in-time compile a subset of Python code that uses the
-NumPy~\cite{NumPy:2006uq} array library to instead target the GPU\@.
+NumPy~\cite{NumPy:2006uq} array library to instead target the GPU\@. These
+approaches can all fail to produce GPU code at program runtime, falling back to
+interpreted execution.
 
 Jacket~\cite{AccelerEyes:vq} is a Matlab extension that allows matrix
 computations to be offloaded to the GPU, by introducing new datatypes and

@@ -404,7 +404,11 @@ algorithm depicted in Figure~\ref{fig:fast_scan} proceeds in three phases:
 \end{enumerate}
 
 For an exclusive scan, it is also necessary to ensure that the computation of
-the partial block sums includes the seed element.
+the partial block sums includes the seed element. We note that, although the
+current implementation discards all but the last element of each of the
+sub-arrays in step 1, this behaviour may not be necessary. A critical
+performance evaluation of Accelerate's scan implementation would be valuable
+future work.
 
 
 \subsubsection{Inclusive vs. Exclusive scan}

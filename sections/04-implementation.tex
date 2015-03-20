@@ -1783,7 +1783,10 @@ intermediate or input arrays, but where individual sub-problems fit within the
 available memory. In this case, arrays that are not required for the current
 calculation could be evacuated from the device by transferring data back to the
 associated host-side array, and re-transferred back to the device only once
-required.
+required. Further inspiration for reducing the intermediate memory footprint of
+computations could be found in the areas of stream
+processing~\cite{Thies:2002km} or the piecewise execution of nested
+data-parallel programs~\cite{Keller:1999vy,Pfannenstiel:1999bk,Madsen:2013ew}.
 
 While it is possible to overlap memory transfers with both kernel executions and
 tasks such as compilation and optimisation, the current implementation does not

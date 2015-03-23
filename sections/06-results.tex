@@ -982,9 +982,11 @@ where all threads continue to the iteration limit (limit).
 \subsection{Unbalanced workload}
 
 In order to manage the unbalanced workload inherent in the Mandelbrot
-computation, the hand-written CUDA version includes a custom thread-block
-scheduler. In this vein, future work could investigate adding a load balancing
-scheduler to the generated kernels, perhaps based on ideas of work
+computation, the hand-written CUDA version includes a custom, software-based
+thread-block scheduler, an idea which has gained recent popularity under the
+name of persistent threads~\cite{Gupta:2014ik}. In this vein, future work could
+investigate adding a software-based load balancing scheduler to the generated
+kernels, perhaps based on ideas of work
 stealing~\cite{Randall:1998,Tzannes:2010il}, instead of statically partitioning
 the work space. An orthogonal line of work is that of generating kernel code
 that avoids thread divergence, which is an active area of

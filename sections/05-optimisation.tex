@@ -1502,17 +1502,26 @@ implementation performs a simplified version of common subexpression
 elimination, where we look for expressions of the form:
 %
 \begin{lstlisting}[style=Haskell,numbers=none]
-%\bf$\langle$ common subexpression elimination $\rangle$% let x = e1 in [x/e1]e2
+%\bf$\langle$ common subexpression elimination $\rangle$%
+    let x = e1 in [x/e1]e2
 \end{lstlisting}
 %
-and replace all occurrences of @e1@ in @e2@ with @x@. This method relies on the
-introduction of let-bindings into the reified program by the sharing recovery
-algorithm (\S\ref{sec:sharing_recovery}), so can not eliminate any common
-subexpressions that are not already defined in the source program. Thus, the
-method might not completely eliminate all redundant expressions from the
-program, but is sufficient to catch some cases --- in particular those that tend
-to be introduced during the array fusion optimisation, because we always
-introduce let bindings for intermediate values when composing terms.
+and replace all occurrences of @e1@ in @e2@ with @x@. Thus, this implementation
+can only eliminate subexpressions where the common term is already let-bound.
+This might seem like a severe limitation, however the focus is to eliminate
+those bindings introduced during the array fusion optimisation, where we always
+introduce let-bindings for intermediate values when composing terms, rather than
+eliminating redundancy from the input user program, which is instead addressed
+via sharing observation (\S\ref{sec:sharing_recovery}).
+
+% This method relies on the introduction of let-bindings into the reified program
+% by the sharing recovery algorithm (\S\ref{sec:sharing_recovery}), so can not
+% eliminate any common subexpressions that are not already defined in the source
+% program. Thus, the method might not completely eliminate all redundant
+% expressions from the program, but is sufficient to catch some cases --- in
+% particular those that tend to be introduced during the array fusion
+% optimisation, because we always introduce let bindings for intermediate values
+% when composing terms.
 %\footnote{\url{http://hackage.haskell.org/trac/ghc/ticket/701}}
 
 While it may seem that common subexpression elimination is always worthwhile, as

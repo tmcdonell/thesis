@@ -8,7 +8,7 @@ set output "floyd-warshall.pdf"
 set key on
 set key bottom
 
-set xlabel "AST terms"
+set xlabel "Nodes"
 set logscale x
 set xrange [90:1100]
 

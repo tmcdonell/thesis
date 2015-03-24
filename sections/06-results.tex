@@ -44,6 +44,106 @@ CUDA programs are compiled with the options:
 \begin{lstlisting}
 -O3 -m64 -arch=sm_13
 \end{lstlisting}
+%
+A summary of the benchmark results is shown in
+Table~\ref{tab:benchmark-summary}.
+
+\begin{table}
+\begin{center}
+\begin{tabu}{llrrrrrr}
+\toprule
+\small
+                &
+                & \multicolumn{2}{c}{Contender}
+                & \multicolumn{2}{c}{Accelerate}
+                & \multicolumn{2}{c}{Accelerate}
+                \\
+
+\textbf{Benchmark}
+                & Input size
+                & \multicolumn{2}{c}{(ms)}
+                & \multicolumn{2}{c}{(ms)}
+                & \multicolumn{2}{c}{no optim.\ (ms)}
+                \\
+\midrule
+
+Dot product     & 20M
+                & 1.88 & (CUBLAS)
+                & 2.34 & (124\%)
+                & 4.31 & (230\%)
+                \\
+
+Black-Scholes   & 20M
+                & 6.69  & (CUDA)
+                & 6.19  & (92.5\%)
+                & 115.6 & (1727\%)
+                \\
+
+Mandelbrot      & 2M
+                & 4.99  & (CUDA)
+                & 7.61  & (153\%)
+                & 430.8 & (8632\%)
+                \\
+
+N-body          & 32k
+                & 54.4  & (CUDA)
+                & 102.9 & (189\%)
+                & \multicolumn{2}{c}{(out of memory)}
+                \\
+
+SMVM (protein)  & 2M
+                & 1.05 & (CUSP)
+                & 0.58 & (54.8\%)
+                & 1.13 & (107\%)
+                \\
+
+Canny           & 16M
+                & 46  & (OpenCV)
+                & 100 & (217\%)
+                & tk  & (tk\%)
+                \\
+
+Fluid Flow      & 2M
+                & 974.4 & (Repa)
+                & 208.5 & (21.4\%)
+                & 220.9 & (22.7\%)
+                \\
+
+Radix sort      & 2M
+                & 404   & (Nikola)
+                & 221.5 & (54.8\%)
+                & 283.3 & (70.1\%)
+                \\
+
+Floyd-Warshall  & 1k
+                & 7766 & (Repa)
+                & 836  & (10.8\%)
+                & tk   & (tk\%)
+                \\
+
+MD5             & 1M
+                & 1.29 & (Hashcat)
+                & 4.69 & (362\%)
+                & tk   & (tk\%)
+                \\
+
+K-means         & 100k
+                & 23.8 & (MonadPar)
+                & 14.3 & (60.1\%)
+                & tk   & (tk\%)
+                \\
+
+Ray tracer      & 16M
+                & 2027 & (Repa)
+                & 5783 & (285\%)
+                & tk   & (tk\%)
+                \\
+\bottomrule
+\end{tabu}
+\end{center}
+\caption{Benchmark Summary}
+\label{tab:benchmark-summary}
+\end{table}
 
 
 \section{Runtime overheads}

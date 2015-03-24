@@ -596,6 +596,11 @@ data Gen = Gen { unique        :: Int               -- fresh name generation
                , localBindings :: [C.BlockItem]     -- let-bound terms
                , usedTerms     :: Set C.Exp }       -- see Section~\ref{sec:eliminating_dead_code}
 \end{lstlisting}
+%
+Although we use generated names to avoid accidental name capture, since the code
+generation state is refreshed for each kernel that is generated, the same names
+will be generated for equivalent operations. Thus, we will still be able to
+reuse generated kernels~(\S\ref{sec:caching_compiled_kernels}).
 
 When code generation encounters a let binding, we first generate code for the
 bound expression, assign this result to a new (fresh) variable, then use this

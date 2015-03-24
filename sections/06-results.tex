@@ -1227,10 +1227,13 @@ use to share data. The shared memory region is essentially a software managed
 cache~\cite{NVIDIA:2012wf}.
 
 The program shown in Listing~\ref{lst:nbody} uses the shared memory region to
-share computations while computing the parallel reduction. The second
-implementation shown in Listing~\ref{lst:nbody_seq} does not use shared memory
-at all, but rather relies on hardware caching. Similar to our latter
-implementation, the CUDA program is also implemented as a parallel map of
+share computations while computing the parallel reduction.\footnote{As part of
+the second phase of the \footcode{fold} skeleton, where threads in a block
+cooperatively reduce elements to a single value. See
+\S\ref{sec:parallel_reduction} for details.}
+The second implementation shown in Listing~\ref{lst:nbody_seq} does not use
+shared memory at all, but rather relies on hardware caching. Similar to our
+latter implementation, the CUDA program is also implemented as a parallel map of
 sequential reductions, but explicitly uses the shared memory region to share the
 particle mass and position data between threads, rather than rely on hardware
 caching. Since the shared memory region is very low latency, the CUDA program
@@ -1555,17 +1558,17 @@ The edge detection example applies the Canny algorithm~\cite{Canny:1986et} to
 rectangular images of various sizes. Figure~\ref{fig:canny} compares Accelerate
 to parallel implementations on the CPU and GPU\@. The overall algorithm is shown
 in Listing~\ref{lst:canny} and consists of seven distinct phases, the first six
-of which are naturally data parallel and are performed on the GPU\@. The last
-phase uses a recursive algorithm to ``connect'' the pixels that make up the
-output lines. In our implementation this phase is performed on the CPU, which
-requires the image data to be transferred from the GPU back to the CPU for
-processing, and accounts for the non-linear slowdown visible with smaller image
-sizes. In contrast, OpenCV\footnote{Release version 2.4.9} is able to perform
-the final step on the GPU\@. The benchmark ``Accelerate (whole program)''
-includes the time to transfer the image data back to the host for the final
-processing step. Also shown are the run times for just the first six data
-parallel phases, which exhibit linear speedup and do not include data transfer
-to the host.
+of which, shown in Listing~\ref{lst:canny-kernels}, are naturally data parallel
+and are performed on the GPU\@. The last phase uses the recursive @wildfire@
+algorithm to ``connect'' the pixels that make up the output lines. In our
+implementation this phase is performed on the CPU, which requires the image data
+to be transferred from the GPU back to the CPU for processing, and accounts for
+the non-linear slowdown visible with smaller image sizes. In contrast,
+OpenCV\footnote{Release version 2.4.9} is able to perform the final step on the
+GPU\@. The benchmark ``Accelerate (whole program)'' includes the time to
+transfer the image data back to the host for the final processing step. Also
+shown are the run times for just the first six data parallel phases, which
+exhibit linear speedup and do not include data transfer to the host.
 
 \begin{figure}
     \begin{center}
@@ -1597,7 +1600,22 @@ the array are far from the boundary.
 
 \begin{lstlisting}[style=haskell_float
     ,label=lst:canny
-    ,caption={Canny edge detection}]
+    ,caption={The Canny edge detection algorithm}]
+canny :: Exp Float -> Exp Float -> Image -> IO Image
+canny low high =
+  let grey              = toGreyscale
+      blurred           = gaussianY . gaussianX . grey
+      magdir            = gradientMagDir low . blurred
+      suppress          = nonMaximumSuppression low high . magdir
+      stage1 x          = let s = suppress x in (s, selectStrong s)
+      (image, strong)   = run $ A.lift (stage1 (use img))
+  in
+  wildfire (A.toRepa image) (A.toRepa strong)
+\end{lstlisting}
+
+\begin{lstlisting}[style=haskell_float
+    ,label=lst:canny-kernels
+    ,caption={The data-parallel kernels of the Canny edge detection algorithm}]
 convolve5x1 :: (Elt a, IsNum a) => [Exp a] -> Stencil5x1 a -> Exp a
 convolve5x1 kernel (_, (a,b,c,d,e), _)
   = P.sum $ P.zipWith (*) kernel [a,b,c,d,e]
@@ -1626,10 +1644,8 @@ gradientMagDir low = stencil magdir Clamp
           dx          = v2 + (2*v4) + v7 - v0 - (2*v3) - v5     -- image gradients
           dy          = v0 + (2*v1) + v2 - v5 - (2*v6) - v7
           mag         = sqrt (dx * dx + dy * dy)                -- gradient magnitude
-
           theta       = atan2 dy dx                             -- angle of the gradient vector
           alpha       = (theta - (pi/8)) * (4/pi)               -- make segments easier to classify
-
           norm        = alpha + 8 * A.fromIntegral (boolToInt (alpha <=* 0))
           undef       = abs dx <=* low &&* abs dy <=* low
           dir         = boolToInt (A.not undef) *               -- quantise gradient to 8 directions
@@ -1648,16 +1664,23 @@ nonMaximumSuppression low high magdir =
         -- Determine the points that lie normal to the image gradient
         offsetx         = dir >* orient' Vert  ? (-1, dir <* orient' Vert ? (1, 0))
         offsety         = dir <* orient' Horiz ? (-1, 0)
-
         (fwd, _)        = unlift $ magdir ! lift (clamp (Z :. y+offsety :. x+offsetx))
         (rev, _)        = unlift $ magdir ! lift (clamp (Z :. y-offsety :. x-offsetx))
         clamp (Z:.u:.v) = Z :. 0 `max` u `min` (h-1) :. 0 `max` v `min` (w-1)
-
         strong          = mag >=* high
         none            = dir ==* orient' Undef
                               ||* mag <* low ||* mag <* fwd ||* mag <* rev
     in
     A.fromIntegral (boolToInt (A.not none) * (1 + boolToInt strong)) * 0.5
+
+selectStrong :: Acc (Image Float) -> Acc (Vector Int)
+selectStrong img =
+  let strong            = A.map (\x -> boolToInt (x ==* edge' Strong)) (flatten img)
+      (targetIdx, len)  = A.scanl' (+) 0 strong
+      indices           = A.enumFromN (index1 $ size img) 0
+      zeros             = A.fill (index1 $ the len) 0
+  in
+  A.permute const zeros (\ix -> strong!ix ==* 0 ? (ignore, index1 $ targetIdx!ix)) indices
 \end{lstlisting}
 
 
@@ -1687,7 +1710,7 @@ horizontal and vertical image gradients.
 
 There is a significant amount of sharing between these two kernels, in terms of
 the coefficients required to compute the derivative at each point. Thus, it
-could be beneficial to merge these two stencils into a single kernel, rather
+is beneficial to merge these two stencils into a single kernel, rather
 than computing them separately. This would reduce the number of accesses to the
 source array from $6+6=12$ to only $8$. As with all shortcut fusion methods, the
 system presented here does not combine multiple passes over the same array into

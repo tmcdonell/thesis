@@ -2510,9 +2510,23 @@ on those matrices to trigger execution of suitable GPU kernels.
 
 \subsection{Other approaches}
 
-Delite/LMS~\cite{Rompf:2013er} is a compiler framework for writing parallel domain
-specific languages in Scala. It includes several backend code generation targets
-including C++ and CUDA\@.
+Delite/LMS~\cite{Rompf:2013er} is a compiler framework for writing parallel
+domain specific languages in Scala. It includes several backend code generation
+targets including C++ and CUDA\@. In particular, Delite/LMS has been used to
+create the OptiML DSL for machine learning~\cite{Sujeeth:2011ti} which shows
+good runtime performance. More recent work attempts to demonstrate that
+individual DSLs created with the Delite/LMS framework can still be used together
+efficiently~\cite{Sujeeth:2013jv}. Like Accelerate, Delite/LMS is a staged
+language, however unlike Accelerate, Delite/LMS generates and compiles embedded
+code offline, at Scala compile time, whereas we generate and compile target code
+at Haskell runtime. This distinction affording us greater opportunity to
+specialise the generated code, at the expense of needing to amortise these
+additional runtime overheads~(\S\ref{sec:dynamic_compilation}). At least in the
+case of its principle embodiment OptiML, the Delite/LMS compiler framework is
+extremely slow, even for very simple programs,\footnote{In my experience,
+requiring approximately one second of compilation time per source line of code.}
+and hard-coded configuration and linking paths make it difficult to compile or
+use.
 
 Nesl/GPU~\cite{Bergstrom:2012bi} compiles NESL~\cite{Blelloch:1995ut} code to
 CUDA, a system which was independently developed as CuNesl~\cite{Zhang:2012jl}.

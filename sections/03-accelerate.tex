@@ -806,10 +806,8 @@ matchPreOpenExp (Let x1 e1) (Let x2 e2)
   | Just REFL <- matchOpenExp x1 x2     -- if the bound expressions match
   , Just REFL <- matchOpenExp e1 e2     -- then the environment of the body term will also match
   = Just REFL
-
 matchPreOpenExp ...
 \end{lstlisting}
-
 
 \subsubsection{Congruence}
 
@@ -984,11 +982,11 @@ creates space in the environment at the second index (@SuccIdx ZeroIdx@) for the
 free variable @a@ to appear in the resultant @Term@, as the first index will be
 bound to the result of the first expression @g@.
 
-The function @compose@ finally lifts this to function terms by unwrapping the
+Finally, @compose@ lifts this to a function on terms by unwrapping the
 lambda abstractions. Unfortunately, GHC's type checker can not determine that the
 function type prohibits any valid term except those with a single lambda, so we
 need a second catch-all case to suppress a compilation warning. In the remainder
-of the text, we elide the impossible cases for brevity.
+of the text, we elide such impossible cases for brevity.
 
 
 \subsection{Environment manipulation}
@@ -1084,8 +1082,8 @@ order language, it does not provide higher-order combinators such as @map@ and
 
 Paraiso~\cite{Muranushi:2012eh} is a deeply embedded language in Haskell for
 solving systems of partial differential equations, such as hydrodynamics
-equations. While Accelerate supports @stencil@ operations,
-% that can be used to express such programs,
+equations. While Accelerate supports @stencil@ operations
+that can be used to express such programs,
 it lacks the more domain-specific language features or compiler optimisations
 offered by Paraiso for this class of problem. Programs in Paraiso are written
 using a monadic style, whereas Accelerate has a purely functional interface.

@@ -183,6 +183,9 @@ Using CUDA, the GPU\gpu{} becomes accessible not just for graphics applications,
 but for computational tasks much like a CPU\@. Unlike CPUs, however, GPUs have a
 parallel throughput architecture that emphasises executing many concurrent
 threads slowly, rather than executing a single thread very quickly.
+In a GPU, the large caches and complex instruction scheduling logic of the CPU
+that increase single-threaded performance are instead replaced with many
+additional arithmetic units.
 % Unlike CPU cores, instructions are issued in order and there is no
 % branch prediction and no speculative execution.
 See Section~\ref{sec:cuda} for more information.
@@ -587,7 +590,8 @@ from the source array @x@ with the value of the result array @y@:
   do {
       y     = old_y;
       old_y = atomicCAS(&result[j], y, f x y);
-  } while (y != old_y);
+  }
+  while (y != old_y);
 \end{lstlisting}
 %
 Any atomic operation on simple types can be implemented in terms of

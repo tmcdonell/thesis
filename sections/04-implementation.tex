@@ -655,6 +655,37 @@ instance Assign l r => Assign l ([C.BlockItem], r) where
   lhs .=. (env, rhs) = env ++ (lhs .=. rhs)
 \end{lstlisting}
 
+% map (\(x,_,_,_) -> let y = x + x
+%                        z = y + y
+%                    in z + z)
+%
+% \begin{lstlisting}[style=haskell_float
+%     ,label=lst:map4_generated
+%     ,caption={}]
+% #include <accelerate_cuda.h>
+% extern "C" __global__ void map
+% (
+%     const Int64 shIn0_0, const Int64* __restrict__ arrIn0_3,
+%                          const Int64* __restrict__ arrIn0_2,
+%                          const Int64* __restrict__ arrIn0_1,
+%                          const Int64* __restrict__ arrIn0_0,
+%     const Int64 shOut_0, Int64* __restrict__ arrOut_0
+% )
+% {
+%     const int shapeSize = shOut_0;
+%     const int gridSize  = blockDim.x * gridDim.x;
+%     int ix;
+%
+%     for (ix = blockDim.x * blockIdx.x + threadIdx.x; ix < shapeSize; ix += gridSize) {
+%         const Int64 x3 = arrIn0_3[ix];
+%         const Int64 v0 = x3 + x3;
+%         const Int64 v1 = v0 + v0;
+%
+%         arrOut_0[ix] = v1 + v1;
+%     }
+% }
+% \end{lstlisting}
+
 
 \subsubsection{Future work}
 

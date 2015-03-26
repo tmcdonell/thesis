@@ -13,7 +13,6 @@ module Solver.Accelerate (
 
 import Prelude                                  as P
 import Data.Array.Accelerate                    as A
-import Data.Array.Accelerate.CUDA               as CUDA
 
 import Random.Graph                             ( AdjacencyMatrix )
 import Data.Array.IArray                        ( amap )
@@ -22,8 +21,8 @@ import Data.Array.IArray                        ( amap )
 type Weight = Int32
 type Graph  = Array DIM2 Weight                 -- distance between vertices as an adjacency matrix
 
-shortestPaths :: Graph -> Graph
-shortestPaths g0 = run1 (shortestPathsAcc n) g0
+shortestPaths :: Graph -> Acc Graph -> Acc Graph
+shortestPaths g0 g0' = shortestPathsAcc n g0'
   where
     Z :. _ :. n = arrayShape g0
 

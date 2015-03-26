@@ -55,7 +55,7 @@ float RandFloat(float low, float high)
 // const int  NUM_ITERATIONS = 512;
 
 #define OPT_N           4000000
-#define NUM_ITERATIONS  512
+#define NUM_ITERATIONS  100
 
 
 // const int          OPT_SZ = OPT_N * sizeof(float);

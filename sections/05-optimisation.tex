@@ -668,10 +668,10 @@ data Embed acc aenv a where
           -> Cunctation acc      aenv' a    -- \ldots representation of (fused) producer terms
           -> Embed      acc aenv       a
 \end{lstlisting}
-
-Note the types of the array environments in Listing~\ref{lst:Embed}. The @Embed@
+%
+Note the types of the array environments. The @Embed@
 type is expressed in relation to the type @aenv@, which represents all
-let-bindings currently in scope at this point of the AST that we are analysing.
+let-bindings currently in scope at this point of the AST. %that we are analysing.
 The data constructor contains an existentially typed @aenv'@. This existential
 is witnessed by the first argument @Extend@, that contains any additional array
 terms collected during the fusion process
@@ -683,8 +683,9 @@ introduced by @Extend@ (@aenv'@).
 Why do we separate the auxiliary bindings from the representation of fused
 producers? The constructors of @Cunctation@ could carry this information,
 and then we would not require this additional data structure. For example, the
-following is a valid alternative definition for the @Yield@ constructor:
-%
+@Yield@ constructor would then be defined as:
+%following is a valid alternative definition for the @Yield@ constructor:
+
 \begin{lstlisting}[style=haskell]
   Yield' :: (Shape sh, Elt e)                   -- Alternative definition (bad)
          => Extend     acc aenv aenv'           -- NEW: supplementary environment bindings
@@ -804,15 +805,15 @@ the same name:
 \begin{lstlisting}[style=haskell]
 step :: Cunctation acc aenv (Array sh e) -> Maybe (Cunctation acc aenv (Array sh e))
 step cc = case cc of
-  Yield{}                              -> Nothing
-  Step{}                               -> Just cc
-  Done v | ArraysRarray <- accType' cc -> Just $ Step (arrayShape v) identity identity v
+  Yield{}                             -> Nothing
+  Step{}                              -> Just cc
+  Done v | ArraysRarray <- accType cc -> Just $ Step (arrayShape v) identity identity v
 
 yield :: Cunctation acc aenv (Array sh e) -> Cunctation acc aenv (Array sh e)
 yield cc = case cc of
-  Yield{}                              -> cc
-  Step sh p f v                        -> Yield sh (f `compose` indexArray v `compose` p)
-  Done v | ArraysRarray <- accType' cc -> Yield (arrayShape v) (indexArray v)
+  Yield{}                             -> cc
+  Step sh p f v                       -> Yield sh (f `compose` indexArray v `compose` p)
+  Done v | ArraysRarray <- accType cc -> Yield (arrayShape v) (indexArray v)
 \end{lstlisting}
 
 A producer such as @map@ can always be expressed as a function from indices to
@@ -823,7 +824,7 @@ information, rather than always converting into the most general form of an
 indexing function. For the @Done@ case in both instances, GHC can not infer that
 the result type is a single @Array@, even though this is specified in the type
 signature, so we must use the @accType@ function to reify the @Arrays@ class
-representation (ignoring the impossible unmatched cases).
+representation. %(ignoring the impossible unmatched cases).
 
 The only producer case that must be handled specially is  that of @zipWith@, as
 this is the only producer which consumes multiple arrays (see
@@ -902,9 +903,12 @@ embedPreAcc pacc =
     Alet bnd body       -> aletD bnd body                                              -- (1)
     Use arrs            -> done  (Use arrs)                                            -- (2)
 
+    -- Producers
     Map f a             -> fuse  (into  mapD     (cvtF f)) a                           -- (3)
     ZipWith f a b       -> fuse2 (into  zipWithD (cvtF f)) a b
+    ...
 
+    -- Consumers
     Fold f z a          -> embed (into2 Fold     (cvtF f) (cvtE z)) a                  -- (4)
     ...
   where
@@ -961,7 +965,8 @@ embedAcc  :: Arrays arrs => acc aenv arrs -> Embed acc aenv arrs
     constructor @mapD@ (Listing~\ref{lst:mapD}). This results into a new delayed
     representation that can be further fused into later terms. At the @zipWith@
     case @fuse2@ acts analogously, but must ensure that the two input array
-    terms are lowered into the same extended environment.
+    terms are lowered into the same extended environment before applying
+    the smart constructor @zipWithD@ (Listing~\ref{lst:zipWithD}).
 
 \item Consumer operations such as @fold@ force the operation to be evaluated to
     a manifest array at this point in the program, by converting the @Embed@
@@ -1503,7 +1508,8 @@ elimination, where we look for expressions of the form:
 %
 \begin{lstlisting}[style=Haskell,numbers=none]
 %\bf$\langle$ common subexpression elimination $\rangle$%
-    let x = e1 in [x/e1]e2
+    let x = e1
+    in [x/e1]e2
 \end{lstlisting}
 %
 and replace all occurrences of @e1@ in @e2@ with @x@. Thus, this implementation
@@ -1561,7 +1567,7 @@ denormalised values --- all of which should be taken into account.
 \subsubsection{Constant Folding}
 
 The current implementation performs constant folding of scalar expressions for
-all primitive functions and all element types. However, no explicit checks for
+all primitive functions and all element types. No explicit checks for
 underflow or overflow are made, nor for invalid or exceptional values. For
 example, the following rewrite is always applied:
 %
@@ -1865,8 +1871,8 @@ transformations~\cite{Hu:1997tk,Grelck:2006ci} can fuse a restricted form of
 branching data flow, where two results are computed by directly traversing the
 same input structure. More recent work was able to fuse programs in a restricted
 % (first order, non-recursive, synchronous, finite)
-data flow language into a sequence of loops which can each compute multiple
-arrays and values as output~\cite{Lippmeier:2013vz,Robinson:2014ve}.
+data flow language into a sequence of loops, where each loop can each produce multiple
+arrays or compute multiple values as output~\cite{Lippmeier:2013vz,Robinson:2014ve}.
 
 % Full data flow languages~\cite{Caspi:1987jw,Caspi:1996jj,Pouzet:2006uf} are
 % designed primarily for implementing embedded control systems, writing signal

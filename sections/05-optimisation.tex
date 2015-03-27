@@ -1929,8 +1929,12 @@ detail.
 
 Delite/LMS~\cite{Rompf:2013er} is a parallelisation framework for DSLs in Scala
 that uses library-based multi-pass staging to specify complex optimisations in a
-modular manner. Delite supports loop fusion for DSLs targeting GPUs using
-rewrite rules on the graph-based intermediate language.
+modular manner. Delite supports loop fusion using rewrite rules on the
+graph-based intermediate language. Similar to Accelerate, Delite/LMS express all
+operations in terms of a small set of combinators (loop generators) and applies
+fusion rules to that representation. In contrast to our work, users are
+responsible for terminating the fusion process to avoid unrestrained inlining
+and code explosion, whereas in Accelerate this is automatic.
 OptiML~\cite{Sujeeth:2011ti}, the primary embodiment of a Delite/LMS based DSL,
 demonstrates good performance in its target domain of machine learning
 applications.
@@ -1949,6 +1953,11 @@ system similar to delayed arrays, which would be equivalently implemented using
 CUDA templates. In contrast, the popular Thrust~\cite{ThrustAParallelT:ub}
 library of C++ templates requires users to fuse operations manually through the
 construction of iterators.
+
+Paraiso~\cite{Muranushi:2012eh} is a Haskell EDSL for solving systems of partial
+differential equations (PDEs), such as hydrodynamics equations. It features an
+automated tuning framework that will search for faster implementations of the
+program, guided by user annotations.
 
 
 % TODO:

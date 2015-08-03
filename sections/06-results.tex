@@ -118,7 +118,7 @@ Radix sort      & 2M
 Floyd-Warshall  & 1k
                 & 7766 & (Repa)
                 & 836  & (10.8\%)
-                & tk   & (tk\%)
+                & \multicolumn{2}{c}{\emph{(timeout)}}
                 \\
 
 MD5             & 1M
@@ -2029,8 +2029,8 @@ Accelerate to several parallel CPU implementations.
     implementations. The test data is randomly generated graph of $n$ nodes and
     (up to) $2n$ edges. The Monad-Par program uses a sparse representation which
     is sensitive to the total number of edges, whereas the Accelerate and Repa
-    versions use a dense adjacency matrix representation which is not. Note the
-    log-log scale.}
+    versions use a dense adjacency matrix representation which is not. Note
+    the log-log scale.}
     \label{fig:floyd_warshall}
 \end{figure}
 

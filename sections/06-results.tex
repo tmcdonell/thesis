@@ -103,7 +103,7 @@ Canny           & 16M
                 & tk   & (tk\%)
                 \\
 
-Fluid Flow      & 2M
+Fluid flow      & 2M
                 & 974.4 & (Repa)
                 & 208.5 & (21.4\%)
                 & 220.9 & (22.7\%)
@@ -136,6 +136,12 @@ K-means         & 100k
 Ray tracer      & 16M
                 & 2027 & (Repa)
                 & 5783 & (285\%)
+                & tk   & (tk\%)
+                \\
+
+LULESH          & tk
+                & tk   & (CUDA)
+                & tk   & (tk\%)
                 & tk   & (tk\%)
                 \\
 \bottomrule
@@ -258,7 +264,7 @@ Canny
     & 4.91 (21.4)
     \\
 
-Fluid Flow
+Fluid flow
     & 11
     & 10.47     % 171.6616µs + 175.5634µs + 410.1354µs + 939.1292µs + 2.523173ms + 3.000089ms + 1.566233ms + 347.7783µs + 1.139579ms
     & 5.07 (21.6)
@@ -292,6 +298,12 @@ Ray
     & 1
     & 40.11     % 40.10992
     & 3.73 (3.73)
+    \\
+
+LULESH
+    & tk
+    & tk
+    & tk (tk)
     \\
 
 \bottomrule
@@ -1721,7 +1733,7 @@ optimisations~\cite{Henretty:2013wb,Kamil:2006un,Lesniak:2010}, to future work.
 % for example, in the style of data flow fusion~\cite{Lippmeier:2013vz}.
 
 
-\section{Fluid Flow}
+\section{Fluid flow}
 \label{sec:fluid}
 
 The fluid flow example implements Jos Stam's stable fluid
@@ -2383,6 +2395,60 @@ for future work.
         program, in Accelerate (with optimisations) compared to a parallel
     implementation written in Repa. Note the log-log scale.}
 \label{fig:ray}
+\end{figure}
+
+
+\section{LULESH}
+
+Computer simulations for a wide variety of scientific and engineering problems
+require modelling of hydrodynamics, which describes the motion of materials
+relative to each other in the presence of forces. Many important simulation
+problems involve complex multi-material systems that undergo large deformations.
+The Livermore Unstructured Lagrange Explicit Shock Hydrodynamics (LULESH)
+application~\cite{LULESH:spec,Karlin:2012us,Karlin:2013ux} is a proxy
+application which solves the Sedov blast wave problem, and is designed to be
+representative of the numerical algorithms, data motion, and programming style
+in scientific hydrodynamic applications.
+%
+% So far, the benchmark programs we have analysed have represented only small
+% applications or kernels. In contrast, LELESH is representative of full-featured
+% hydrodynamics codes, such as ALE3D.\footnote{\url{https://wci.llnl.gov/simulation/computer-codes/ale3d}}
+% and this benchmark is perhaps the largest program written in Accelerate to date.
+Figure~\ref{fig:ale3d} depicts the part of larger hydrodynamic codes that are
+modelled by the LULESH proxy application.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/results/lulesh/ale3d}
+    \caption[Software architecture of hydrodynamics applications]{The structure
+        of the full-featured ALE3D hydrodynamics application, and its relation
+        to the LULESH proxy application. Although highly simplified, LULESH is
+        designed to be representative of the numerical algorithms, data motion,
+        and programming style of the overall application. Image from
+        \url{https://codesign.llnl.gov/lulesh.php}.}
+    \label{fig:ale3d}
+\end{figure}
+
+% LULESH approximates hydrodynamics equations discretely by partitioning the
+% spatial domain into volumetric elements on an unstructured hexahedron mesh.
+
+The LULESH benchmark program also provides some insight as to how Accelerate
+compares in ``real'' applications. The core of the implementation in Accelerate
+is approximately 800 lines of code (including 300 lines for top-level type
+signatures). In contrast, the native CUDA implementation is 3000 lines of code,
+and is specialised to the Kepler architecture (compute capability 3.5). A
+separate implementation is required for older Fermi devices (compute capability
+2.x) and is 4400 lines of code, although additionally supports multiple GPUs.
+Figure~\ref{fig:lulesh} compares the performance of Accelerate to the
+XXX implementation.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/misc/placeholder}
+    \caption[LULESH kernel benchmarks]{Kernel runtimes for the LULESH program,
+    in Accelerate compared to the reference GPU implementation. Note the log-log
+    scale.}
+\label{fig:lulesh}
 \end{figure}
 
 

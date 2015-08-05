@@ -2031,7 +2031,10 @@ previous shortest path from @i@ to @j@, or the path that goes from @i@ to @k@
 and then from @k@ to @j@. The final adjacency graph is constructed by applying
 @step@ to each value of @k@ in the sequence @0 .. n-1@.
 Figure~\ref{fig:floyd_warshall} compares the performance of the algorithm in
-Accelerate to several parallel CPU implementations.
+Accelerate to several parallel CPU implementations. Note that without array
+level sharing, the number of terms in the program scales exponentially to the
+number of nodes in the graph, and so does not complete in a reasonable time even
+for small graphs.
 
 \begin{figure}
     \centering

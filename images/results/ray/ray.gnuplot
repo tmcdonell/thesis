@@ -16,10 +16,13 @@ set xtics  ("64k" 65536, "256k" 262144, "1M" 1048576, "4M" 4194304, "16M" 167772
 set ylabel "Run Time (ms)"
 set logscale y
 
-plot    'ray.dat' using ($1*$1):($2)                                    \
-                title "Repa -N8"                                        \
-                ls 7  lw 4 with linespoints,                            \
-        'ray.dat' using ($1*$1):($3)                                    \
-                title "Accelerate"                                      \
-                ls 3  lw 4 with linespoints
+plot    'ray.dat' using ($1*$1):($4)                            \
+                title "Repa"                                    \
+                ls 4  lw 4 with linespoints,                    \
+        'ray.dat' using ($1*$1):($2)                            \
+                title "Accelerate (+sharing)"                   \
+                ls 3  lw 4 with linespoints,                    \
+        'ray.dat' using ($1*$1):($3)                            \
+                title "... +fusion"                             \
+                ls 2  lw 4 with linespoints,                    \
 

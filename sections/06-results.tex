@@ -137,8 +137,8 @@ K-Means         & 100k
 
 Ray tracer      & 16M
                 & 2027 & (Repa)
-                & 5783 & (285\%)
-                & tk   & (tk\%)
+                & 2174 & (107\%)
+                & \multicolumn{2}{c}{\emph{(error)}}
                 \\
 
 LULESH          & tk
@@ -2410,8 +2410,8 @@ for future work.
         \includegraphics[width=0.8\textwidth]{images/results/ray/ray}
     \end{center}
     \caption[Ray tracing kernel benchmarks]{Kernel runtimes for the ray tracer
-        program, in Accelerate (with optimisations) compared to a parallel
-    implementation written in Repa. Note the log-log scale.}
+        program, in Accelerate compared to a parallel implementation written in
+    Repa. Note the log-log scale.}
 \label{fig:ray}
 \end{figure}
 

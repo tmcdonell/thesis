@@ -129,10 +129,10 @@ MD5             & 1M
                 & \multicolumn{2}{c}{\emph{(error)}}
                 \\
 
-K-means         & 100k
-                & 23.8 & (MonadPar)
-                & 14.3 & (60.1\%)
-                & tk   & (tk\%)
+K-Means         & 100k
+                & 24.7 & (MonadPar)
+                & 1.01 & (4.1\%)
+                & 0.77 & (3.1\%)
                 \\
 
 Ray tracer      & 16M
@@ -2256,7 +2256,7 @@ makeNewClusters points clusters
                  (\ix -> lift (A.fromIntegral (unindex1 ix), average (ps ! ix)))
 
     makePointSum :: Acc (Vector Id) -> Acc (Vector (PointSum a))
-    makePointSum = A.fold1 addPointSum . pointSum
+    makePointSum = A.fold1 addPointSum . compute . pointSum
 
     pointSum :: Acc (Vector Id) -> Acc (Array DIM2 (PointSum a))
     pointSum nearest =
@@ -2279,14 +2279,24 @@ Figure~\ref{fig:kmeans} compares the performance of the implementation shown in
 Listing~\ref{lst:kmeans} to several other parallel CPU implementations, which
 are adapted from~\cite{Marlow:2013wn}.
 
+Note the use of @compute@ in the definition of @makePointSum@ of
+Listing~\ref{lst:kmeans}, which explicitly \emph{prevents} the computation
+@pointSum@ from fusing into the reduction that consumes it. Although fusion is
+possible in this circumstance, resulting program is $10\times$ slower than the
+unfused program (kernel time). This slowdown is because the fused kernel
+requires 41 registers per thread and thus achieves only 30\% occupancy, compared
+to the unfused kernels which uses 17 registers and executes at 75\% occupancy.
+Since the occupancy of the fused kernel is so low, the GPU can not adequately
+hide data transfer latency by swapping active threads, further reducing
+performance. Implementing backend-specific and hardware-aware optimisation
+decisions is left for future work.
 
 \begin{figure}
-    \begin{center}
-        \includegraphics[width=0.8\textwidth]{images/results/k-means/k-means}
-    \end{center}
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/results/k-means/k-means}
     \caption[K-means clustering kernel benchmarks]{Kernel runtimes for the
-    $k$-means clustering algorithm, in Accelerate (with optimisations) compared
-    to several parallel CPU implementations. Note the log-log scale.}
+        $k$-means clustering algorithm in Accelerate compared to several
+        parallel CPU implementations. Note the log-log scale.}
 \label{fig:kmeans}
 \end{figure}
 

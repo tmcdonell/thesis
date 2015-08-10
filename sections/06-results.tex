@@ -100,7 +100,8 @@ SMVM (protein)  & 2M
 Canny           & 16M
                 & 46.0 & (OpenCV)
                 & 100  & (217\%)
-                & \multicolumn{2}{c}{(not supported)}
+                % & \multicolumn{2}{c}{\emph{(not supported)}}
+                & 105  & (227\%)
                 \\
 
 Fluid flow      & 2M
@@ -146,7 +147,10 @@ LULESH          & tk
                 \\
 \bottomrule
 \end{tabu}
-\caption{Benchmark Summary}
+\caption[Benchmark summary]{Summary of the performance of the benchmark
+    programs, before and after optimisations. Note that array-level sharing
+    recovery is always enabled, otherwise most programs simply do not run in a
+    reasonable amount of time.}
 \label{tab:benchmark-summary}
 \end{table}
 

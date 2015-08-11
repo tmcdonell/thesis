@@ -3,4 +3,4 @@
 	url = https://github.com/AccelerateHS/accelerate.git
 [submodule "benchmarks/src/lulesh"]
 	path = benchmarks/src/lulesh
-	url = git@github.com:tmcdonell/accelerate-lulesh.git
+	url = https://github.com/tmcdonell/accelerate-lulesh.git

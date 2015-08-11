@@ -2389,16 +2389,20 @@ traceRay limit objects lights ambient = go limit
 \end{lstlisting}
 
 Figure~\ref{fig:ray} compares the performance of Accelerate to an equivalent
-program written in Repa. The Repa program is written in continuation passing
-style, and produces very efficient code for the @traceRay@ function. Since
-Accelerate has no support for general recursion, the structure of the program is
-unrolled on the Haskell level, resulting in a large amount of generated code as
-well as additional branching. As code generation in Accelerate is based on the
-generation of sequences of C expressions, branches must evaluate both sides of
-the conditional before selecting the correct result with the ternary
-operator @(?:)@. While this reduces the amount of divergent branching, it
-increases the amount of redundant work, especially when all threads select the
-same branch. Additionally, Accelerate does not have any support for sum
+program written in Repa. The main source of the poor performance of the
+Accelerate program is that the generated code uses 73 registers per thread,
+resulting in very low thread occupancy of only 19\%. The Repa program is written
+in continuation passing style, and produces very efficient code for the
+@traceRay@ function. Since Accelerate has no support for general recursion, the
+structure of the program is unrolled on the Haskell level, resulting in a large
+amount of generated code as well as additional branching.
+% As code generation in Accelerate is based on the
+% generation of sequences of C expressions, branches must evaluate both sides of
+% the conditional before selecting the correct result with the ternary
+% operator @(?:)@. While this reduces the amount of divergent branching, it
+% increases the amount of redundant work, especially when all threads select the
+% same branch.
+Additionally, Accelerate does not have any support for sum
 algebraic data types (tagged unions), so the code must test intersection with
 each different type of object in the scene separately. Improving code generation
 and adding support for general recursion and sum data types in a manner that

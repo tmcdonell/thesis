@@ -2459,18 +2459,23 @@ modelled by the LULESH proxy application.
 % spatial domain into volumetric elements on an unstructured hexahedron mesh.
 
 The LULESH benchmark program also provides some insight as to how Accelerate
-compares in ``real'' applications. The core of the implementation in Accelerate
-is approximately 800 lines of code (including 300 lines for top-level type
-signatures). In contrast, the native CUDA implementation is 3000 lines of code,
-and is specialised to the Kepler architecture (compute capability 3.5). A
-separate implementation is required for older Fermi devices (compute capability
-2.x) and is 4400 lines of code, although additionally supports multiple GPUs.
-Figure~\ref{fig:lulesh} compares the performance of Accelerate to the
-XXX implementation.
+compares in ``real'' applications. The reference CUDA implementation consists of
+3000 lines of code, and is specialised to the Kepler architecture only (compute
+capability 3.x). A separate implementation is required for the Fermi
+architecture (compute capability 2.x) and is 4400 lines of code (although
+additionally supports multiple GPUs). In contrast, the Accelerate implementation
+is only 800 lines of code, and can be compiled to multiple architectures and
+backend targets from the one source program.
+
+As there is no implementation available for our compute capability 1.3 GPU, this
+benchmark was run using a Tesla K40c processor (compute capability 3.5, 15
+multiprocessors = 2880 cores at 750MHz, 11GB RAM). Figure~\ref{fig:lulesh}
+compares the performance of Accelerate to the reference implementation for
+Kepler GPUs.
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{images/misc/placeholder}
+    \includegraphics[width=0.8\textwidth]{images/results/lulesh/lulesh}
     \caption[LULESH kernel benchmarks]{Kernel runtimes for the LULESH program,
     in Accelerate compared to the reference GPU implementation. Note the log-log
     scale.}

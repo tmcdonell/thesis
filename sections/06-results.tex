@@ -215,10 +215,13 @@ portion of the overall execution time for some benchmarks.
 
 \subsection{Code generation \& compilation}
 
-Table~\ref{tab:compilation_times} lists the code generation and compilation
-times for each of the benchmark programs considered in this chapter. Compilation
-times are measured directly by compiling separately with the @nvcc@ command line
-tool. Times are the average of 10 evaluations.
+To demonstrate the effectiveness of our persistent kernel caching techniques
+(\S\ref{sec:caching_compiled_kernels}), Table~\ref{tab:compilation_times} lists
+the code generation and compilation times for each of the benchmark programs
+considered in this chapter. Compilation times are measured by compiling the
+generated code directly with the @nvcc@ command line tool. Times are the average
+of 10 evaluations. In contrast, loading the pre-compiled kernels from the
+on-disk cache typically takes less than one millisecond.
 
 \begin{table}
     \centering

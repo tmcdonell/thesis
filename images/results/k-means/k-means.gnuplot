@@ -10,9 +10,9 @@
 set terminal pdf size 3,2.2
 set output "k-means.pdf"
 
-set title "K-Means Clustering"  textcolor bgnd
-set ylabel "Run Time (ms)"      textcolor bgnd
-set xlabel "Points"             textcolor bgnd
+set title "K-Means Clustering"          textcolor bgnd
+set ylabel "Run Time / Iteration (ms)"  textcolor bgnd
+set xlabel "Points"                     textcolor bgnd
 set xtics  ("5k" 5000, "15k" 15000, "25k" 25000, "40k" 40000, "60k" 60000, "80k" 80000, "100k" 100000) textcolor bgnd
 set ytics textcolor bgnd
 

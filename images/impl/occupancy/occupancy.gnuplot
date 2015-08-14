@@ -17,8 +17,8 @@ set ylabel "Occupancy (%)"
 
 NonZero(x)=(x>0 ? x : 1/0)
 
-plot    'occupancy.dat' using ($1 <= 1024 ? $1:1/0):(NonZero($2)) title "Compute 1.3" ls 1 lw 4 with linespoints, \
-        'occupancy.dat' using ($1):(NonZero($3)) title "Compute 2.1" ls 2 lw 4 with linespoints, \
-        'occupancy.dat' using ($1):(NonZero($4)) title "Compute 3.5" ls 3 lw 4 with linespoints, \
-        'occupancy.dat' using ($1):(NonZero($5)) title "Compute 5.0" ls 11 lw 4 with linespoints
+plot    'occupancy.dat' using ($1 <= 1024 ? $1:1/0):(NonZero($2)) title "Compute 1.3" ls 2 lw 4 with linespoints, \
+        'occupancy.dat' using ($1):(NonZero($3)) title "Compute 2.1" ls 3 lw 4 with linespoints, \
+        'occupancy.dat' using ($1):(NonZero($4)) title "Compute 3.5" ls 4 lw 4 with linespoints, \
+        'occupancy.dat' using ($1):(NonZero($5)) title "Compute 5.0" ls 5 lw 4 with linespoints
 

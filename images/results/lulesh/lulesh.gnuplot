@@ -16,14 +16,12 @@ set xtics  ("100" 100, "1k" 1000, "10k" 10000, "100k" 100000)
 set ylabel "Run Time / Iteration (ms)"
 set logscale y
 
-set colorsequence classic
-
 plot    'lulesh.dat' using ($1*$1*$1):($3)                      \
                 title "Accelerate (+sharing)"                   \
-                ls 3  lw 4 with linespoints,                    \
+                ls 2  lw 4 with linespoints,                    \
         'lulesh.dat' using ($1*$1*$1):($4)                      \
                 title "... +fusion"                             \
-                ls 2  lw 4 with linespoints,                    \
+                ls 3  lw 4 with linespoints,                    \
         'lulesh.dat' using ($1*$1*$1):($5)                      \
                 title "CUDA"                                    \
-                ls 1  lw 4 with linespoints
+                ls 4  lw 4 with linespoints

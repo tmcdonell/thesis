@@ -19,15 +19,15 @@ set logscale y
 set yrange [0.05:100]
 
 plot    'dotp.dat' using ($1):($6)                                              \
-                title "Data.Vector"        ls 6  lw 4 with linespoints,         \
+                title "Data.Vector"        ls 5  lw 4 with linespoints,         \
         'dotp.dat' using ($1):($5)                                              \
-                title "Repa"               ls 3  lw 4 with linespoints,         \
+                title "Repa"               ls 4  lw 4 with linespoints,         \
         'dotp.dat' using ($1):($2)                                              \
-                title "Accelerate"         ls 2  lw 4 with linespoints,         \
+                title "Accelerate"         ls 1  lw 4 with linespoints,         \
         'dotp.dat' using ($1):($3)                                              \
-                title "... +fusion"        ls 10  lw 4 with linespoints,        \
+                title "... +fusion"        ls 3  lw 4 with linespoints,        \
         'dotp.dat' using ($1):($4)                                              \
-                title "CUBLAS"             ls 1  lw 4 with linespoints
+                title "CUBLAS"             ls 6  lw 4 with linespoints
 
 #        'dotp.dat' using ($1):($7)                                              \
 #                title "NDP2GPU"            ls 4  lw 4 with linespoints,         \

@@ -22,13 +22,13 @@ plot    'canny.dat' using ($1*$1):($4)                          \
                 ls 2  lw 4 with linespoints,                    \
         'canny.dat' using ($1*$1):($3)                          \
                 title "Accelerate (just GPU kernels)"           \
-                ls 10  lw 4 with linespoints,                   \
+                ls 3   lw 4 with linespoints,                   \
         'canny.dat' using ($1*$1):($2)                          \
                 title "Repa"                                    \
                 ls 4  lw 4 with linespoints,                    \
         'canny.dat' using ($1*$1):($5)                          \
                 title "OpenCV (CPU)"                            \
-                ls 3  lw 4 with linespoints,                    \
+                ls 5  lw 4 with linespoints,                    \
         'canny.dat' using ($1*$1):($6)                          \
                 title "OpenCV (GPU)"                            \
-                ls 1  lw 4 with linespoints
+                ls 6  lw 4 with linespoints

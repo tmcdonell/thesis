@@ -10,7 +10,7 @@ set key left
 
 set xlabel "Image size (total pixels)"
 set logscale x
-set xrange [40000:30000000]
+set xrange [55000:20000000]
 set xtics  ("64k" 65536, "256k" 262144, "1M" 1048576, "4M" 4194304, "16M" 16777216)
 
 set ylabel "Run Time (ms)"
@@ -21,8 +21,8 @@ plot    'ray.dat' using ($1*$1):($4)                            \
                 ls 4  lw 4 with linespoints,                    \
         'ray.dat' using ($1*$1):($2)                            \
                 title "Accelerate (+sharing)"                   \
-                ls 3  lw 4 with linespoints,                    \
+                ls 2  lw 4 with linespoints,                    \
         'ray.dat' using ($1*$1):($3)                            \
                 title "... +fusion"                             \
-                ls 2  lw 4 with linespoints,                    \
+                ls 3  lw 4 with linespoints,                    \
 

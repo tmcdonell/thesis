@@ -22,13 +22,13 @@ set yrange [0.5:10000]
 
 plot    'fluid.dat' using ($1*$1):($5)                          \
                 title "C sequential"                            \
-                ls 6  lw 4 with linespoints,                    \
+                ls 5  lw 4 with linespoints,                    \
         'fluid.dat' using ($1*$1):($4)                          \
                 title "Repa"                                    \
-                ls 3  lw 4 with linespoints,                    \
+                ls 4  lw 4 with linespoints,                    \
         'fluid.dat' using ($1*$1):($2)                          \
                 title "Accelerate"                              \
-                ls 7  lw 4 with linespoints,                    \
+                ls 1  lw 4 with linespoints,                    \
         'fluid.dat' using ($1*$1):($3)                          \
                 title "... +sharing"                            \
-                ls 10  lw 4 with linespoints
+                ls 2  lw 4 with linespoints

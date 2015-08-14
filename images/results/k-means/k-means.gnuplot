@@ -21,7 +21,6 @@ set xrange [4500:110000]
 
 set logscale y
 set yrange [0.01:100]
-set colorsequence classic
 
 set multiplot
 set key on
@@ -29,13 +28,13 @@ set key bottom left
 
 plot    'k-means.dat' using ($1):($3)                           \
                 title "Accelerate"                              \
-                ls 7  lw 4 with linespoints,                    \
+                ls 1  lw 4 with linespoints,                    \
         'k-means.dat' using ($1):($4)                           \
                 title "... +sharing"                            \
-                ls 3  lw 4 with linespoints,                    \
+                ls 2  lw 4 with linespoints,                    \
         'k-means.dat' using ($1):($5)                           \
                 title "... +fusion"                             \
-                ls 2  lw 4 with linespoints,                    \
+                ls 3  lw 4 with linespoints,                    \
 
 set title  textcolor black
 set xlabel textcolor black
@@ -49,13 +48,13 @@ plot    'k-means.dat' using ($1):($6)                           \
                 ls 4  lw 4 with linespoints,                    \
         'k-means.dat' using ($1):($7)                           \
                 title "MonadPar"                                \
-                ls 10  lw 4 with linespoints,                   \
+                ls 5   lw 4 with linespoints,                   \
         'k-means.dat' using ($1):($9)                           \
                 title "Eval (divide \\& conquer)"                 \
-                ls 1  lw 4 with linespoints,                    \
+                ls 6  lw 4 with linespoints,                    \
         'k-means.dat' using ($1):($8)                           \
                 title "MonadPar (divide \\& conquer)"             \
-                ls 8  lw 4 with linespoints
+                ls 7  lw 4 with linespoints
 
 unset multiplot
 

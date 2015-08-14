@@ -19,16 +19,16 @@ set yrange [1:2000]
 
 plot    'radixsort.dat' using ($1):($2)                                 \
                 title "Accelerate"                                      \
-                ls 7  lw 4 with linespoints,                            \
+                ls 1  lw 4 with linespoints,                            \
         'radixsort.dat' using ($1):($3)                                 \
                 title "... +sharing"                                    \
                 ls 2  lw 4 with linespoints,                            \
         'radixsort.dat' using ($1):($4)                                 \
                 title "... +fusion"                                     \
-                ls 10 lw 4 with linespoints,                            \
+                ls 3  lw 4 with linespoints,                            \
         'radixsort.dat' using ($1):($5)                                 \
                 title "Thrust"                                          \
-                ls 1  lw 4 with linespoints
+                ls 4  lw 4 with linespoints
 
 #        'radixsort-nikola.dat' using ($1/1000000):($2)                  \
 #                title "Nikola"                                          \

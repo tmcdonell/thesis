@@ -19,9 +19,9 @@ set logscale y
 set yrange [0.4:150]
 
 plot    'black-scholes.dat' using ($1):($2)                                     \
-                title "Accelerate"           ls 7   lw 4 with linespoints,      \
+                title "Accelerate"           ls 1   lw 4 with linespoints,      \
         'black-scholes.dat' using ($1):($3)                                     \
-                title "... +sharing"         ls 10  lw 4 with linespoints,      \
+                title "... +sharing"         ls 2   lw 4 with linespoints,      \
         'black-scholes.dat' using ($1):($4)                                     \
-                title "CUDA"                 ls 1   lw 4 with linespoints
+                title "CUDA"                 ls 5   lw 4 with linespoints
 

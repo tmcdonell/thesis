@@ -19,9 +19,9 @@ set logscale y
 # set yrange [0.05:100]
 
 plot    'convertAcc.dat' using ($1):($2)                                        \
-                title "Final"                   ls 6  lw 4 with linespoints,    \
+                title "Final"                   ls 4  lw 4 with linespoints,    \
         'convertAcc.dat' using ($1):($3)                                        \
-                title "... -binder opt."        ls 3  lw 4 with linespoints,    \
+                title "... -binder opt."        ls 5  lw 4 with linespoints,    \
         'convertAcc.dat' using ($1):($4)                                        \
-                title "... -environment opt."   ls 2  lw 4 with linespoints
+                title "... -environment opt."   ls 6  lw 4 with linespoints
 

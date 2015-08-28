@@ -548,9 +548,9 @@ Tesla GPU with compute capability 1.3 has a throughput of eight 32-bit
 floating-point add, multiply, or multiply-add operations per clock cycle per
 multiprocessor, but only a single operation per cycle per multiprocessor of the
 64-bit equivalents of these~\cite{NVIDIA:2012wf}. % [\S5.4.1]
-Additionally, while not explicitly stated, it appears that 64-bit integer
-instructions are not natively supported on any architectures, and require
-multiple clock cycles per instruction per multiprocessor.
+% Additionally, while not explicitly stated, it appears that 64-bit integer
+% instructions are not natively supported on any architectures, and require
+% multiple clock cycles per instruction per multiprocessor.
 
 The delayed producer function that is embedded into the consumer @fold@ kernel
 corresponds to the operation @zipWith (*)@, and has concrete type
@@ -592,10 +592,12 @@ PTX assembly are appended with the type of their operands, where @s64@ and @u64@
 represent signed and unsigned 64-bit integers respectively, so it is clear that
 the instructions in this fragment are manipulating 64-bit values.
 
-In this instance, 64-bit arithmetic was introduced through the use of a
+In this example, 64-bit arithmetic was introduced through the use of a
 one-dimensional shape index, which has Haskell type @(Z :. Int)@ and corresponds
-to a 64-bit wide integer on our host machine. Adding support for non-@Int@ shape
-dimensions is left for future work.
+to a 64-bit wide integer on our host machine. Working with 32-bit indices on the
+GPU instead may provide a small performance boost. Further investigation is left
+for future work.
+% Adding support for non-@Int@ shape dimensions is left for future work.
 
 
 \subsection{Non-neutral starting elements}
@@ -733,15 +735,14 @@ conditional expression @d >* 0 ? (1 - c, c)@ results in a branch that,
 without sharing, results in a growing number of predicated instructions that
 leads to a large penalty on the SIMD architecture of the GPU\@.
 
-Without sharing the generated code requires 5156 instructions to calculate 128
+Without sharing the generated code executes 5156 instructions to calculate 128
 options (2 thread blocks of 64 threads each) and results in significant warp
-divergence which serialises portions of the execution. With sharing recovery the
-generated code requires 628 instructions (one thread block of 128 threads each)
-and is actually slightly faster than the reference CUDA version because the
-latter contains a common subexpression that was not spotted by the programmer,
-and not eliminated by the CUDA compiler. The common subexpression performs a
-single multiplication. The CUDA version executes 652 instructions (one thread
-block of 128 threads each).
+divergence which serialises portions of the execution. With sharing recovery
+only 628 instructions are executed (one thread block of 128 thread) and is
+actually slightly faster than the reference CUDA version because the latter
+contains a common subexpression that neither the programmer nor the CUDA
+compiler spotted. The common subexpression performs a single multiplication. The
+CUDA version executes 652 instructions (one thread block of 128 thread).
 
 
 \section{Mandelbrot fractal}
@@ -920,7 +921,7 @@ mandelbrot screenX screenY depth view
     and the sequence combined by folding together with function application
     @($)@. This effectively unrolls the loop to @depth@ iterations.
 
-\item The function @iter@ computes the next value in the sequence for a single
+\item The function @iter@ computes the next value in the sequence at a
     point on the complex plane. If the point has diverged, we return the
     iteration count at which divergence occurred, otherwise the new value @z'@
     is returned and the iteration count @i@ is increased.
@@ -1769,6 +1770,7 @@ density and velocity fields throughout the grid, as well as apply a projection
 operator to the velocity field to ensure it conserves mass. The linear solver is
 implemented in terms of a stencil convolution, repeatedly computing the
 following for each grid element to allow the solution to converge:
+
 \[
 u_{i,j}^{''} = \left( u_{i,j} + a \cdot \left( u'_{i-1,j}+u'_{i+1,j}+u'_{i,j-1}+u'_{i,j+1} \right) \right) / c
 \]
@@ -2434,12 +2436,13 @@ The Livermore Unstructured Lagrange Explicit Shock Hydrodynamics (LULESH)
 application~\cite{LULESH:spec,Karlin:2012us,Karlin:2013ux} is a proxy
 application which solves the Sedov blast wave problem, and is designed to be
 representative of the numerical algorithms, data motion, and programming style
-in scientific hydrodynamic applications.
+in scientific hydrodynamics applications.
 %
-% So far, the benchmark programs we have analysed have represented only small
-% applications or kernels. In contrast, LELESH is representative of full-featured
-% hydrodynamics codes, such as ALE3D.\footnote{\url{https://wci.llnl.gov/simulation/computer-codes/ale3d}}
-% and this benchmark is perhaps the largest program written in Accelerate to date.
+% So far, the benchmark programs we have analysed have represented only very small
+% applications or kernels. In contrast, LELESH is designed to be representative of
+% full-featured hydrodynamics codes, such as
+% ALE3D.\footnote{\url{https://wci.llnl.gov/simulation/computer-codes/ale3d}}
+% This benchmark is perhaps one of the largest program written in Accelerate to date.
 Figure~\ref{fig:ale3d} depicts the part of larger hydrodynamic codes that are
 modelled by the LULESH proxy application.
 
@@ -2455,24 +2458,6 @@ modelled by the LULESH proxy application.
     \label{fig:ale3d}
 \end{figure}
 
-% LULESH approximates hydrodynamics equations discretely by partitioning the
-% spatial domain into volumetric elements on an unstructured hexahedron mesh.
-
-The LULESH benchmark program also provides some insight as to how Accelerate
-compares in ``real'' applications. The reference CUDA implementation consists of
-3000 lines of code, and is specialised to the Kepler architecture only (compute
-capability 3.x). A separate implementation is required for the Fermi
-architecture (compute capability 2.x) and is 4400 lines of code (although
-additionally supports multiple GPUs). In contrast, the Accelerate implementation
-is only 800 lines of code, and can be compiled to multiple architectures and
-backend targets from the one source program.
-
-As there is no implementation available for our compute capability 1.3 GPU, this
-benchmark was run using a Tesla K40c processor (compute capability 3.5, 15
-multiprocessors = 2880 cores at 750MHz, 11GB RAM). Figure~\ref{fig:lulesh}
-compares the performance of Accelerate to the reference implementation for
-Kepler GPUs.
-
 \begin{figure}
     \centering
     \includegraphics[width=0.8\textwidth]{images/results/lulesh/lulesh}
@@ -2481,6 +2466,30 @@ Kepler GPUs.
     scale.}
 \label{fig:lulesh}
 \end{figure}
+
+% LULESH approximates hydrodynamics equations discretely by partitioning the
+% spatial domain into volumetric elements on an unstructured hexahedron mesh.
+
+The LULESH benchmark provides some insight as to how Accelerate compares to
+real applications. The reference CUDA implementation consists of 3000 lines of
+code, and is specialised to the Kepler architecture only (compute capability
+3.x). A separate implementation is required for the Fermi architecture (compute
+capability 2.x) and is 4400 lines of code (although additionally supports
+multiple GPUs). \citet{Karlin:2013ux} describe the GPU port of LULESH, and
+note that several changes over the base (sequential CPU) implementation
+required significant human effort, and may not be portable between GPU
+generations. In contrast, the Accelerate implementation is only 800 lines of
+code, and is portable to multiple architectures and backend targets from a
+single source.
+
+As no implementation for our compute capability 1.3 GPU is available, this
+benchmark was run using a Tesla K40c processor (compute capability 3.5, 15
+multiprocessors = 2880 cores at 750MHz, 11GB RAM) backed by two 12-core Xeon
+E5-2670 CPUs (64-bit, 2.3GHz, 32GB RAM) running GNU/Linux (Ubuntu 14.04 LTS).
+Figure~\ref{fig:lulesh} compares the performance of Accelerate to the reference
+implementation for Kepler GPUs. Future work could investigate whether any of the
+optimisations the reference implementation enjoys are useful in other
+applications, and could be targets for integration into Accelerate.
 
 
 \section{Discussion}

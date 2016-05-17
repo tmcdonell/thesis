@@ -34,7 +34,7 @@
 \usepackage{graphicx}
 \usepackage[all]{hypcap}
 \usepackage{ifdraft}
-\usepackage{ifthen}
+% \usepackage{ifthen}
 % \usepackage{lastpage}
 \usepackage[final]{listings}
 % \usepackage{longtable}
@@ -60,9 +60,28 @@
 \usepackage[multiple]{footmisc}
 % \usepackage{imakeidx}
 \usepackage{pdfpages}
+\usepackage{etoolbox}
 
 \onehalfspacing
 %\doublespacing
+
+
+% Public vs. private copy
+% ------------------------------------------------------------------------------
+
+% We may want to elide certain things from the public copy, such as the author
+% signature and images we are unsure of the copyright of.
+%
+% Usage:
+%
+% \iftoggle{public}
+%   % public version
+% }{
+%   % private version
+% }
+%
+\newtoggle{public}
+\toggletrue{public}
 
 
 % Draw numbers in circles
@@ -70,6 +89,7 @@
 
 \newcommand*\circled[1]{\tikz[baseline=(char.base)]{
   \node[shape=circle,draw,inner sep=2pt] (char) {#1};}}
+
 
 % Use symbols instead of numbers for footnote marks
 % ------------------------------------------------------------------------------

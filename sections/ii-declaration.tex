@@ -48,8 +48,13 @@ style, presentation and linguistic expression is acknowledged.
 \noindent\makebox[0pt][l]{\begin{minipage}{\textwidth}
     \centering
     \begin{tabular}[b]{cc}
+      \iftoggle{public}{%
+        \phantom{\framebox(228,57){}} &
+        \phantom{\today}
+      }{%
         \includegraphics{images/signature} &
         \today \hspace{8mm}
+      }
     \end{tabular} \\
     \hfill{} \textsc{trevor lee mcdonell} \hfill{} \textsc{date} \hfill{}
 \end{minipage}}

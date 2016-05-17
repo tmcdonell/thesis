@@ -1,4 +1,8 @@
 
 \pagebreak
-\includepdf{images/submission}
+\iftoggle{public}{%
+  \cleardoublepage
+}{%
+  \includepdf{images/submission}
+}
 
